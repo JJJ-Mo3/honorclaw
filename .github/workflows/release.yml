@@ -1,0 +1,354 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write   # For Cosign OIDC signing
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/honorclaw
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Build and test
+  # -----------------------------------------------------------------------
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Run tests
+        run: pnpm test:ci
+
+      - name: Run security tests
+        run: pnpm vitest run tests/security/ --reporter=verbose
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            packages/*/dist/
+            packages/cli/dist/
+          retention-days: 1
+
+  # -----------------------------------------------------------------------
+  # Build and push Docker images
+  # -----------------------------------------------------------------------
+  docker-images:
+    name: Docker Images
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - name: honorclaw
+            dockerfile: infra/docker/honorclaw.Dockerfile
+            target: honorclaw
+          - name: agent-runtime
+            dockerfile: infra/docker/honorclaw.Dockerfile
+            target: agent-runtime
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.image.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.image.dockerfile }}
+          target: ${{ matrix.image.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign container image
+        run: |
+          IMAGES="${{ steps.meta.outputs.tags }}"
+          for IMAGE in $IMAGES; do
+            echo "Signing: $IMAGE"
+            DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE" 2>/dev/null || echo "")
+            if [ -n "$DIGEST" ]; then
+              cosign sign --yes "$DIGEST"
+            else
+              # Get digest from registry
+              DIGEST=$(crane digest "$IMAGE" 2>/dev/null || echo "")
+              if [ -n "$DIGEST" ]; then
+                cosign sign --yes "${IMAGE%%:*}@${DIGEST}"
+              fi
+            fi
+          done
+        env:
+          COSIGN_EXPERIMENTAL: 1
+
+  # -----------------------------------------------------------------------
+  # Build CLI binaries
+  # -----------------------------------------------------------------------
+  cli-binaries:
+    name: CLI Binary (${{ matrix.os }}-${{ matrix.arch }})
+    needs: build-and-test
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+            binary: honorclaw-linux-amd64
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+            binary: honorclaw-linux-arm64
+          - os: darwin
+            arch: amd64
+            runner: macos-13
+            binary: honorclaw-darwin-amd64
+          - os: darwin
+            arch: arm64
+            runner: macos-14
+            binary: honorclaw-darwin-arm64
+          - os: windows
+            arch: amd64
+            runner: windows-latest
+            binary: honorclaw-windows-amd64.exe
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Bundle CLI with pkg
+        run: |
+          npx pkg packages/cli/dist/cli.js \
+            --target node22-${{ matrix.os }}-${{ matrix.arch == 'amd64' && 'x64' || matrix.arch }} \
+            --output ${{ matrix.binary }} \
+            --compress GZip
+
+      - name: Generate SHA-256 checksum
+        shell: bash
+        run: |
+          if [[ "${{ matrix.os }}" == "darwin" ]]; then
+            shasum -a 256 ${{ matrix.binary }} > ${{ matrix.binary }}.sha256
+          else
+            sha256sum ${{ matrix.binary }} > ${{ matrix.binary }}.sha256
+          fi
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.binary }}
+          path: |
+            ${{ matrix.binary }}
+            ${{ matrix.binary }}.sha256
+          retention-days: 1
+
+  # -----------------------------------------------------------------------
+  # Build tool container images
+  # -----------------------------------------------------------------------
+  tool-images:
+    name: Tool Images
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tool:
+          - web-search
+          - file-ops
+          - code-execution
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/tool-${{ matrix.tool }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/tools/${{ matrix.tool }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign tool image
+        run: |
+          IMAGE="${{ env.IMAGE_PREFIX }}/tool-${{ matrix.tool }}:latest"
+          cosign sign --yes "$IMAGE"
+        env:
+          COSIGN_EXPERIMENTAL: 1
+
+  # -----------------------------------------------------------------------
+  # Create GitHub Release
+  # -----------------------------------------------------------------------
+  release:
+    name: GitHub Release
+    needs: [docker-images, cli-binaries, tool-images]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for changelog
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all CLI binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          pattern: honorclaw-*
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p release-files
+          find release-artifacts -type f -exec cp {} release-files/ \;
+          ls -la release-files/
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            # First release
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" HEAD)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD)
+          fi
+
+          # Write to file for the release body
+          cat > release-notes.md << 'NOTES_EOF'
+          ## HonorClaw ${{ steps.version.outputs.version }}
+
+          ### Docker Images
+
+          ```bash
+          docker pull ghcr.io/${{ github.repository_owner }}/honorclaw/honorclaw:${{ steps.version.outputs.version }}
+          docker pull ghcr.io/${{ github.repository_owner }}/honorclaw/agent-runtime:${{ steps.version.outputs.version }}
+          ```
+
+          All images are signed with [Cosign](https://github.com/sigstore/cosign). Verify with:
+          ```bash
+          cosign verify ghcr.io/${{ github.repository_owner }}/honorclaw/honorclaw:${{ steps.version.outputs.version }}
+          ```
+
+          ### Quick Install
+
+          ```bash
+          curl -fsSL https://honorclaw.dev/install.sh | sh
+          ```
+
+          ### Changes
+
+          NOTES_EOF
+
+          echo "$CHANGELOG" >> release-notes.md
+
+          cat >> release-notes.md << 'NOTES_EOF'
+
+          ### Checksums
+
+          See the `.sha256` files attached to each binary for verification.
+          NOTES_EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: HonorClaw ${{ steps.version.outputs.version }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          files: release-files/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

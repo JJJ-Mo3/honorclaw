@@ -1,0 +1,82 @@
+# RAG (Retrieval-Augmented Generation) Assistant Agent
+#
+# An agent that uses file operations to read and search through a document
+# corpus in the workspace. Suitable for Q&A over internal documentation,
+# knowledge bases, or uploaded files.
+#
+# Deploy:
+#   honorclaw agent deploy examples/rag-assistant/agent.yaml
+#
+# Prepare your data:
+#   1. Place documents in /workspace/documents/
+#   2. The agent will read and search through them
+
+name: rag-assistant
+description: Document Q&A assistant with retrieval-augmented generation
+
+model:
+  provider: ollama
+  model: llama3.2
+  temperature: 0.2  # Low temperature for factual accuracy
+  maxTokens: 4096
+
+systemPrompt: |
+  You are a document Q&A assistant. Your job is to answer questions based on
+  the documents available in the workspace. Follow these rules strictly:
+
+  1. ALWAYS search for relevant documents before answering.
+  2. ONLY answer based on information found in the documents.
+  3. If the documents do not contain the answer, say so clearly.
+  4. Cite the specific document and section when providing information.
+  5. Never make up information that is not in the documents.
+  6. Quote relevant passages directly when appropriate.
+
+tools:
+  - name: file_ops
+    enabled: true
+    parameters:
+      path:
+        type: string
+        maxLength: 1024
+        allowedPatterns:
+          - "^/workspace/documents/"
+          - "^/workspace/index/"
+      operation:
+        type: string
+        allowedValues:
+          - read
+          - list
+          # No write or delete — this agent is read-only
+      content:
+        type: string
+        maxLength: 100000
+    rateLimit:
+      maxCallsPerMinute: 30
+      maxCallsPerSession: 500
+
+egress:
+  allowedDomains: []  # No external access — fully offline RAG
+  maxResponseSizeBytes: 1048576
+
+inputGuardrails:
+  injectionDetection: true
+  blockToolDiscovery: true
+  blockPromptExtraction: true
+  piiFilterInputs: false
+  maxMessageLength: 4000
+
+outputFilters:
+  piiDetection: true
+  maxResponseTokens: 4096
+
+session:
+  maxDurationMinutes: 60
+  maxTokensPerSession: 100000
+  maxToolCallsPerSession: 300
+
+dataAccess:
+  workspaceId: "${WORKSPACE_ID}"
+  allowedStoragePrefixes:
+    - "/workspace/documents/"
+    - "/workspace/index/"
+  piiColumnsBlocked: []

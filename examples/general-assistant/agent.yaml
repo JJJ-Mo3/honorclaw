@@ -1,0 +1,78 @@
+# General Assistant Agent
+#
+# A simple agent with web search and file operations.
+# Good starting point for a general-purpose assistant.
+#
+# Deploy:
+#   honorclaw agent deploy examples/general-assistant/agent.yaml
+
+name: general-assistant
+description: General-purpose assistant with web search and file management
+
+model:
+  provider: ollama
+  model: llama3.2
+  temperature: 0.7
+  maxTokens: 2048
+
+systemPrompt: |
+  You are a helpful general-purpose assistant. You can search the web for
+  information and manage files in the workspace. Always cite your sources
+  when providing information from web searches. Be concise and accurate.
+
+tools:
+  - name: web_search
+    enabled: true
+    parameters:
+      query:
+        type: string
+        maxLength: 500
+    rateLimit:
+      maxCallsPerMinute: 10
+      maxCallsPerSession: 100
+
+  - name: file_ops
+    enabled: true
+    parameters:
+      path:
+        type: string
+        maxLength: 1024
+        allowedPatterns:
+          - "^/workspace/"
+      operation:
+        type: string
+        allowedValues:
+          - read
+          - write
+          - list
+          - delete
+      content:
+        type: string
+        maxLength: 100000
+    rateLimit:
+      maxCallsPerMinute: 30
+      maxCallsPerSession: 500
+
+egress:
+  allowedDomains:
+    - "*.google.com"
+    - "*.googleapis.com"
+    - "*.bing.com"
+    - "*.duckduckgo.com"
+    - "*.wikipedia.org"
+  maxResponseSizeBytes: 5242880  # 5 MB
+
+inputGuardrails:
+  injectionDetection: true
+  blockToolDiscovery: true
+  blockPromptExtraction: true
+  maxMessageLength: 4000
+
+outputFilters:
+  piiDetection: true
+  maxResponseTokens: 4096
+
+session:
+  maxDurationMinutes: 120
+  maxTokensPerSession: 100000
+  maxToolCallsPerSession: 500

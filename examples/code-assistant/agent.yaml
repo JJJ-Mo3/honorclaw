@@ -1,0 +1,105 @@
+# Code Assistant Agent
+#
+# An agent designed for software development tasks: reading and writing code,
+# executing code in a sandboxed environment, and managing project files.
+#
+# Deploy:
+#   honorclaw agent deploy examples/code-assistant/agent.yaml
+
+name: code-assistant
+description: Software development assistant with file operations and sandboxed code execution
+
+model:
+  provider: ollama
+  model: llama3.2
+  temperature: 0.3
+  maxTokens: 4096
+
+systemPrompt: |
+  You are a software development assistant. You can read and write files in the
+  workspace and execute code in a sandboxed environment. Follow these guidelines:
+
+  1. Always read existing code before modifying it.
+  2. Write clean, well-documented code with appropriate error handling.
+  3. Use code execution to verify your changes work correctly.
+  4. Never execute code that modifies files outside the workspace.
+  5. Explain your reasoning before making changes.
+
+tools:
+  - name: file_ops
+    enabled: true
+    parameters:
+      path:
+        type: string
+        maxLength: 1024
+        allowedPatterns:
+          - "^/workspace/"
+      operation:
+        type: string
+        allowedValues:
+          - read
+          - write
+          - list
+          - delete
+          - mkdir
+      content:
+        type: string
+        maxLength: 500000
+    rateLimit:
+      maxCallsPerMinute: 60
+      maxCallsPerSession: 1000
+
+  - name: code_execution
+    enabled: true
+    parameters:
+      language:
+        type: string
+        allowedValues:
+          - python
+          - javascript
+          - typescript
+          - bash
+      code:
+        type: string
+        maxLength: 50000
+        blockedPatterns:
+          - "subprocess\\.call"
+          - "os\\.system"
+          - "child_process"
+          - "eval\\("
+          - "exec\\("
+          - "rm\\s+-rf"
+          - "curl\\s+"
+          - "wget\\s+"
+      timeout:
+        type: integer
+        min: 1
+        max: 30
+    rateLimit:
+      maxCallsPerMinute: 10
+      maxCallsPerSession: 200
+
+egress:
+  allowedDomains: []  # No external access for code agents
+  maxResponseSizeBytes: 1048576  # 1 MB
+
+inputGuardrails:
+  injectionDetection: true
+  blockToolDiscovery: true
+  blockPromptExtraction: true
+  maxMessageLength: 8000  # Longer for code context
+
+outputFilters:
+  piiDetection: true
+  blockedOutputPatterns:
+    - "(?:password|secret|api_key)\\s*[:=]\\s*['\"][^'\"]+['\"]"
+  maxResponseTokens: 8192
+
+session:
+  maxDurationMinutes: 180  # Longer for coding sessions
+  maxTokensPerSession: 200000
+  maxToolCallsPerSession: 1000
+
+budget:
+  maxTokensPerDay: 500000
+  hardStopOnBudgetExceeded: false
