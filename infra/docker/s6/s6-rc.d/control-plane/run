@@ -1,0 +1,16 @@
+#!/bin/sh
+# Wait for PostgreSQL
+while ! su-exec postgres pg_isready -h /var/run/postgresql -q 2>/dev/null; do
+  sleep 1
+done
+
+# Wait for Redis
+while ! redis-cli -s /var/run/redis/redis.sock -a "${REDIS_PASSWORD:-honorclaw}" ping 2>/dev/null | grep -q PONG; do
+  sleep 1
+done
+
+export DATABASE_SOCKET=/var/run/postgresql
+export REDIS_SOCKET=/var/run/redis/redis.sock
+export NODE_ENV=${NODE_ENV:-production}
+
+exec node /app/packages/control-plane/dist/main.js

@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "honorclaw.fullname" . }}-control-plane
+  labels:
+    {{- include "honorclaw.labels" . | nindent 4 }}
+    app.kubernetes.io/component: control-plane
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "honorclaw.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: control-plane
+  template:
+    metadata:
+      labels:
+        {{- include "honorclaw.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: control-plane
+    spec:
+      serviceAccountName: {{ include "honorclaw.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: control-plane
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.controlPlane.port }}
+              protocol: TCP
+          env:
+            - name: HONORCLAW_CONFIG
+              value: /config/honorclaw.yaml
+            - name: HONORCLAW_MASTER_KEY_FILE
+              value: /secrets/master.key
+            - name: LOG_LEVEL
+              value: info
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.controlPlane.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: master-key
+              mountPath: /secrets
+              readOnly: true
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "honorclaw.fullname" . }}-config
+        - name: master-key
+          secret:
+            secretName: {{ .Values.config.masterKeySecret }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "honorclaw.fullname" . }}-data
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

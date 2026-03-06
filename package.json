@@ -1,0 +1,30 @@
+{
+  "name": "honorclaw",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Enterprise-grade, self-hosted AI agent platform where security is architectural, not behavioral",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22", "pnpm": ">=9" },
+  "packageManager": "pnpm@10.30.1",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "test:ci": "turbo run test -- --reporter=verbose",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "prettier": "^3.3.0",
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "eslint": "^9.0.0",
+    "@eslint/js": "^9.0.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}

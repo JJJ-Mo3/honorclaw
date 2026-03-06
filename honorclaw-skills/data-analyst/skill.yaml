@@ -1,0 +1,35 @@
+name: data-analyst
+version: "1.0.0"
+description: "Data analysis agent — queries Snowflake or BigQuery, summarizes results, writes reports to Drive or OneDrive"
+
+tools:
+  - name: snowflake_query
+  - name: snowflake_describe_table
+  - name: bigquery_query
+  - name: bigquery_describe_table
+  - name: bigquery_list_tables
+  - name: gsuite_drive_write
+    requires_approval: true
+  - name: m365_onedrive_write
+    requires_approval: true
+  - name: gsuite_sheets_write
+    requires_approval: true
+  - name: code_execution
+
+egress:
+  allowed_domains:
+    - "*.snowflakecomputing.com"
+    - bigquery.googleapis.com
+    - oauth2.googleapis.com
+    - drive.googleapis.com
+    - sheets.googleapis.com
+    - graph.microsoft.com
+
+session:
+  max_turns: 25
+
+trust_level: standard
+
+input_guardrails:
+  injection_detection: true
+  max_message_length: 4000

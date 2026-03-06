@@ -1,0 +1,18 @@
+#!/bin/sh
+if [ -f /tmp/skip-embedded-postgres ]; then
+  exec sleep infinity
+fi
+
+PGDATA=/data/postgres
+if [ ! -d "$PGDATA/PG_VERSION" ]; then
+  mkdir -p "$PGDATA"
+  chown -R postgres:postgres "$PGDATA"
+  su-exec postgres initdb -D "$PGDATA" --auth-local=trust --auth-host=md5
+fi
+
+exec su-exec postgres postgres -D "$PGDATA" \
+  -c listen_addresses='' \
+  -c unix_socket_directories='/var/run/postgresql' \
+  -c shared_preload_libraries='' \
+  -c log_destination=stderr \
+  -c logging_collector=off

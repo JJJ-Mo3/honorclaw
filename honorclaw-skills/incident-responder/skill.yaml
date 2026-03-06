@@ -1,0 +1,30 @@
+name: incident-responder
+version: "1.0.0"
+description: "Incident response assistant — monitors PagerDuty, coordinates via Slack, drafts post-mortems"
+
+tools:
+  - name: pagerduty_list_incidents
+  - name: pagerduty_read_incident
+  - name: pagerduty_acknowledge_incident
+    requires_approval: true
+  - name: pagerduty_add_note
+  - name: pagerduty_list_schedules
+  - name: slack_post_message
+    requires_approval: true
+  - name: slack_read_channel_history
+  - name: web_search
+
+egress:
+  allowed_domains:
+    - api.pagerduty.com
+    - slack.com
+    - api.slack.com
+
+session:
+  max_turns: 20
+
+trust_level: standard
+
+input_guardrails:
+  injection_detection: true
+  max_message_length: 4000

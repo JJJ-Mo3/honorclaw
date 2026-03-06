@@ -1,0 +1,29 @@
+import type { FastifyInstance } from 'fastify';
+import { requireRoles } from '../middleware/rbac.js';
+
+export async function workspaceRoutes(app: FastifyInstance) {
+  app.get('/', async (request) => {
+    const db = (app as any).db;
+    if (request.isDeploymentAdmin) {
+      const result = await db.query('SELECT * FROM workspaces ORDER BY name');
+      return { workspaces: result.rows };
+    }
+    const result = await db.query(
+      `SELECT w.* FROM workspaces w
+       JOIN user_workspace_roles uwr ON uwr.workspace_id = w.id
+       WHERE uwr.user_id = $1 ORDER BY w.name`,
+      [request.userId]
+    );
+    return { workspaces: result.rows };
+  });
+
+  app.post('/', { preHandler: [requireRoles('deployment_admin')] }, async (request, reply) => {
+    const { name, displayName } = request.body as any;
+    const db = (app as any).db;
+    const result = await db.query(
+      'INSERT INTO workspaces (name, display_name) VALUES ($1, $2) RETURNING *',
+      [name, displayName ?? name]
+    );
+    reply.code(201).send({ workspace: result.rows[0] });
+  });
+}

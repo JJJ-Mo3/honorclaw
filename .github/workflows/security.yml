@@ -1,0 +1,233 @@
+name: Security Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at 06:00 UTC
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Dependency audit — check for known vulnerabilities in npm packages
+  # -----------------------------------------------------------------------
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run pnpm audit
+        run: pnpm audit --audit-level=moderate
+        continue-on-error: false
+
+      - name: Check for outdated packages with known CVEs
+        run: |
+          pnpm audit --json > audit-report.json || true
+          # Fail if critical or high vulnerabilities found
+          CRITICAL=$(cat audit-report.json | jq '.metadata.vulnerabilities.critical // 0')
+          HIGH=$(cat audit-report.json | jq '.metadata.vulnerabilities.high // 0')
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "::error::Found $CRITICAL critical and $HIGH high vulnerabilities"
+            cat audit-report.json | jq '.advisories'
+            exit 1
+          fi
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-report
+          path: audit-report.json
+          retention-days: 30
+
+  # -----------------------------------------------------------------------
+  # Trivy — container image vulnerability scanning
+  # -----------------------------------------------------------------------
+  trivy-scan:
+    name: Trivy Image Scan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - honorclaw
+          - agent-runtime
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f infra/docker/honorclaw.Dockerfile \
+            --target ${{ matrix.image }} \
+            -t honorclaw/${{ matrix.image }}:scan \
+            .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: honorclaw/${{ matrix.image }}:scan
+          format: sarif
+          output: trivy-${{ matrix.image }}.sarif
+          severity: CRITICAL,HIGH
+          exit-code: 1
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.image }}.sarif
+          category: trivy-${{ matrix.image }}
+
+      - name: Run Trivy config scanner (Dockerfile best practices)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: infra/docker/
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+
+  # -----------------------------------------------------------------------
+  # Semgrep — static analysis for security patterns
+  # -----------------------------------------------------------------------
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        run: |
+          semgrep ci \
+            --config auto \
+            --config p/typescript \
+            --config p/nodejs \
+            --config p/docker \
+            --config p/owasp-top-ten \
+            --config p/security-audit \
+            --sarif --output semgrep.sarif \
+            --error \
+            --exclude node_modules \
+            --exclude dist \
+            --exclude .turbo
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload Semgrep SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  # -----------------------------------------------------------------------
+  # TruffleHog — secret detection in source code and git history
+  # -----------------------------------------------------------------------
+  secret-detection:
+    name: Secret Detection (TruffleHog)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git scanning
+
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@v3.88.0
+        with:
+          extra_args: --only-verified --results=verified
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+      - name: Run TruffleHog filesystem scan
+        uses: trufflesecurity/trufflehog@v3.88.0
+        with:
+          extra_args: --only-verified --results=verified
+          path: .
+
+  # -----------------------------------------------------------------------
+  # Security tests — run the HonorClaw security test suite
+  # -----------------------------------------------------------------------
+  security-tests:
+    name: Security Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Run security tests
+        run: |
+          pnpm vitest run tests/security/ --reporter=verbose
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-test-results
+          path: tests/security/
+          retention-days: 30
+
+  # -----------------------------------------------------------------------
+  # OPA policy validation
+  # -----------------------------------------------------------------------
+  opa-policy-check:
+    name: OPA Policy Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+
+      - name: Validate OPA policies
+        run: |
+          for policy in infra/kubernetes/policies/*.rego; do
+            echo "Validating: $policy"
+            opa check "$policy"
+          done
+
+      - name: Run OPA policy tests
+        run: |
+          if [ -d infra/kubernetes/policies/tests ]; then
+            opa test infra/kubernetes/policies/ -v
+          else
+            echo "No OPA tests found — skipping"
+          fi

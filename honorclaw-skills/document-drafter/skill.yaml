@@ -1,0 +1,36 @@
+name: document-drafter
+version: "1.0.0"
+description: "Document drafting assistant — creates and updates docs in Google Drive, OneDrive, or Notion"
+
+tools:
+  - name: gsuite_drive_read
+  - name: gsuite_drive_write
+    requires_approval: true
+  - name: m365_onedrive_read
+  - name: m365_onedrive_write
+    requires_approval: true
+  - name: notion_read_page
+  - name: notion_create_page
+    requires_approval: true
+  - name: notion_append_to_page
+    requires_approval: true
+  - name: confluence_read_page
+  - name: confluence_create_page
+    requires_approval: true
+  - name: web_search
+
+egress:
+  allowed_domains:
+    - drive.googleapis.com
+    - graph.microsoft.com
+    - api.notion.com
+    - "*.atlassian.net"
+
+session:
+  max_turns: 20
+
+trust_level: standard
+
+input_guardrails:
+  injection_detection: true
+  max_message_length: 4000

@@ -1,0 +1,30 @@
+name: software-engineer
+version: "1.0.0"
+description: "AI-assisted software engineering agent — runs Claude Code, reviews PRs, writes tests, refactors code under human approval"
+
+tools:
+  - name: claude_code_run
+    requires_approval: true
+  - name: claude_code_review
+  - name: claude_code_test
+    requires_approval: true
+  - name: claude_code_refactor
+    requires_approval: true
+  - name: github_list_prs
+  - name: github_read_pr
+  - name: github_get_file
+  - name: github_comment_on_issue
+    requires_approval: true
+
+egress:
+  allowed_domains:
+    - api.github.com
+
+session:
+  max_turns: 30
+
+trust_level: elevated
+
+input_guardrails:
+  injection_detection: true
+  max_message_length: 8000

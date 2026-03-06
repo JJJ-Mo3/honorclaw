@@ -1,0 +1,8 @@
+#!/bin/sh
+if [ -f /tmp/skip-redis-proxy ]; then
+  exec sleep infinity
+fi
+
+# TCP -> Unix socket proxy: agent namespace connects via veth to 10.100.0.1:6379
+exec socat TCP-LISTEN:6379,bind=10.100.0.1,reuseaddr,fork \
+  UNIX-CONNECT:/var/run/redis/redis.sock

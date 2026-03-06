@@ -1,0 +1,107 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/honorclaw/honorclaw
+  pullPolicy: IfNotPresent
+  tag: ""
+
+agentRuntime:
+  image:
+    repository: ghcr.io/honorclaw/agent-runtime
+    pullPolicy: IfNotPresent
+    tag: ""
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+  resources:
+    limits:
+      cpu: "1"
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+controlPlane:
+  port: 3000
+  resources:
+    limits:
+      cpu: "2"
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+postgresql:
+  enabled: true
+  auth:
+    database: honorclaw
+    username: honorclaw
+    existingSecret: ""
+  primary:
+    persistence:
+      size: 20Gi
+  image:
+    repository: pgvector/pgvector
+    tag: pg16
+
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: ""
+  master:
+    persistence:
+      size: 5Gi
+
+ollama:
+  enabled: true
+  image:
+    repository: ollama/ollama
+    tag: latest
+  persistence:
+    size: 50Gi
+  resources:
+    limits:
+      cpu: "4"
+      memory: 8Gi
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: honorclaw.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+persistence:
+  data:
+    size: 10Gi
+    storageClass: ""
+
+securityMode: namespace
+
+config:
+  masterKeySecret: honorclaw-master-key
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+networkPolicy:
+  enabled: true
+
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 1000
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

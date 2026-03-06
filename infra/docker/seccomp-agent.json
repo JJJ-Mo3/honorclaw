@@ -1,0 +1,52 @@
+{
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "architectures": ["SCMP_ARCH_X86_64", "SCMP_ARCH_AARCH64"],
+  "syscalls": [
+    {
+      "names": [
+        "read", "write", "open", "openat", "close", "stat", "fstat", "lstat", "newfstatat", "statx",
+        "poll", "ppoll", "select", "pselect6", "epoll_create", "epoll_create1", "epoll_ctl", "epoll_wait", "epoll_pwait",
+        "mmap", "mprotect", "munmap", "brk", "mremap", "msync", "madvise",
+        "ioctl", "access", "faccessat", "pipe", "pipe2",
+        "dup", "dup2", "dup3", "fcntl",
+        "fork", "vfork", "clone", "execve", "exit", "exit_group", "wait4",
+        "uname", "arch_prctl", "prctl", "set_tid_address", "set_robust_list", "get_robust_list",
+        "flock", "fsync", "fdatasync", "pread64", "pwrite64", "readv", "writev",
+        "getcwd", "chdir", "rename", "renameat", "mkdir", "mkdirat", "rmdir",
+        "link", "linkat", "unlink", "unlinkat", "readlink", "readlinkat",
+        "chmod", "fchmod", "fchmodat", "chown", "fchown", "lchown",
+        "gettimeofday", "clock_gettime", "clock_getres", "clock_nanosleep", "nanosleep",
+        "getrlimit", "setrlimit", "prlimit64", "getrusage",
+        "sysinfo", "times", "getuid", "getgid", "geteuid", "getegid",
+        "getppid", "getpgrp", "setsid", "setpgid", "getpgid",
+        "getgroups", "rt_sigaction", "rt_sigprocmask", "rt_sigreturn", "sigaltstack",
+        "socket", "connect", "accept", "accept4", "sendto", "recvfrom",
+        "sendmsg", "recvmsg", "bind", "listen", "getsockname", "getpeername",
+        "socketpair", "setsockopt", "getsockopt", "shutdown",
+        "eventfd2", "timerfd_create", "timerfd_settime", "timerfd_gettime", "signalfd4",
+        "futex", "tgkill", "tkill",
+        "getrandom", "memfd_create", "copy_file_range",
+        "inotify_init1", "inotify_add_watch", "inotify_rm_watch",
+        "io_uring_setup", "io_uring_enter", "io_uring_register",
+        "close_range"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "names": ["unshare"],
+      "action": "SCMP_ACT_ERRNO"
+    },
+    {
+      "names": [
+        "mount", "umount2", "pivot_root", "chroot", "ptrace",
+        "process_vm_readv", "process_vm_writev",
+        "keyctl", "add_key", "request_key",
+        "perf_event_open", "bpf",
+        "kexec_load", "kexec_file_load",
+        "create_module", "init_module", "finit_module", "delete_module",
+        "iopl", "ioperm", "ioprio_set"
+      ],
+      "action": "SCMP_ACT_ERRNO"
+    }
+  ]
+}

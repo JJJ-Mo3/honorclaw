@@ -1,0 +1,206 @@
+-- HonorClaw Database Schema
+-- Applied during honorclaw init
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "vector";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Workspaces
+CREATE TABLE IF NOT EXISTS workspaces (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL UNIQUE,
+  display_name TEXT,
+  settings JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+INSERT INTO workspaces (name, display_name) VALUES ('default', 'Default Workspace')
+ON CONFLICT (name) DO NOTHING;
+
+-- Users
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT,
+  totp_secret TEXT,
+  totp_enabled BOOLEAN DEFAULT false,
+  is_deployment_admin BOOLEAN DEFAULT false,
+  failed_login_count INTEGER DEFAULT 0,
+  locked_until TIMESTAMPTZ,
+  last_login_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- User-workspace membership with role
+CREATE TABLE IF NOT EXISTS user_workspace_roles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('workspace_admin', 'agent_user', 'auditor', 'api_service')),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, workspace_id)
+);
+
+-- Agents
+CREATE TABLE IF NOT EXISTS agents (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  display_name TEXT,
+  model TEXT NOT NULL DEFAULT 'ollama/llama3.2',
+  system_prompt TEXT DEFAULT '',
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'archived')),
+  settings JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(workspace_id, name)
+);
+
+-- Capability Manifests (immutable versioned)
+CREATE TABLE IF NOT EXISTS capability_manifests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL,
+  manifest JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  created_by UUID REFERENCES users(id),
+  UNIQUE(agent_id, version)
+);
+
+-- Sessions
+CREATE TABLE IF NOT EXISTS sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id),
+  agent_id UUID NOT NULL REFERENCES agents(id),
+  user_id UUID REFERENCES users(id),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'draining', 'ended', 'error')),
+  channel TEXT,
+  external_channel_id TEXT,
+  external_thread_id TEXT,
+  started_at TIMESTAMPTZ DEFAULT now(),
+  ended_at TIMESTAMPTZ,
+  tokens_used INTEGER DEFAULT 0,
+  tool_calls_count INTEGER DEFAULT 0,
+  metadata JSONB DEFAULT '{}'
+);
+
+-- Session archives (conversation history)
+CREATE TABLE IF NOT EXISTS session_archives (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID NOT NULL REFERENCES sessions(id),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id),
+  agent_id UUID NOT NULL REFERENCES agents(id),
+  messages JSONB NOT NULL,
+  summary TEXT,
+  archived_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Audit events (APPEND-ONLY)
+CREATE TABLE IF NOT EXISTS audit_events (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL,
+  event_type TEXT NOT NULL,
+  actor_type TEXT NOT NULL CHECK (actor_type IN ('user', 'agent', 'system')),
+  actor_id TEXT,
+  agent_id TEXT,
+  session_id TEXT,
+  payload JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Audit immutability triggers
+CREATE OR REPLACE FUNCTION prevent_audit_mutation() RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Audit events are immutable — % operations are not permitted', TG_OP;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS no_update_audit ON audit_events;
+CREATE TRIGGER no_update_audit BEFORE UPDATE ON audit_events
+  FOR EACH ROW EXECUTE FUNCTION prevent_audit_mutation();
+
+DROP TRIGGER IF EXISTS no_delete_audit ON audit_events;
+CREATE TRIGGER no_delete_audit BEFORE DELETE ON audit_events
+  FOR EACH ROW EXECUTE FUNCTION prevent_audit_mutation();
+
+-- Approval requests
+CREATE TABLE IF NOT EXISTS approval_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID NOT NULL REFERENCES sessions(id),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id),
+  agent_id UUID NOT NULL,
+  tool_name TEXT NOT NULL,
+  parameters_redacted JSONB NOT NULL,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'timeout')),
+  resolved_by UUID REFERENCES users(id),
+  resolved_at TIMESTAMPTZ,
+  timeout_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Encrypted secrets
+CREATE TABLE IF NOT EXISTS secrets (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID REFERENCES workspaces(id),
+  path TEXT NOT NULL,
+  encrypted_value BYTEA NOT NULL,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(workspace_id, path)
+);
+
+-- Tool registry
+CREATE TABLE IF NOT EXISTS tools (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  version TEXT NOT NULL,
+  image_digest TEXT NOT NULL,
+  manifest JSONB NOT NULL,
+  trust_level TEXT DEFAULT 'custom' CHECK (trust_level IN ('first_party', 'community', 'custom', 'blocked')),
+  scan_result JSONB,
+  sbom JSONB,
+  deprecated_at TIMESTAMPTZ,
+  deprecation_reason TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(name, version)
+);
+
+-- Memories (pgvector)
+CREATE TABLE IF NOT EXISTS memories (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id),
+  agent_id UUID NOT NULL,
+  content TEXT NOT NULL,
+  embedding vector(768),
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_memories_hnsw ON memories
+  USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+CREATE INDEX IF NOT EXISTS idx_memories_ws_agent ON memories (workspace_id, agent_id);
+
+-- Webhook subscriptions
+CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id),
+  url TEXT NOT NULL,
+  events TEXT[] NOT NULL,
+  secret TEXT NOT NULL,
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_sessions_workspace ON sessions (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_agent ON sessions (agent_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions (status) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_audit_workspace_type ON audit_events (workspace_id, event_type);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_events (created_at);
+CREATE INDEX IF NOT EXISTS idx_manifests_agent ON capability_manifests (agent_id, version DESC);
+CREATE INDEX IF NOT EXISTS idx_approval_status ON approval_requests (status) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_user_workspace ON user_workspace_roles (user_id);

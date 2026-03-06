@@ -1,0 +1,17 @@
+apiVersion: v2
+name: honorclaw
+description: Enterprise-grade, self-hosted AI agent platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - ai
+  - agent
+  - enterprise
+  - security
+  - llm
+home: https://honorclaw.dev
+sources:
+  - https://github.com/honorclaw/honorclaw
+maintainers:
+  - name: HonorClaw Team

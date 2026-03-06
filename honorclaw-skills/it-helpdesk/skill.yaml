@@ -1,0 +1,30 @@
+name: it-helpdesk
+version: "1.0.0"
+description: "IT helpdesk agent — triages support requests, looks up issues in Jira, and communicates status via Slack"
+
+tools:
+  - name: jira_search_issues
+  - name: jira_read_issue
+  - name: jira_create_issue
+    requires_approval: true
+  - name: jira_add_comment
+    requires_approval: true
+  - name: slack_post_message
+    requires_approval: true
+  - name: slack_lookup_user
+  - name: web_search
+
+egress:
+  allowed_domains:
+    - "*.atlassian.net"
+    - slack.com
+    - api.slack.com
+
+session:
+  max_turns: 15
+
+trust_level: standard
+
+input_guardrails:
+  injection_detection: true
+  max_message_length: 4000

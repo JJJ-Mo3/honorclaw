@@ -1,0 +1,24 @@
+name: code-reviewer
+version: "1.0.0"
+description: "Code review assistant — reads GitHub PRs, checks against a style rubric, posts structured feedback"
+
+tools:
+  - name: github_read_pr
+  - name: github_read_issue
+  - name: github_get_file
+  - name: github_comment_on_issue
+    requires_approval: true
+  - name: web_search
+
+egress:
+  allowed_domains:
+    - api.github.com
+
+session:
+  max_turns: 20
+
+trust_level: standard
+
+input_guardrails:
+  injection_detection: true
+  max_message_length: 4000

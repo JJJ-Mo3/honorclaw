@@ -1,0 +1,39 @@
+name: sales-assistant
+version: "1.0.0"
+description: "Sales assistant — researches prospects, updates Salesforce, drafts outreach emails"
+
+tools:
+  - name: salesforce_query
+  - name: salesforce_read_record
+  - name: salesforce_create_record
+    requires_approval: true
+  - name: salesforce_update_record
+    requires_approval: true
+  - name: salesforce_search
+  - name: web_search
+  - name: gsuite_gmail_send
+    requires_approval: true
+  - name: m365_outlook_send
+    requires_approval: true
+  - name: gsuite_calendar_create
+    requires_approval: true
+  - name: m365_calendar_create
+    requires_approval: true
+
+egress:
+  allowed_domains:
+    - "*.salesforce.com"
+    - login.salesforce.com
+    - gmail.googleapis.com
+    - calendar.googleapis.com
+    - graph.microsoft.com
+    - login.microsoftonline.com
+
+session:
+  max_turns: 20
+
+trust_level: standard
+
+input_guardrails:
+  injection_detection: true
+  max_message_length: 4000

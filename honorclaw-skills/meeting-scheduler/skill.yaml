@@ -1,0 +1,35 @@
+name: meeting-scheduler
+version: "1.0.0"
+description: "Meeting scheduling assistant — checks availability, proposes times, sends invites via Google or M365 Calendar"
+
+tools:
+  - name: gsuite_calendar_list
+  - name: gsuite_calendar_create
+    requires_approval: true
+  - name: m365_calendar_list
+  - name: m365_calendar_create
+    requires_approval: true
+  - name: gsuite_gmail_send
+    requires_approval: true
+  - name: m365_outlook_send
+    requires_approval: true
+  - name: slack_lookup_user
+  - name: slack_post_message
+    requires_approval: true
+
+egress:
+  allowed_domains:
+    - calendar.googleapis.com
+    - gmail.googleapis.com
+    - graph.microsoft.com
+    - login.microsoftonline.com
+    - api.slack.com
+
+session:
+  max_turns: 15
+
+trust_level: standard
+
+input_guardrails:
+  injection_detection: true
+  max_message_length: 4000

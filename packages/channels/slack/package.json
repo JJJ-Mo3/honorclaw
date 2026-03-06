@@ -1,0 +1,28 @@
+{
+  "name": "@honorclaw/channel-slack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@honorclaw/core": "workspace:*",
+    "@slack/bolt": "^4.0.0",
+    "@slack/web-api": "^7.0.0",
+    "ioredis": "^5.4.0",
+    "pg": "^8.13.0"
+  },
+  "peerDependencies": {
+    "@types/pg": "^8.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

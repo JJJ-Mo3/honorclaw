@@ -1,0 +1,156 @@
+# HonorClaw Falco Rules — Runtime Security Detection
+# These rules implement structural security controls at the container runtime level.
+# They complement the Capability Sandwich architecture by detecting violations
+# that escape application-level enforcement.
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: honorclaw-falco-rules
+  namespace: falco
+  labels:
+    app.kubernetes.io/name: honorclaw
+    app.kubernetes.io/component: security
+data:
+  honorclaw_rules.yaml: |
+    #
+    # Rule 1: Agent Runtime — Unexpected Process Spawn
+    # The agent-runtime container should only run the Node.js process and
+    # explicitly allowed child processes. Any other process spawn indicates
+    # a container escape attempt or compromised agent.
+    #
+    - rule: HonorClaw Agent Runtime Unexpected Process
+      desc: >
+        Detects unexpected process execution inside agent-runtime containers.
+        Only node, deno, and explicitly allowed helper binaries should run.
+      condition: >
+        spawned_process and
+        container and
+        container.image.repository contains "honorclaw/agent-runtime" and
+        not proc.name in (node, sh, bash, deno, cat, ls, env) and
+        not proc.pname in (node, s6-svscan, s6-supervise)
+      output: >
+        Unexpected process spawned in agent-runtime
+        (user=%user.name command=%proc.cmdline pid=%proc.pid
+        container=%container.id image=%container.image.repository
+        parent=%proc.pname)
+      priority: WARNING
+      tags: [honorclaw, agent-runtime, process]
+      source: syscall
+
+    #
+    # Rule 2: Agent Runtime — DNS to Non-Allowlisted Domain
+    # Agent runtimes should only resolve domains explicitly listed in their
+    # capability manifest egress.allowedDomains. DNS queries to other domains
+    # indicate the agent is attempting to reach unauthorized services.
+    #
+    - rule: HonorClaw Agent DNS Non-Allowlisted Domain
+      desc: >
+        Detects DNS queries from agent-runtime containers to domains not in
+        the allowlist. The control plane enforces egress at the application
+        layer; this rule catches bypass attempts at the network layer.
+      condition: >
+        evt.type in (sendto, sendmsg, connect) and
+        evt.dir = < and
+        fd.l4proto = udp and
+        fd.sport = 53 and
+        container and
+        container.image.repository contains "honorclaw/agent-runtime" and
+        not fd.sip in (honorclaw_allowed_dns_servers)
+      output: >
+        Agent-runtime DNS query to non-allowlisted target
+        (user=%user.name command=%proc.cmdline connection=%fd.name
+        container=%container.id image=%container.image.repository)
+      priority: WARNING
+      tags: [honorclaw, agent-runtime, network, dns]
+      source: syscall
+
+    - list: honorclaw_allowed_dns_servers
+      items: []
+
+    #
+    # Rule 3: Any Container — Write to /etc/passwd or /etc/shadow
+    # Writing to identity files is a privilege escalation vector. This rule
+    # triggers an alert AND marks the container for termination.
+    #
+    - rule: HonorClaw Write to Identity Files
+      desc: >
+        Detects any write attempt to /etc/passwd or /etc/shadow in any
+        HonorClaw container. This is a critical indicator of privilege
+        escalation and triggers both alert and container kill.
+      condition: >
+        open_write and
+        container and
+        (fd.name = /etc/passwd or fd.name = /etc/shadow) and
+        (container.image.repository contains "honorclaw" or
+         k8s.ns.name = "honorclaw")
+      output: >
+        CRITICAL: Write to identity file detected — container will be killed
+        (user=%user.name command=%proc.cmdline file=%fd.name
+        container=%container.id image=%container.image.repository
+        namespace=%k8s.ns.name pod=%k8s.pod.name)
+      priority: CRITICAL
+      tags: [honorclaw, privilege-escalation, identity-file]
+      source: syscall
+
+    # Falco response engine action: kill the container on identity file write
+    - rule: HonorClaw Kill on Identity File Write
+      desc: >
+        Response action that terminates the container when /etc/passwd or
+        /etc/shadow write is detected.
+      condition: >
+        open_write and
+        container and
+        (fd.name = /etc/passwd or fd.name = /etc/shadow) and
+        (container.image.repository contains "honorclaw" or
+         k8s.ns.name = "honorclaw")
+      output: >
+        Killing container due to identity file write
+        (container=%container.id pod=%k8s.pod.name)
+      priority: CRITICAL
+      tags: [honorclaw, kill, identity-file]
+      source: syscall
+
+    #
+    # Rule 4: Agent Namespace — Unexpected Outbound Connection
+    # Agent-runtime pods should only communicate with the Redis sidecar/proxy.
+    # Any other outbound connection indicates a network policy bypass or
+    # misconfiguration.
+    #
+    - rule: HonorClaw Agent Unexpected Outbound Connection
+      desc: >
+        Detects outbound TCP connections from agent-runtime containers to
+        destinations other than the local Redis proxy (127.0.0.1:6379).
+        The Capability Sandwich ensures agents can only reach the control
+        plane via Redis pub/sub; direct connections are violations.
+      condition: >
+        evt.type = connect and
+        evt.dir = < and
+        fd.l4proto = tcp and
+        container and
+        container.image.repository contains "honorclaw/agent-runtime" and
+        not (fd.sip = "127.0.0.1" and fd.sport = 6379) and
+        not fd.sip in ("0.0.0.0")
+      output: >
+        Agent-runtime unexpected outbound connection
+        (user=%user.name command=%proc.cmdline connection=%fd.name
+        server_ip=%fd.sip server_port=%fd.sport
+        container=%container.id image=%container.image.repository
+        namespace=%k8s.ns.name pod=%k8s.pod.name)
+      priority: WARNING
+      tags: [honorclaw, agent-runtime, network, outbound]
+      source: syscall
+
+    #
+    # Macro definitions used by the rules above
+    #
+    - macro: open_write
+      condition: >
+        (evt.type in (open, openat, openat2) and
+         evt.is_open_write = true and
+         fd.typechar = f)
+
+    - macro: spawned_process
+      condition: >
+        (evt.type in (execve, execveat) and evt.dir = <)

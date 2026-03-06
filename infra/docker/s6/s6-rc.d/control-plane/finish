@@ -1,0 +1,3 @@
+#!/bin/sh
+# Allow time for graceful shutdown
+sleep 5

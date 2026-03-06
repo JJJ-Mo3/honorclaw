@@ -1,0 +1,7 @@
+#!/bin/sh
+if [ "${OLLAMA_DISABLED:-false}" = "true" ]; then
+  exec sleep infinity
+fi
+
+mkdir -p /data/ollama/models
+OLLAMA_MODELS=/data/ollama/models exec ollama serve 2>/dev/null || exec sleep infinity
