@@ -21,6 +21,8 @@ import { evalRoutes } from './api/eval.js';
 import { metricsRoutes } from './api/metrics.js';
 import { approvalRoutes } from './api/approvals.js';
 import { totpRoutes } from './auth/totp.js';
+import { registerWebhookRoutes } from './webhooks/api.js';
+import { WebhookDispatcher } from './webhooks/dispatcher.js';
 import { LLMRouter } from './llm/router.js';
 import { SessionManager } from './sessions/manager.js';
 import { ToolExecutor } from './tools/executor.js';
@@ -94,6 +96,10 @@ async function main() {
   await app.register(metricsRoutes, { prefix: '/api' });
   await app.register(approvalRoutes, { prefix: '/api/approvals' });
   await app.register(totpRoutes);
+
+  // Webhook routes (different registration pattern — needs db + encryption + dispatcher)
+  const webhookDispatcher = new WebhookDispatcher(db, auditEmitter as any);
+  registerWebhookRoutes(app, db, { encrypt: async (buf: Buffer) => buf, decrypt: async (buf: Buffer) => buf } as any, webhookDispatcher);
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {

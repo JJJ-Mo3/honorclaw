@@ -33,7 +33,7 @@ async function authPluginImpl(app: FastifyInstance) {
   // Auth middleware — skip for health + login
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const path = request.url;
-    if (path.startsWith('/health') || path === '/api/auth/login' || path === '/api/auth/register') {
+    if (path.startsWith('/health') || path === '/api/auth/login' || path === '/api/auth/register' || path === '/api/auth/totp/verify') {
       return;
     }
 
@@ -51,6 +51,7 @@ async function authPluginImpl(app: FastifyInstance) {
       request.isDeploymentAdmin = (payload.is_deployment_admin as boolean) ?? false;
     } catch {
       reply.code(401).send({ error: 'Invalid or expired token' });
+      return;
     }
   });
 
@@ -119,6 +120,53 @@ async function authPluginImpl(app: FastifyInstance) {
         maxAge: 7 * 86400,
       })
       .send({ user: { id: user.id, email: user.email, isDeploymentAdmin: user.is_deployment_admin }, workspaceId, roles });
+  });
+
+  app.post('/api/auth/register', async (request, reply) => {
+    const { email, password } = request.body as { email: string; password: string };
+    const db = (app as any).db;
+
+    if (!email || !password || password.length < 8) {
+      reply.code(400).send({ error: 'Email and password (min 8 chars) are required' });
+      return;
+    }
+
+    // Check if any users exist — first user becomes deployment admin
+    const countResult = await db.query('SELECT count(*) AS cnt FROM users');
+    const isFirst = parseInt(countResult.rows[0].cnt, 10) === 0;
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    try {
+      const result = await db.query(
+        `INSERT INTO users (email, password_hash, is_deployment_admin)
+         VALUES ($1, $2, $3)
+         RETURNING id, email, is_deployment_admin`,
+        [email, passwordHash, isFirst],
+      );
+      const user = result.rows[0];
+
+      // Auto-assign to default workspace
+      const ws = await db.query(`SELECT id FROM workspaces WHERE name = 'default' LIMIT 1`);
+      if (ws.rows.length > 0) {
+        const role = isFirst ? 'workspace_admin' : 'agent_user';
+        await db.query(
+          'INSERT INTO user_workspace_roles (user_id, workspace_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+          [user.id, ws.rows[0].id, role],
+        );
+      }
+
+      reply.code(201).send({
+        user: { id: user.id, email: user.email, isDeploymentAdmin: user.is_deployment_admin },
+      });
+    } catch (err: unknown) {
+      const pgErr = err as { code?: string };
+      if (pgErr.code === '23505') {
+        reply.code(409).send({ error: 'User with this email already exists' });
+        return;
+      }
+      throw err;
+    }
   });
 
   app.post('/api/auth/refresh', async (request, reply) => {

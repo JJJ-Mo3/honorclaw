@@ -200,10 +200,35 @@ CREATE TABLE IF NOT EXISTS webhook_subscriptions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   workspace_id UUID NOT NULL REFERENCES workspaces(id),
   url TEXT NOT NULL,
-  events TEXT[] NOT NULL,
-  secret TEXT NOT NULL,
-  active BOOLEAN DEFAULT true,
+  event_types TEXT[] NOT NULL,
+  signing_secret_encrypted BYTEA NOT NULL,
+  enabled BOOLEAN DEFAULT true,
+  consecutive_failures INTEGER DEFAULT 0,
+  last_delivered_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Webhook delivery log
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  subscription_id UUID NOT NULL REFERENCES webhook_subscriptions(id) ON DELETE CASCADE,
+  event_id TEXT NOT NULL,
+  attempt INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL CHECK (status IN ('success', 'failed')),
+  response_status INTEGER,
+  error_message TEXT,
+  delivered_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Scheduled agent runs
+CREATE TABLE IF NOT EXISTS scheduled_runs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id UUID NOT NULL REFERENCES agents(id),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id),
+  session_id UUID REFERENCES sessions(id),
+  status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed')),
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ
 );
 
 -- Notifications
