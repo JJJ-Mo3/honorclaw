@@ -12,6 +12,7 @@ import { registerBackupCommands } from './commands/backup.js';
 import { registerKeyRotationCommands } from './commands/key-rotation.js';
 import { registerBundleCommands } from './commands/bundle.js';
 import { registerMigrateModelCommand } from './commands/migrate-model.js';
+import { registerUpgradeCommand } from './commands/upgrade.js';
 import { cliApi, CliApiError } from './api.js';
 
 const program = new Command();
@@ -69,31 +70,7 @@ program
     }
   });
 
-program
-  .command('upgrade')
-  .description('Upgrade HonorClaw to the latest version')
-  .action(async () => {
-    const spinner = ora('Checking for updates...').start();
-    try {
-      const result = await cliApi.post<{
-        currentVersion: string;
-        latestVersion: string;
-        upgraded: boolean;
-      }>('/upgrade/check');
-
-      if (!result.upgraded) {
-        spinner.info(`Already on the latest version (${result.currentVersion}).`);
-        return;
-      }
-
-      spinner.succeed(
-        `Upgraded from ${result.currentVersion} to ${chalk.green(result.latestVersion)}`,
-      );
-    } catch (err) {
-      spinner.fail('Upgrade check failed');
-      printError(err);
-    }
-  });
+registerUpgradeCommand(program);
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Agents
@@ -185,6 +162,89 @@ agents
       }
       console.log('');
     } catch (err) {
+      printError(err);
+    }
+  });
+
+agents
+  .command('rollback <agent-id>')
+  .description('Roll back an agent to a previous manifest version')
+  .requiredOption('--to <version>', 'Target manifest version to roll back to')
+  .action(async (agentId: string, opts: { to: string }) => {
+    const targetVersion = parseInt(opts.to, 10);
+    if (Number.isNaN(targetVersion) || targetVersion < 1) {
+      console.error(chalk.red('  Error: --to must be a positive integer version number.'));
+      return;
+    }
+
+    const spinner = ora(
+      `Rolling back agent ${chalk.bold(agentId)} to version ${targetVersion}...`,
+    ).start();
+
+    try {
+      // Fetch all manifest versions for this agent
+      const { manifests } = await cliApi.get<{
+        manifests: Array<{
+          version: number;
+          manifest: unknown;
+          created_at: string;
+        }>;
+      }>(`/manifests/${agentId}`);
+
+      const target = manifests.find((m) => m.version === targetVersion);
+      if (!target) {
+        spinner.fail(
+          `Version ${targetVersion} not found. Available versions: ${manifests.map((m) => m.version).join(', ') || 'none'}`,
+        );
+        return;
+      }
+
+      // Post the old manifest as a new version (rollback = re-deploy old config)
+      const result = await cliApi.post<{
+        manifest: { version: number; agent_id: string };
+      }>(`/manifests/${agentId}`, {
+        manifest: target.manifest,
+      });
+
+      spinner.succeed(
+        `Rolled back agent ${chalk.bold(agentId)} to version ${targetVersion} ` +
+        `(new manifest version: ${result.manifest.version})`,
+      );
+    } catch (err) {
+      spinner.fail('Rollback failed');
+      printError(err);
+    }
+  });
+
+agents
+  .command('versions <agent-id>')
+  .description('List manifest versions for an agent')
+  .action(async (agentId: string) => {
+    const spinner = ora('Loading manifest versions...').start();
+    try {
+      const { manifests } = await cliApi.get<{
+        manifests: Array<{
+          version: number;
+          created_at: string;
+          created_by: string;
+        }>;
+      }>(`/manifests/${agentId}`);
+      spinner.stop();
+
+      if (manifests.length === 0) {
+        console.log(chalk.dim('No manifest versions found.'));
+        return;
+      }
+
+      console.log(chalk.bold(`\nManifest Versions for ${agentId}\n`));
+      for (const m of manifests) {
+        const ts = new Date(m.created_at).toLocaleString();
+        const latest = m === manifests[0] ? chalk.green(' (current)') : '';
+        console.log(`  v${m.version}${latest}  ${chalk.dim(ts)}  ${chalk.dim(m.created_by ?? '')}`);
+      }
+      console.log('');
+    } catch (err) {
+      spinner.fail('Failed to load versions');
       printError(err);
     }
   });

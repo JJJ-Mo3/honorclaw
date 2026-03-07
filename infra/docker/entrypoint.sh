@@ -41,6 +41,7 @@ setup_agent_namespace() {
 
 # If running in "init" mode: interactive setup, then exit
 if [ "${1:-}" = "init" ]; then
+  shift
   exec node /app/packages/cli/dist/cli.js init "$@"
 fi
 

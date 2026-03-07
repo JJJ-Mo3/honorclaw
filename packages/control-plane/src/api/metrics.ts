@@ -85,6 +85,9 @@ export const toolLatencyMs = new Histogram({
  * Register the /metrics endpoint on a Fastify instance.
  */
 export async function metricsRoutes(app: FastifyInstance) {
+  const { requireWorkspace } = await import('../middleware/rbac.js');
+  app.addHook('onRequest', requireWorkspace());
+
   app.get('/metrics', async (_request, reply) => {
     reply.header('Content-Type', register.contentType);
     const metrics = await register.metrics();

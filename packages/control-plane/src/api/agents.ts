@@ -72,4 +72,24 @@ export async function agentRoutes(app: FastifyInstance) {
 
     return { agent: result.rows[0] };
   });
+
+  // Soft-delete an agent (set status to 'archived')
+  app.delete('/:id', { preHandler: [requireRoles('workspace_admin')] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const db = (app as any).db;
+
+    const result = await db.query(
+      `UPDATE agents SET status = 'archived', updated_at = now()
+       WHERE id = $1 AND workspace_id = $2 AND status != 'archived'
+       RETURNING id, name, status`,
+      [id, request.workspaceId]
+    );
+
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: 'Agent not found or already archived' });
+      return;
+    }
+
+    return { agent: result.rows[0], archived: true };
+  });
 }

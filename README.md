@@ -33,12 +33,14 @@ open http://localhost:3000
 
 ## Deployment Tiers
 
-| Tier | Orchestration | Target | Cost |
-|------|--------------|--------|------|
+| Tier | Orchestration | Target | Infra Cost* |
+|------|--------------|--------|-------------|
 | **1 — Single Container** | `make init && make up` | Dev, demo, small team | ~$20–100/mo |
 | **2 — Docker Swarm / K3s** | Swarm or K3s | Medium team, on-prem | ~$200–500/mo |
 | **3 — Kubernetes** | kubeadm, RKE2, Rancher | Large enterprise | ~$500–1,500/mo |
 | **4 — Cloud-Managed K8s** | EKS / GKE / AKS | Cloud-native enterprise | ~$800–2,000/mo |
+
+*Infrastructure costs only (compute, database, Redis). LLM API costs are additional and vary by provider and usage.
 
 ## Links
 

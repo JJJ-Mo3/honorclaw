@@ -54,7 +54,16 @@ function getConnection(connectionId: string): DatabaseConnection {
 
 // ── PostgreSQL ─────────────────────────────────────
 
+function sanitizeMaxRows(maxRows: number): number {
+  const parsed = parseInt(String(maxRows), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Invalid max_rows value: ${maxRows}. Must be a positive integer.`);
+  }
+  return parsed;
+}
+
 async function queryPostgres(conn: DatabaseConnection, sql: string, maxRows: number, timeoutMs: number) {
+  const safeMaxRows = sanitizeMaxRows(maxRows);
   const pg = await import('pg');
   const client = new pg.default.Client({
     host: conn.host,
@@ -62,7 +71,7 @@ async function queryPostgres(conn: DatabaseConnection, sql: string, maxRows: num
     database: conn.database,
     user: conn.username,
     password: conn.password,
-    ssl: conn.ssl ? { rejectUnauthorized: false } : undefined,
+    ssl: conn.ssl ? { rejectUnauthorized: true } : undefined,
     statement_timeout: timeoutMs,
   });
 
@@ -72,7 +81,7 @@ async function queryPostgres(conn: DatabaseConnection, sql: string, maxRows: num
     // Set read-only transaction
     await client.query('SET TRANSACTION READ ONLY');
 
-    const result = await client.query(`${sql} LIMIT ${maxRows}`);
+    const result = await client.query(`${sql} LIMIT $1`, [safeMaxRows]);
 
     return {
       columns: result.fields.map((f: { name: string }) => f.name),
@@ -87,6 +96,7 @@ async function queryPostgres(conn: DatabaseConnection, sql: string, maxRows: num
 // ── MySQL ──────────────────────────────────────────
 
 async function queryMySQL(conn: DatabaseConnection, sql: string, maxRows: number, timeoutMs: number) {
+  const safeMaxRows = sanitizeMaxRows(maxRows);
   const mysql = await import('mysql2/promise');
   const connection = await mysql.createConnection({
     host: conn.host,
@@ -102,8 +112,9 @@ async function queryMySQL(conn: DatabaseConnection, sql: string, maxRows: number
     await connection.query('SET SESSION TRANSACTION READ ONLY');
 
     const [rows, fields] = await connection.query({
-      sql: `${sql} LIMIT ${maxRows}`,
+      sql: `${sql} LIMIT ?`,
       timeout: timeoutMs,
+      values: [safeMaxRows],
     });
 
     const typedRows = (Array.isArray(rows) ? rows : []) as Array<Record<string, unknown>>;
@@ -124,13 +135,14 @@ async function queryMySQL(conn: DatabaseConnection, sql: string, maxRows: number
 // ── SQLite ─────────────────────────────────────────
 
 async function querySQLite(conn: DatabaseConnection, sql: string, maxRows: number) {
+  const safeMaxRows = sanitizeMaxRows(maxRows);
   // Use better-sqlite3 synchronous driver
   const Database = (await import('better-sqlite3')).default;
   const db = new Database(conn.file_path ?? conn.database ?? ':memory:', { readonly: true });
 
   try {
-    const stmt = db.prepare(`${sql} LIMIT ${maxRows}`);
-    const rows = stmt.all() as Array<Record<string, unknown>>;
+    const stmt = db.prepare(`${sql} LIMIT ?`);
+    const rows = stmt.all(safeMaxRows) as Array<Record<string, unknown>>;
     const columns = rows.length > 0 ? Object.keys(rows[0]!) : [];
 
     return {

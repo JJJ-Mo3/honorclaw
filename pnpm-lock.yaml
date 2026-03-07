@@ -239,6 +239,9 @@ importers:
       '@honorclaw/core':
         specifier: workspace:*
         version: link:../core
+      '@honorclaw/providers-built-in':
+        specifier: workspace:*
+        version: link:../providers/built-in
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
@@ -555,6 +558,28 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@22.19.15)(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/tools/email-send:
+    dependencies:
+      '@honorclaw/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@honorclaw/tool-sdk':
+        specifier: workspace:*
+        version: link:../../tool-sdk
+      nodemailer:
+        specifier: ^6.9.0
+        version: 6.10.1
+    devDependencies:
+      '@types/nodemailer':
+        specifier: ^6.4.0
+        version: 6.4.23
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@22.19.15)(tsx@4.21.0)(yaml@2.8.2)
+
   packages/tools/file-ops:
     dependencies:
       '@honorclaw/core':
@@ -637,6 +662,28 @@ importers:
         specifier: ^1.7.0
         version: 1.13.6
     devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@22.19.15)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/tools/memory-search:
+    dependencies:
+      '@honorclaw/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@honorclaw/tool-sdk':
+        specifier: workspace:*
+        version: link:../../tool-sdk
+      pg:
+        specifier: ^8.13.0
+        version: 8.20.0
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.11.0
+        version: 8.18.0
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

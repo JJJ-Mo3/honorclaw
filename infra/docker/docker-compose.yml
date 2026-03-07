@@ -29,6 +29,11 @@ services:
     restart: unless-stopped
     volumes:
       - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   honorclaw:
     build:
@@ -37,12 +42,14 @@ services:
     restart: unless-stopped
     ports:
       - "${HONORCLAW_PORT:-3000}:3000"
+    cap_add:
+      - NET_ADMIN
     environment:
       POSTGRES_URL: postgresql://honorclaw:${POSTGRES_PASSWORD:-honorclaw}@postgres:5432/honorclaw
       REDIS_URL: redis://:${REDIS_PASSWORD:-honorclaw}@redis:6379
       OLLAMA_BASE_URL: http://ollama:11434
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required - generate with: openssl rand -base64 48}
-      SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET:-}
+      SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET:?SESSION_COOKIE_SECRET is required - generate with: openssl rand -base64 48}
       HONORCLAW_MASTER_KEY: ${HONORCLAW_MASTER_KEY:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       NODE_ENV: ${NODE_ENV:-production}
@@ -52,6 +59,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      ollama:
         condition: service_healthy
 
 volumes:

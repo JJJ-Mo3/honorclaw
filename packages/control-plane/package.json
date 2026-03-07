@@ -28,6 +28,7 @@
     "@fastify/rate-limit": "^10.0.0",
     "@fastify/websocket": "^11.0.0",
     "@honorclaw/core": "workspace:*",
+    "@honorclaw/providers-built-in": "workspace:*",
     "bcryptjs": "^2.4.3",
     "dockerode": "^4.0.0",
     "drizzle-orm": "^0.38.0",

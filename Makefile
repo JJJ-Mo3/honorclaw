@@ -1,7 +1,8 @@
-.PHONY: init init-full up up-full up-compose down down-full down-compose logs status test-isolation build test clean destroy
+.PHONY: init init-full up up-full up-compose down down-full down-compose logs status test-isolation build build-image test clean destroy
 
 HONORCLAW_VERSION ?= latest
-IMAGE_NAME ?= ghcr.io/honorclaw/honorclaw
+IMAGE_NAME ?= honorclaw
+IMAGE_TAG ?= $(IMAGE_NAME):$(HONORCLAW_VERSION)
 
 # Development
 build:
@@ -16,20 +17,25 @@ clean:
 dev:
 	pnpm dev
 
+# Docker image build
+build-image:
+	docker build -t $(IMAGE_TAG) -f infra/docker/honorclaw.Dockerfile .
+
 # Tier 1 — Single Container
-init:
-	docker run --rm -it -v honorclaw-data:/data $(IMAGE_NAME):$(HONORCLAW_VERSION) init
+init: build-image
+	docker run --rm -it -v honorclaw-data:/data $(IMAGE_TAG) init
 
-init-full:
-	docker run --rm -it -v honorclaw-data:/data $(IMAGE_NAME):$(HONORCLAW_VERSION) init --security full
+init-full: build-image
+	docker run --rm -it -v honorclaw-data:/data $(IMAGE_TAG) init --security full
 
-up:
+up: build-image
 	docker run -d --name honorclaw \
 		-p 3000:3000 \
 		-v honorclaw-data:/data \
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		--cap-add SYS_ADMIN \
-		$(IMAGE_NAME):$(HONORCLAW_VERSION)
+		--cap-add NET_ADMIN \
+		$(IMAGE_TAG)
 
 up-compose:
 	docker compose -f infra/docker/docker-compose.yml up -d --build
@@ -38,7 +44,7 @@ up-full:
 	docker compose -f infra/docker/docker-compose.security-full.yml up -d
 
 down:
-	docker stop honorclaw && docker rm honorclaw
+	@docker stop honorclaw 2>/dev/null; docker rm honorclaw 2>/dev/null || true
 
 down-compose:
 	docker compose -f infra/docker/docker-compose.yml down

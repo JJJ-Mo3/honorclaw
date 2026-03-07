@@ -144,12 +144,29 @@ async function listDatabases(input: Input) {
 
 // ── Describe Table ─────────────────────────────────
 
+// Snowflake identifier validation — prevents SQL injection in DESCRIBE TABLE
+const SNOWFLAKE_IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+function validateAndQuoteIdentifier(value: string, label: string): string {
+  if (!SNOWFLAKE_IDENTIFIER_RE.test(value)) {
+    throw new Error(
+      `Invalid ${label}: "${value}". Identifiers must start with a letter or underscore ` +
+      `and contain only letters, digits, and underscores.`,
+    );
+  }
+  // Double-quote the identifier for Snowflake
+  return `"${value}"`;
+}
+
 async function describeTable(input: Input) {
   if (!input.table_name) throw new Error('table_name is required');
 
-  const qualifiedName = [input.database, input.schema, input.table_name]
-    .filter(Boolean)
-    .join('.');
+  const parts: string[] = [];
+  if (input.database) parts.push(validateAndQuoteIdentifier(input.database, 'database'));
+  if (input.schema) parts.push(validateAndQuoteIdentifier(input.schema, 'schema'));
+  parts.push(validateAndQuoteIdentifier(input.table_name, 'table_name'));
+
+  const qualifiedName = parts.join('.');
 
   const result = await executeQuery(`DESCRIBE TABLE ${qualifiedName}`, {
     warehouse: input.warehouse,

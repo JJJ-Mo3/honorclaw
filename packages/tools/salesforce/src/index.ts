@@ -155,10 +155,44 @@ async function salesforceSearch(input: Input) {
 
 // ── List Cases ─────────────────────────────────────
 
+// Valid Salesforce Case status values
+const VALID_CASE_STATUSES = new Set([
+  'New',
+  'Working',
+  'Escalated',
+  'On Hold',
+  'Waiting on Customer',
+  'Waiting on Third Party',
+  'Closed',
+  'Closed - Resolved',
+  'Closed - Duplicate',
+  'Closed - No Response',
+]);
+
+const MAX_CASE_RESULTS = 200;
+
+/**
+ * Escape a string value for use in a SOQL query.
+ * SOQL uses doubled single quotes ('') to escape, not backslash-escaped quotes.
+ */
+function soqlEscape(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
 async function listCases(input: Input) {
   const conn = await getConnection();
-  const statusFilter = input.status ? `WHERE Status = '${input.status.replace(/'/g, "\\'")}'` : '';
-  const limit = input.max_results ?? 50;
+
+  // Validate status against allowlist
+  if (input.status && !VALID_CASE_STATUSES.has(input.status)) {
+    throw new Error(
+      `Invalid case status: "${input.status}". Valid statuses: ${[...VALID_CASE_STATUSES].join(', ')}`,
+    );
+  }
+
+  const statusFilter = input.status
+    ? `WHERE Status = '${soqlEscape(input.status)}'`
+    : '';
+  const limit = Math.min(Math.max(1, input.max_results ?? 50), MAX_CASE_RESULTS);
   const soql = `SELECT Id, CaseNumber, Subject, Status, Priority, CreatedDate, ContactId, AccountId, OwnerId FROM Case ${statusFilter} ORDER BY CreatedDate DESC LIMIT ${limit}`;
 
   const result = await conn.query(soql);

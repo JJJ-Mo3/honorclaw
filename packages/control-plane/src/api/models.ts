@@ -1,6 +1,9 @@
 import type { FastifyInstance } from 'fastify';
+import { requireWorkspace } from '../middleware/rbac.js';
 
 export async function modelRoutes(app: FastifyInstance) {
+  app.addHook('onRequest', requireWorkspace());
+
   app.get('/', async () => {
     // Query Ollama for local models
     const ollamaModels = await fetchOllamaModels();

@@ -85,16 +85,38 @@ inputGuardrails:
 Deploy it:
 
 ```bash
-honorclaw agent deploy my-agent.yaml
+honorclaw agents create --name my-first-agent --model ollama/llama3.2 --prompt "You are a helpful assistant. Be concise and accurate."
 ```
 
-## Step 5: Start a Conversation
+Or, if you prefer to manage agents via manifest files, use the control plane API directly:
 
 ```bash
-honorclaw chat my-first-agent
+curl -X POST http://localhost:3000/api/manifests/my-first-agent \
+  -H "Content-Type: application/json" \
+  -d '{"manifest": '"$(cat my-agent.yaml | python3 -c 'import sys,json,yaml; print(json.dumps(yaml.safe_load(sys.stdin)))')"'}'
 ```
 
-You are now chatting with your agent! Try asking:
+## Step 5: Interact with Your Agent
+
+You can interact with your agent through the **Web UI** or the **REST API**.
+
+**Via the REST API:**
+
+```bash
+curl -X POST http://localhost:3000/api/channels/api/message \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channelId": "my-channel",
+    "userId": "user-1",
+    "content": "What is the weather like today?"
+  }'
+```
+
+**Via the Web UI:**
+
+Open `http://localhost:3000` in your browser to access the web chat interface.
+
+Try asking:
 - "What is the weather like today?"
 - "Summarize the Wikipedia article about quantum computing"
 
@@ -103,7 +125,7 @@ You are now chatting with your agent! Try asking:
 Every interaction is logged:
 
 ```bash
-honorclaw audit query --agent my-first-agent --limit 10
+honorclaw audit query --limit 10
 ```
 
 ---

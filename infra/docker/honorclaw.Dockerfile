@@ -11,13 +11,20 @@ RUN pnpm prune --prod
 # Stage 2: Runtime
 FROM node:22-alpine AS runtime
 
-# s6-overlay: lightweight process supervisor
+# Map Docker TARGETARCH (amd64/arm64) to s6-overlay arch names (x86_64/aarch64)
+ARG TARGETARCH
 ARG S6_VERSION=3.1.6.2
-ARG TARGETARCH=x86_64
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_VERSION}/s6-overlay-noarch.tar.xz /tmp/
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_VERSION}/s6-overlay-${TARGETARCH}.tar.xz /tmp/
-RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz && \
-    tar -C / -Jxpf /tmp/s6-overlay-${TARGETARCH}.tar.xz && \
+RUN case "${TARGETARCH:-amd64}" in \
+      amd64) S6_ARCH="x86_64" ;; \
+      arm64) S6_ARCH="aarch64" ;; \
+      *)     S6_ARCH="${TARGETARCH}" ;; \
+    esac && \
+    wget -qO /tmp/s6-overlay-noarch.tar.xz \
+      "https://github.com/just-containers/s6-overlay/releases/download/v${S6_VERSION}/s6-overlay-noarch.tar.xz" && \
+    wget -qO /tmp/s6-overlay-arch.tar.xz \
+      "https://github.com/just-containers/s6-overlay/releases/download/v${S6_VERSION}/s6-overlay-${S6_ARCH}.tar.xz" && \
+    tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz && \
+    tar -C / -Jxpf /tmp/s6-overlay-arch.tar.xz && \
     rm -f /tmp/s6-overlay-*.tar.xz
 
 # PostgreSQL 16, Redis 7, and network tools
@@ -34,6 +41,9 @@ RUN apk add --no-cache --virtual .build-deps build-base postgresql16-dev git && 
     cd /tmp/pgvector && make && make install && \
     rm -rf /tmp/pgvector && \
     apk del .build-deps
+
+# Install Ollama
+RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # Copy application
 COPY --from=build --chown=root:root /app/packages /app/packages

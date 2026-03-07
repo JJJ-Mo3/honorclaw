@@ -10,8 +10,12 @@ import { authPlugin } from './auth/plugin.js';
 import { agentRoutes } from './api/agents.js';
 import { sessionRoutes } from './api/sessions.js';
 import { auditRoutes } from './api/audit.js';
-import { healthRoutes } from './api/health.js';
+import { healthRoutes, statusRoutes } from './api/health.js';
 import { workspaceRoutes } from './api/workspaces.js';
+import { skillRoutes } from './api/skills.js';
+import { secretRoutes } from './api/secrets.js';
+import { upgradeRoutes } from './api/upgrade.js';
+import { migrateRoutes } from './api/migrate.js';
 import { userRoutes } from './api/users.js';
 import { manifestRoutes } from './api/manifests.js';
 import { modelRoutes } from './api/models.js';
@@ -23,6 +27,9 @@ import { approvalRoutes } from './api/approvals.js';
 import { totpRoutes } from './auth/totp.js';
 import { registerWebhookRoutes } from './webhooks/api.js';
 import { WebhookDispatcher } from './webhooks/dispatcher.js';
+import { BuiltInEncryptionProvider } from '@honorclaw/providers-built-in';
+import type { EncryptionProvider } from '@honorclaw/core';
+import { initTelemetry } from '@honorclaw/core';
 import { LLMRouter } from './llm/router.js';
 import { SessionManager } from './sessions/manager.js';
 import { ToolExecutor } from './tools/executor.js';
@@ -32,6 +39,14 @@ const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
 async function main() {
   const config = loadConfig();
+
+  // Initialize OpenTelemetry if an OTLP endpoint is configured
+  if (process.env['OTEL_EXPORTER_OTLP_ENDPOINT']) {
+    initTelemetry({
+      serviceName: 'honorclaw-control-plane',
+    });
+    logger.info('OpenTelemetry initialized');
+  }
 
   const app = Fastify({
     logger,
@@ -67,7 +82,7 @@ async function main() {
   const redis = createRedis(config.redis);
   const auditEmitter = new AuditEmitter(db);
   const llmRouter = new LLMRouter(config.llm, redis, auditEmitter);
-  const toolExecutor = new ToolExecutor(redis, auditEmitter);
+  const toolExecutor = new ToolExecutor(redis, db, auditEmitter);
   const sessionManager = new SessionManager(redis, db, llmRouter, toolExecutor, auditEmitter, config);
 
   // Decorate Fastify
@@ -95,11 +110,29 @@ async function main() {
   await app.register(evalRoutes, { prefix: '/api/eval' });
   await app.register(metricsRoutes, { prefix: '/api' });
   await app.register(approvalRoutes, { prefix: '/api/approvals' });
+  await app.register(skillRoutes, { prefix: '/api/skills' });
+  await app.register(secretRoutes, { prefix: '/api/secrets' });
+  await app.register(statusRoutes, { prefix: '/api' });
+  await app.register(upgradeRoutes, { prefix: '/api/upgrade' });
+  await app.register(migrateRoutes, { prefix: '/api/migrate' });
   await app.register(totpRoutes);
 
   // Webhook routes (different registration pattern — needs db + encryption + dispatcher)
+  const masterKey = process.env.HONORCLAW_MASTER_KEY;
+  let encryption: EncryptionProvider;
+  if (masterKey) {
+    encryption = new BuiltInEncryptionProvider(masterKey);
+  } else if (process.env.NODE_ENV === 'production') {
+    throw new Error('HONORCLAW_MASTER_KEY must be set in production for webhook secret encryption');
+  } else {
+    console.warn('[main] WARNING: HONORCLAW_MASTER_KEY not set — webhook secrets will NOT be encrypted (dev only)');
+    encryption = {
+      encrypt: async (buf: Buffer) => buf,
+      decrypt: async (buf: Buffer) => buf,
+    };
+  }
   const webhookDispatcher = new WebhookDispatcher(db, auditEmitter as any);
-  registerWebhookRoutes(app, db, { encrypt: async (buf: Buffer) => buf, decrypt: async (buf: Buffer) => buf } as any, webhookDispatcher);
+  registerWebhookRoutes(app, db, encryption, webhookDispatcher);
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {

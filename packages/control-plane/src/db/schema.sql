@@ -255,6 +255,47 @@ CREATE TABLE IF NOT EXISTS session_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Skills
+CREATE TABLE IF NOT EXISTS skills (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  version TEXT NOT NULL DEFAULT 'latest',
+  manifest_yaml TEXT DEFAULT '{}',
+  installed_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(workspace_id, name)
+);
+
+-- Schema migrations tracking
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version TEXT PRIMARY KEY,
+  applied_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- API keys
+CREATE TABLE IF NOT EXISTS api_keys (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key_hash TEXT NOT NULL,
+  name TEXT NOT NULL,
+  scopes TEXT[] DEFAULT '{}',
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  last_used_at TIMESTAMPTZ
+);
+
+-- Add expires_at to secrets if it does not already exist (idempotent migration)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'secrets' AND column_name = 'expires_at'
+  ) THEN
+    ALTER TABLE secrets ADD COLUMN expires_at TIMESTAMPTZ;
+  END IF;
+END $$;
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_sessions_workspace ON sessions (workspace_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_agent ON sessions (agent_id);
@@ -264,3 +305,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_events (created_at);
 CREATE INDEX IF NOT EXISTS idx_manifests_agent ON capability_manifests (agent_id, version DESC);
 CREATE INDEX IF NOT EXISTS idx_approval_status ON approval_requests (status) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_user_workspace ON user_workspace_roles (user_id);
+CREATE INDEX IF NOT EXISTS idx_skills_workspace ON skills (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_workspace ON api_keys (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys (user_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys (key_hash);
