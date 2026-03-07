@@ -22,11 +22,33 @@ build-image:
 	docker build -t $(IMAGE_TAG) -f infra/docker/honorclaw.Dockerfile .
 
 # Tier 1 — Single Container
-init: build-image
-	docker run --rm -it -v honorclaw-data:/data $(IMAGE_TAG) init
+init:
+	@if [ ! -f .env ]; then \
+		cp .env.example .env; \
+		echo "JWT_SECRET=$$(openssl rand -base64 48)" >> .env; \
+		echo "SESSION_COOKIE_SECRET=$$(openssl rand -base64 32)" >> .env; \
+		echo "HONORCLAW_MASTER_KEY=$$(openssl rand -base64 32)" >> .env; \
+		echo "POSTGRES_PASSWORD=$$(openssl rand -base64 16)" >> .env; \
+		echo "REDIS_PASSWORD=$$(openssl rand -base64 16)" >> .env; \
+		echo "Created .env with generated secrets"; \
+	fi
+	$(MAKE) build-image
+	docker compose -f infra/docker/docker-compose.yml up -d
+	@echo "HonorClaw initialized. Run 'make up' or access http://localhost:3000"
 
-init-full: build-image
-	docker run --rm -it -v honorclaw-data:/data $(IMAGE_TAG) init --security full
+init-full:
+	@if [ ! -f .env ]; then \
+		cp .env.example .env; \
+		echo "JWT_SECRET=$$(openssl rand -base64 48)" >> .env; \
+		echo "SESSION_COOKIE_SECRET=$$(openssl rand -base64 32)" >> .env; \
+		echo "HONORCLAW_MASTER_KEY=$$(openssl rand -base64 32)" >> .env; \
+		echo "POSTGRES_PASSWORD=$$(openssl rand -base64 16)" >> .env; \
+		echo "REDIS_PASSWORD=$$(openssl rand -base64 16)" >> .env; \
+		echo "Created .env with generated secrets"; \
+	fi
+	$(MAKE) build-image
+	docker compose -f infra/docker/docker-compose.security-full.yml up -d
+	@echo "HonorClaw initialized (full security). Run 'make up-full' or access http://localhost:3000"
 
 up: build-image
 	docker run -d --name honorclaw \

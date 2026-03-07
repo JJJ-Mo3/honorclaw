@@ -24,6 +24,7 @@ export const LLMRequestSchema = z.object({
   })).optional(),
   model: z.string(),
   maxTokens: z.number().optional(),
+  stream: z.boolean().optional(),
 });
 
 export const LLMResponseSchema = z.object({

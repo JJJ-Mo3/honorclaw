@@ -3,7 +3,7 @@ import type { LLMRequest, LLMResponse, ToolCallResult } from '@honorclaw/core';
 import { AgentInputMessageSchema, LLMResponseSchema, ToolCallResultSchema, SessionControlSchema } from '@honorclaw/core';
 import { Transport } from './transport.js';
 import { SessionState } from './session.js';
-import { NaiveContextManager } from './context-manager.js';
+import { SmartContextManager } from './context-manager.js';
 import type { Logger } from 'pino';
 import crypto from 'node:crypto';
 
@@ -19,7 +19,7 @@ export async function runtime(config: RuntimeConfig): Promise<void> {
   await transport.connect();
 
   const session = new SessionState(sessionId);
-  const contextManager = new NaiveContextManager();
+  const contextManager = new SmartContextManager();
   let draining = false;
 
   // Listen for control commands

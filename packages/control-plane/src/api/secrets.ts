@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { requireRoles, requireWorkspace } from '../middleware/rbac.js';
 import crypto from 'node:crypto';
+import { encryptSecret } from '../auth/crypto.js';
 
 export async function secretRoutes(app: FastifyInstance) {
   app.addHook('onRequest', requireWorkspace());
@@ -43,8 +44,8 @@ export async function secretRoutes(app: FastifyInstance) {
       return;
     }
 
-    // Encrypt the value using pgcrypto (store as encrypted bytes)
-    const encryptedValue = Buffer.from(value, 'utf-8');
+    // Encrypt the value using AES-256-GCM with HONORCLAW_MASTER_KEY
+    const encryptedValue = Buffer.from(encryptSecret(value), 'utf-8');
 
     const result = await db.query(
       `INSERT INTO secrets (workspace_id, path, encrypted_value, expires_at)
@@ -73,7 +74,7 @@ export async function secretRoutes(app: FastifyInstance) {
 
     // Use provided value or generate a new random one
     const newValue = value ?? crypto.randomBytes(32).toString('base64url');
-    const encryptedValue = Buffer.from(newValue, 'utf-8');
+    const encryptedValue = Buffer.from(encryptSecret(newValue), 'utf-8');
 
     const result = await db.query(
       `UPDATE secrets SET encrypted_value = $1, updated_at = now()

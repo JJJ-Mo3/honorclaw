@@ -2,7 +2,12 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import cookie from '@fastify/cookie';
+import websocket from '@fastify/websocket';
+import fastifyStatic from '@fastify/static';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import pino from 'pino';
+import * as jose from 'jose';
 import { loadConfig } from './config.js';
 import { createDb, runMigrations } from './db/index.js';
 import { createRedis } from './redis.js';
@@ -29,11 +34,15 @@ import { registerWebhookRoutes } from './webhooks/api.js';
 import { WebhookDispatcher } from './webhooks/dispatcher.js';
 import { BuiltInEncryptionProvider } from '@honorclaw/providers-built-in';
 import type { EncryptionProvider } from '@honorclaw/core';
-import { initTelemetry } from '@honorclaw/core';
+import { initTelemetry, RedisChannels } from '@honorclaw/core';
 import { LLMRouter } from './llm/router.js';
 import { SessionManager } from './sessions/manager.js';
 import { ToolExecutor } from './tools/executor.js';
 import { AuditEmitter } from './audit/emitter.js';
+import { AgentScheduler } from './scheduler/index.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
@@ -76,14 +85,43 @@ async function main() {
   }
   await app.register(cookie, { secret: cookieSecret ?? 'change-me-in-production' });
 
+  // WebSocket support
+  await app.register(websocket);
+
   // Core services
   const db = createDb(config.database);
   await runMigrations(db);
+
+  // Seed a default agent on first startup (only if a workspace exists and no agents yet)
+  try {
+    const { rows: workspaceRows } = await db.query('SELECT id FROM workspaces LIMIT 1');
+    if (workspaceRows.length > 0) {
+      const { rows: agentRows } = await db.query('SELECT COUNT(*) as count FROM agents');
+      if (parseInt(agentRows[0]?.count ?? '0', 10) === 0) {
+        await db.query(
+          `INSERT INTO agents (id, workspace_id, name, model, system_prompt, status, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1, 'General Assistant',
+                   'ollama/llama3.2', 'You are a helpful AI assistant.', 'active', NOW(), NOW())
+           ON CONFLICT DO NOTHING`,
+          [workspaceRows[0].id],
+        );
+        logger.info('Created default "General Assistant" agent');
+      }
+    }
+  } catch (err) {
+    // Non-fatal: the agents table may not exist yet if migrations are still pending
+    logger.warn({ err }, 'Could not seed default agent (non-fatal)');
+  }
+
   const redis = createRedis(config.redis);
   const auditEmitter = new AuditEmitter(db);
   const llmRouter = new LLMRouter(config.llm, redis, auditEmitter);
   const toolExecutor = new ToolExecutor(redis, db, auditEmitter);
   const sessionManager = new SessionManager(redis, db, llmRouter, toolExecutor, auditEmitter, config);
+
+  // Start LLM and tool execution pipelines (subscribes to Redis pub/sub)
+  await llmRouter.start();
+  await toolExecutor.start();
 
   // Decorate Fastify
   app.decorate('db', db);
@@ -131,12 +169,148 @@ async function main() {
       decrypt: async (buf: Buffer) => buf,
     };
   }
-  const webhookDispatcher = new WebhookDispatcher(db, auditEmitter as any);
+  const allowHttpWebhooks = process.env['ALLOW_HTTP_WEBHOOKS'] === 'true';
+  const webhookDispatcher = new WebhookDispatcher(db, encryption, allowHttpWebhooks);
   registerWebhookRoutes(app, db, encryption, webhookDispatcher);
+
+  // WebSocket chat endpoint
+  const rawJwtSecret = process.env.JWT_SECRET;
+  const jwtSecret = new TextEncoder().encode(
+    rawJwtSecret ?? 'honorclaw-dev-secret-change-in-production',
+  );
+
+  app.get('/api/ws/chat', { websocket: true }, (socket, request) => {
+    let userId: string | undefined;
+    let workspaceId: string | undefined;
+
+    // Authenticate via token query parameter
+    const url = new URL(request.url, `http://${request.headers.host}`);
+    const token = url.searchParams.get('token');
+
+    if (!token) {
+      socket.send(JSON.stringify({ type: 'error', message: 'Authentication required' }));
+      socket.close(4401, 'Authentication required');
+      return;
+    }
+
+    // Verify token asynchronously then set up message handling
+    jose.jwtVerify(token, jwtSecret, { issuer: 'honorclaw' }).then(({ payload }) => {
+      userId = payload.sub;
+      workspaceId = payload.workspace_id as string | undefined;
+
+      if (!userId || !workspaceId) {
+        socket.send(JSON.stringify({ type: 'error', message: 'Invalid token claims' }));
+        socket.close(4401, 'Invalid token claims');
+        return;
+      }
+
+      socket.send(JSON.stringify({ type: 'connected', userId, workspaceId }));
+
+      // Subscribe to agent output channels for this user
+      const sub = redis.duplicate();
+      const subscribedChannels = new Set<string>();
+
+      socket.on('message', (raw) => {
+        try {
+          const msg = JSON.parse(raw.toString()) as { agentId?: string; sessionId?: string; content?: string; action?: string };
+
+          if (msg.action === 'subscribe' && msg.sessionId) {
+            // Subscribe to output for a specific session
+            const outputChannel = RedisChannels.agentOutput(msg.sessionId);
+            if (!subscribedChannels.has(outputChannel)) {
+              subscribedChannels.add(outputChannel);
+              sub.subscribe(outputChannel).catch((err: unknown) => {
+                logger.error({ err, channel: outputChannel }, 'Failed to subscribe to agent output');
+              });
+            }
+            return;
+          }
+
+          if (msg.content && msg.agentId) {
+            // Create session or send message
+            if (!msg.sessionId) {
+              // Create a new session
+              sessionManager.create({
+                workspaceId: workspaceId!,
+                agentId: msg.agentId,
+                userId: userId!,
+                channel: 'websocket',
+              }).then((session) => {
+                socket.send(JSON.stringify({ type: 'session_created', sessionId: session.id }));
+
+                // Subscribe to output for the new session
+                const outputChannel = RedisChannels.agentOutput(session.id);
+                subscribedChannels.add(outputChannel);
+                sub.subscribe(outputChannel).catch((err: unknown) => {
+                  logger.error({ err, channel: outputChannel }, 'Failed to subscribe to agent output');
+                });
+
+                // Send the message
+                sessionManager.sendMessage(session.id, msg.content!, userId!).catch((err: unknown) => {
+                  logger.error({ err }, 'Failed to send message');
+                  socket.send(JSON.stringify({ type: 'error', message: 'Failed to send message' }));
+                });
+              }).catch((err: unknown) => {
+                logger.error({ err }, 'Failed to create session');
+                socket.send(JSON.stringify({ type: 'error', message: 'Failed to create session' }));
+              });
+            } else {
+              // Send message to existing session
+              sessionManager.sendMessage(msg.sessionId, msg.content, userId!).catch((err: unknown) => {
+                logger.error({ err }, 'Failed to send message');
+                socket.send(JSON.stringify({ type: 'error', message: 'Failed to send message' }));
+              });
+            }
+          }
+        } catch (err) {
+          logger.error({ err }, 'WebSocket message parse error');
+          socket.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+        }
+      });
+
+      // Forward agent responses to the client
+      sub.on('message', (channel: string, message: string) => {
+        socket.send(JSON.stringify({ type: 'agent_message', channel, data: JSON.parse(message) }));
+      });
+
+      socket.on('close', () => {
+        sub.unsubscribe().catch(() => {});
+        sub.disconnect();
+      });
+    }).catch(() => {
+      socket.send(JSON.stringify({ type: 'error', message: 'Invalid or expired token' }));
+      socket.close(4401, 'Invalid or expired token');
+    });
+  });
+
+  // Serve Web UI static files
+  const webUiPath = process.env.HONORCLAW_WEB_UI_PATH
+    ?? path.resolve(__dirname, '..', '..', '..', 'web-ui', 'dist');
+
+  await app.register(fastifyStatic, {
+    root: webUiPath,
+    prefix: '/',
+    wildcard: false,
+    decorateReply: true,
+  });
+
+  // SPA fallback: serve index.html for non-API, non-health routes
+  app.setNotFoundHandler(async (request, reply) => {
+    if (request.url.startsWith('/api/') || request.url.startsWith('/health')) {
+      return reply.status(404).send({ error: 'Not found' });
+    }
+    return reply.sendFile('index.html');
+  });
+
+  // Agent Scheduler
+  const scheduler = new AgentScheduler({ redis, db });
+  await scheduler.start();
+  logger.info('Agent scheduler started');
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutting down');
+    await scheduler.stop();
     await sessionManager.drainAll();
     await auditEmitter.flush();
     await app.close();

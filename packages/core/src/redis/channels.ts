@@ -7,6 +7,7 @@ export const RedisChannels = {
   toolResult: (sessionId: string, callId: string) => `tools:${sessionId}:result:${callId}`,
   llmRequest: (sessionId: string) => `llm:${sessionId}:request`,
   llmResponse: (sessionId: string) => `llm:${sessionId}:response`,
+  llmStream: (sessionId: string, correlationId: string) => `llm:${sessionId}:stream:${correlationId}`,
   sessionControl: (sessionId: string) => `session:${sessionId}:control`,
   sessionState: (sessionId: string) => `session:${sessionId}:state`,
   sessionTokens: (sessionId: string) => `session:${sessionId}:tokens`,

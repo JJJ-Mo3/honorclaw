@@ -26,6 +26,7 @@
     "@fastify/cors": "^10.0.0",
     "@fastify/helmet": "^13.0.0",
     "@fastify/rate-limit": "^10.0.0",
+    "@fastify/static": "^9.0.0",
     "@fastify/websocket": "^11.0.0",
     "@honorclaw/core": "workspace:*",
     "@honorclaw/providers-built-in": "workspace:*",

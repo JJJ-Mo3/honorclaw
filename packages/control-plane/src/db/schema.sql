@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
   subscription_id UUID NOT NULL REFERENCES webhook_subscriptions(id) ON DELETE CASCADE,
   event_id TEXT NOT NULL,
   attempt INTEGER NOT NULL DEFAULT 1,
-  status TEXT NOT NULL CHECK (status IN ('success', 'failed')),
+  status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'pending_retry')),
   response_status INTEGER,
   error_message TEXT,
   delivered_at TIMESTAMPTZ DEFAULT now()
@@ -236,12 +236,13 @@ CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id UUID NOT NULL REFERENCES workspaces(id),
   user_id UUID REFERENCES users(id),
-  type TEXT NOT NULL,
+  trigger TEXT NOT NULL,
+  agent_id UUID,
+  session_id UUID,
   title TEXT NOT NULL,
   body TEXT,
-  channel TEXT NOT NULL DEFAULT 'in_app',
+  severity TEXT NOT NULL DEFAULT 'info' CHECK (severity IN ('info', 'warning', 'critical')),
   read BOOLEAN NOT NULL DEFAULT false,
-  metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

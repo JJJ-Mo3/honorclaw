@@ -4,13 +4,16 @@ import { LoginPage } from './auth/LoginPage.js';
 import { ChatPage } from './features/chat/ChatPage.js';
 import { AdminPage, AgentEditor } from './features/admin/AdminPage.js';
 import { ManifestEditor } from './features/admin/ManifestEditor.js';
+import { VisualManifestEditor } from './features/admin/VisualManifestEditor.js';
 import { AuditViewer } from './features/audit/AuditViewer.js';
 import { IntegrationsPage } from './pages/integrations/IntegrationsPage.js';
+import { NavBar } from './components/NavBar.js';
 
 export function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <NavBar />
         <Routes>
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
@@ -49,6 +52,15 @@ export function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <ManifestEditor />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/agents/:id/manifest/visual"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <VisualManifestEditor />
               </ProtectedRoute>
             }
           />

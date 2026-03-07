@@ -84,13 +84,13 @@ agents
   .action(async () => {
     const spinner = ora('Loading agents...').start();
     try {
-      const list = await cliApi.get<Array<{
+      const { agents: list } = await cliApi.get<{ agents: Array<{
         id: string;
         name: string;
         model: string;
         status: string;
-        workspaceId: string;
-      }>>('/agents');
+        workspace_id: string;
+      }> }>('/agents');
       spinner.stop();
 
       if (list.length === 0) {
@@ -104,7 +104,7 @@ agents
           ? chalk.green(agent.status)
           : chalk.yellow(agent.status);
         console.log(`  ${chalk.bold(agent.name)} [${status}] — ${agent.model}`);
-        console.log(`    ${chalk.dim(`id: ${agent.id}  workspace: ${agent.workspaceId.slice(0, 8)}`)}`);
+        console.log(`    ${chalk.dim(`id: ${agent.id}  workspace: ${agent.workspace_id.slice(0, 8)}`)}`);
       }
       console.log('');
     } catch (err) {
@@ -123,10 +123,9 @@ agents
   .action(async (opts: { name: string; model: string; workspace?: string; prompt?: string }) => {
     const spinner = ora(`Creating agent ${chalk.bold(opts.name)}...`).start();
     try {
-      const agent = await cliApi.post<{ id: string; name: string }>('/agents', {
+      const { agent } = await cliApi.post<{ agent: { id: string; name: string } }>('/agents', {
         name: opts.name,
         model: opts.model,
-        workspaceId: opts.workspace,
         systemPrompt: opts.prompt,
       });
       spinner.succeed(`Created agent ${chalk.bold(agent.name)} (${agent.id})`);
@@ -141,24 +140,24 @@ agents
   .description('Get agent details')
   .action(async (id: string) => {
     try {
-      const agent = await cliApi.get<{
+      const { agent } = await cliApi.get<{ agent: {
         id: string;
         name: string;
         model: string;
         status: string;
-        workspaceId: string;
-        systemPrompt?: string;
-        createdAt: string;
-      }>(`/agents/${id}`);
+        workspace_id: string;
+        system_prompt?: string;
+        created_at: string;
+      } }>(`/agents/${id}`);
 
       console.log(chalk.bold(`\n${agent.name}\n`));
       console.log(`  ID:             ${agent.id}`);
       console.log(`  Model:          ${agent.model}`);
       console.log(`  Status:         ${statusColor(agent.status)}`);
-      console.log(`  Workspace:      ${agent.workspaceId}`);
-      console.log(`  Created:        ${new Date(agent.createdAt).toLocaleString()}`);
-      if (agent.systemPrompt) {
-        console.log(`  System Prompt:  ${chalk.dim(agent.systemPrompt.slice(0, 100))}${agent.systemPrompt.length > 100 ? '...' : ''}`);
+      console.log(`  Workspace:      ${agent.workspace_id}`);
+      console.log(`  Created:        ${new Date(agent.created_at).toLocaleString()}`);
+      if (agent.system_prompt) {
+        console.log(`  System Prompt:  ${chalk.dim(agent.system_prompt.slice(0, 100))}${agent.system_prompt.length > 100 ? '...' : ''}`);
       }
       console.log('');
     } catch (err) {
@@ -274,7 +273,7 @@ skills
   .action(async () => {
     const spinner = ora('Loading skills...').start();
     try {
-      const list = await cliApi.get<Array<{ name: string; version: string; description: string }>>('/skills');
+      const { skills: list } = await cliApi.get<{ skills: Array<{ name: string; version: string; description: string }> }>('/skills');
       spinner.stop();
       if (list.length === 0) {
         console.log(chalk.dim('No skills installed.'));
@@ -327,7 +326,7 @@ skills
   .action(async (query: string) => {
     const spinner = ora('Searching...').start();
     try {
-      const results = await cliApi.get<Array<{ name: string; description: string; version: string }>>('/skills/search', { q: query });
+      const { skills: results } = await cliApi.get<{ skills: Array<{ name: string; description: string; version: string }> }>('/skills/search', { q: query });
       spinner.stop();
       if (results.length === 0) {
         console.log(chalk.dim('No skills found.'));
@@ -350,12 +349,12 @@ skills
   .description('Show details for a skill')
   .action(async (name: string) => {
     try {
-      const skill = await cliApi.get<{ name: string; version: string; description: string; tools: string[] }>(
+      const { skill } = await cliApi.get<{ skill: { name: string; version: string; description: string; tools?: string[]; manifest_yaml?: string } }>(
         `/skills/${encodeURIComponent(name)}`,
       );
       console.log(chalk.bold(`\n${skill.name} v${skill.version}\n`));
       if (skill.description) console.log(`  ${skill.description}\n`);
-      if (skill.tools.length > 0) {
+      if (skill.tools && skill.tools.length > 0) {
         console.log('  Tools:');
         for (const t of skill.tools) console.log(`    - ${t}`);
       }
@@ -391,7 +390,7 @@ users
   .action(async () => {
     const spinner = ora('Loading users...').start();
     try {
-      const list = await cliApi.get<Array<{ id: string; email: string; displayName: string; role: string }>>('/admin/users');
+      const { users: list } = await cliApi.get<{ users: Array<{ id: string; email: string; displayName: string; role: string }> }>('/users');
       spinner.stop();
       if (list.length === 0) {
         console.log(chalk.dim('No users.'));
@@ -413,15 +412,17 @@ users
   .command('create')
   .description('Create a new user')
   .requiredOption('-e, --email <email>', 'User email')
-  .requiredOption('-n, --name <name>', 'Display name')
-  .option('-r, --role <role>', 'Role', 'member')
-  .action(async (opts: { email: string; name: string; role: string }) => {
+  .requiredOption('-p, --password <password>', 'User password')
+  .option('-r, --role <role>', 'Role', 'agent_user')
+  .option('-w, --workspace <id>', 'Workspace ID')
+  .action(async (opts: { email: string; password: string; role: string; workspace?: string }) => {
     const spinner = ora(`Creating user ${chalk.bold(opts.email)}...`).start();
     try {
-      const user = await cliApi.post<{ id: string; email: string }>('/admin/users', {
+      const { user } = await cliApi.post<{ user: { id: string; email: string } }>('/users', {
         email: opts.email,
-        displayName: opts.name,
+        password: opts.password,
         role: opts.role,
+        workspaceId: opts.workspace,
       });
       spinner.succeed(`Created user ${user.email} (${user.id})`);
     } catch (err) {
@@ -438,7 +439,7 @@ users
   .option('-r, --role <role>', 'Role in workspace', 'member')
   .action(async (opts: { user: string; workspace: string; role: string }) => {
     try {
-      await cliApi.post(`/admin/users/${opts.user}/workspaces`, {
+      await cliApi.post(`/users/${opts.user}/workspaces`, {
         workspaceId: opts.workspace,
         role: opts.role,
       });
@@ -574,6 +575,11 @@ audit
 
       const response = await fetch(
         `${cliApi.getBaseUrl()}/api/audit/export?${new URLSearchParams(params).toString()}`,
+        {
+          headers: {
+            ...cliApi.getAuthHeaders(),
+          },
+        },
       );
 
       if (!response.ok) {
@@ -637,14 +643,15 @@ secrets
       const params: Record<string, string> = { prefix: opts.prefix };
       if (opts.workspace) params['workspaceId'] = opts.workspace;
 
-      const paths = await cliApi.get<string[]>('/secrets', params);
-      if (paths.length === 0) {
+      const { secrets: secretList } = await cliApi.get<{ secrets: Array<{ path: string; expiresAt: string | null; createdAt: string; updatedAt: string }> }>('/secrets', params);
+      if (secretList.length === 0) {
         console.log(chalk.dim('No secrets found.'));
         return;
       }
       console.log(chalk.bold('\nSecrets\n'));
-      for (const p of paths) {
-        console.log(`  ${p}`);
+      for (const s of secretList) {
+        const expires = s.expiresAt ? chalk.dim(` (expires: ${new Date(s.expiresAt).toLocaleDateString()})`) : '';
+        console.log(`  ${s.path}${expires}`);
       }
       console.log('');
     } catch (err) {
@@ -684,8 +691,7 @@ memory
   .action(async (opts: { agent: string; file: string }) => {
     const spinner = ora('Ingesting documents...').start();
     try {
-      const result = await cliApi.post<{ documentsIngested: number }>('/memory/ingest', {
-        agentId: opts.agent,
+      const result = await cliApi.post<{ documentsIngested: number }>(`/agents/${opts.agent}/memory/ingest`, {
         path: opts.file,
       });
       spinner.succeed(`Ingested ${result.documentsIngested} document(s)`);
@@ -703,8 +709,7 @@ memory
   .action(async (opts: { agent: string; output: string }) => {
     const spinner = ora('Exporting memory...').start();
     try {
-      await cliApi.post('/memory/export', {
-        agentId: opts.agent,
+      await cliApi.post(`/agents/${opts.agent}/memory/export`, {
         outputPath: opts.output,
       });
       spinner.succeed(`Exported to ${chalk.bold(opts.output)}`);
@@ -746,6 +751,151 @@ migrate
       spinner.succeed('Import complete');
     } catch (err) {
       spinner.fail('Import failed');
+      printError(err);
+    }
+  });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Chat
+// ═══════════════════════════════════════════════════════════════════════
+
+program
+  .command('chat <agent-name-or-id>')
+  .description('Start an interactive chat session with an agent')
+  .action(async (agentNameOrId: string) => {
+    const readline = await import('node:readline');
+
+    // Resolve agent — try by ID first, fall back to name lookup
+    let agentId = agentNameOrId;
+    try {
+      const { agents: agentList } = await cliApi.get<{ agents: Array<{ id: string; name: string }> }>('/agents');
+      const match = agentList.find(
+        (a) => a.id === agentNameOrId || a.name === agentNameOrId,
+      );
+      if (match) {
+        agentId = match.id;
+        console.log(chalk.dim(`Resolved agent: ${match.name} (${match.id})`));
+      }
+    } catch {
+      // Fall through — use the argument as-is
+    }
+
+    // Create a session
+    const spinner = ora('Creating session...').start();
+    let sessionId: string;
+    try {
+      const { session } = await cliApi.post<{ session: { id: string } }>('/sessions', {
+        agentId,
+      });
+      sessionId = session.id;
+      spinner.succeed(`Session started (${sessionId})`);
+    } catch (err) {
+      spinner.fail('Failed to create session');
+      printError(err);
+      return;
+    }
+
+    console.log(chalk.dim('Type a message and press Enter. Type "exit" or press Ctrl+C to quit.\n'));
+
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    const prompt = (): void => {
+      rl.question(chalk.bold('you> '), async (input: string) => {
+        const trimmed = input.trim();
+        if (trimmed === 'exit' || trimmed === 'quit') {
+          console.log(chalk.dim('\nEnding session.'));
+          try {
+            await cliApi.delete(`/sessions/${sessionId}`);
+          } catch {
+            // Best effort cleanup
+          }
+          rl.close();
+          return;
+        }
+
+        if (trimmed.length === 0) {
+          prompt();
+          return;
+        }
+
+        try {
+          const response = await cliApi.post<{ sent: boolean; reply?: string }>(`/sessions/${sessionId}/messages`, {
+            content: trimmed,
+          });
+
+          if (response.reply) {
+            console.log(chalk.cyan(`agent> ${response.reply}\n`));
+          } else {
+            console.log(chalk.dim('(message sent)\n'));
+          }
+        } catch (err) {
+          printError(err);
+        }
+
+        prompt();
+      });
+    };
+
+    rl.on('close', () => {
+      process.exit(0);
+    });
+
+    prompt();
+  });
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Agents Deploy
+// ═══════════════════════════════════════════════════════════════════════
+
+agents
+  .command('deploy <path>')
+  .description('Deploy an agent from a YAML manifest file')
+  .action(async (manifestPath: string) => {
+    const fs = await import('node:fs');
+    const yaml = await import('js-yaml');
+
+    if (!fs.existsSync(manifestPath)) {
+      console.error(chalk.red(`  Error: File not found: ${manifestPath}`));
+      return;
+    }
+
+    const spinner = ora(`Deploying from ${chalk.bold(manifestPath)}...`).start();
+    try {
+      const content = fs.readFileSync(manifestPath, 'utf-8');
+      const manifest = yaml.load(content) as Record<string, unknown>;
+
+      if (!manifest || typeof manifest !== 'object') {
+        spinner.fail('Invalid YAML manifest');
+        return;
+      }
+
+      // Extract agent fields from the manifest
+      const name = (manifest.name as string) ?? (manifest.agent_name as string);
+      const model = (manifest.model as string) ?? undefined;
+      const systemPrompt = (manifest.system_prompt as string) ?? (manifest.systemPrompt as string) ?? undefined;
+      const displayName = (manifest.display_name as string) ?? (manifest.displayName as string) ?? undefined;
+
+      if (!name) {
+        spinner.fail('Manifest must contain a "name" field');
+        return;
+      }
+
+      const { agent } = await cliApi.post<{ agent: { id: string; name: string; status: string } }>('/agents', {
+        name,
+        displayName,
+        model,
+        systemPrompt,
+        manifest,
+      });
+
+      spinner.succeed(`Deployed agent ${chalk.bold(agent.name)} (${agent.id})`);
+      console.log(`  Status: ${statusColor(agent.status ?? 'active')}`);
+      console.log('');
+    } catch (err) {
+      spinner.fail('Deploy failed');
       printError(err);
     }
   });

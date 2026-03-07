@@ -5,12 +5,6 @@ import type { EncryptionProvider } from '@honorclaw/core';
 import { WebhookDispatcher } from './dispatcher.js';
 import { validateWebhookUrl } from './url-validator.js';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    user?: { workspace_id: string; [key: string]: unknown };
-  }
-}
-
 export function registerWebhookRoutes(
   app: FastifyInstance,
   db: Pool,
@@ -19,12 +13,13 @@ export function registerWebhookRoutes(
 ) {
   // List webhook subscriptions for workspace
   app.get('/webhooks', async (request, reply) => {
-    const { workspace_id } = request.user as { workspace_id: string };
+    const workspaceId = request.workspaceId;
+    if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
 
     const result = await db.query(
       `SELECT id, url, event_types, enabled, created_at, last_delivered_at, consecutive_failures
        FROM webhook_subscriptions WHERE workspace_id = $1 ORDER BY created_at DESC`,
-      [workspace_id],
+      [workspaceId],
     );
 
     return result.rows;
@@ -32,7 +27,9 @@ export function registerWebhookRoutes(
 
   // Create webhook subscription
   app.post('/webhooks', async (request, reply) => {
-    const { workspace_id } = request.user as { workspace_id: string };
+    const workspaceId = request.workspaceId;
+    if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
+
     const { url, event_types } = request.body as { url: string; event_types: string[] };
 
     // Validate URL (SSRF protection)
@@ -50,7 +47,7 @@ export function registerWebhookRoutes(
     await db.query(
       `INSERT INTO webhook_subscriptions (id, workspace_id, url, event_types, signing_secret_encrypted, enabled)
        VALUES ($1, $2, $3, $4, $5, true)`,
-      [id, workspace_id, url, event_types, signingSecretEncrypted],
+      [id, workspaceId, url, event_types, signingSecretEncrypted],
     );
 
     // Return signing secret ONCE — not stored in plaintext
@@ -65,7 +62,9 @@ export function registerWebhookRoutes(
 
   // Update webhook subscription
   app.put('/webhooks/:id', async (request, reply) => {
-    const { workspace_id } = request.user as { workspace_id: string };
+    const workspaceId = request.workspaceId;
+    if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
+
     const { id } = request.params as { id: string };
     const { url, event_types, enabled } = request.body as {
       url?: string;
@@ -105,7 +104,7 @@ export function registerWebhookRoutes(
       return reply.status(400).send({ error: 'No fields to update' });
     }
 
-    params.push(id, workspace_id);
+    params.push(id, workspaceId);
     await db.query(
       `UPDATE webhook_subscriptions SET ${sets.join(', ')} WHERE id = $${idx++} AND workspace_id = $${idx}`,
       params,
@@ -116,12 +115,14 @@ export function registerWebhookRoutes(
 
   // Delete webhook subscription
   app.delete('/webhooks/:id', async (request, reply) => {
-    const { workspace_id } = request.user as { workspace_id: string };
+    const workspaceId = request.workspaceId;
+    if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
+
     const { id } = request.params as { id: string };
 
     await db.query(
       `DELETE FROM webhook_subscriptions WHERE id = $1 AND workspace_id = $2`,
-      [id, workspace_id],
+      [id, workspaceId],
     );
 
     return { success: true };
@@ -129,13 +130,15 @@ export function registerWebhookRoutes(
 
   // Test webhook delivery
   app.post('/webhooks/:id/test', async (request, reply) => {
-    const { workspace_id } = request.user as { workspace_id: string };
+    const workspaceId = request.workspaceId;
+    if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
+
     const { id } = request.params as { id: string };
 
     const result = await db.query(
       `SELECT id, url, event_types, signing_secret_encrypted FROM webhook_subscriptions
        WHERE id = $1 AND workspace_id = $2`,
-      [id, workspace_id],
+      [id, workspaceId],
     );
 
     if (result.rows.length === 0) {
@@ -145,7 +148,7 @@ export function registerWebhookRoutes(
     const testEvent = {
       id: randomUUID(),
       event_type: 'test',
-      workspace_id,
+      workspace_id: workspaceId,
       timestamp: new Date().toISOString(),
       details: { message: 'This is a test webhook delivery from HonorClaw' },
     };
@@ -162,7 +165,9 @@ export function registerWebhookRoutes(
 
   // Get delivery log for a subscription
   app.get('/webhooks/:id/deliveries', async (request, reply) => {
-    const { workspace_id } = request.user as { workspace_id: string };
+    const workspaceId = request.workspaceId;
+    if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
+
     const { id } = request.params as { id: string };
 
     const result = await db.query(
@@ -171,7 +176,7 @@ export function registerWebhookRoutes(
        JOIN webhook_subscriptions s ON d.subscription_id = s.id
        WHERE d.subscription_id = $1 AND s.workspace_id = $2
        ORDER BY d.delivered_at DESC LIMIT 50`,
-      [id, workspace_id],
+      [id, workspaceId],
     );
 
     return result.rows;

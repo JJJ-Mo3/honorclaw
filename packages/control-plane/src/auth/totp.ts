@@ -1,57 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import * as jose from 'jose';
 import { authenticator } from 'otplib';
-import crypto from 'node:crypto';
-
-// ── TOTP secret encryption helpers ──────────────────────────────────
-
-function getTotpEncryptionKey(): Buffer | null {
-  const masterKeyBase64 = process.env.HONORCLAW_MASTER_KEY;
-  if (!masterKeyBase64) {
-    return null;
-  }
-  const key = Buffer.from(masterKeyBase64, 'base64');
-  if (key.length !== 32) {
-    throw new Error('HONORCLAW_MASTER_KEY must be exactly 32 bytes (base64-encoded)');
-  }
-  return key;
-}
-
-function encryptTotpSecret(secret: string): string {
-  const key = getTotpEncryptionKey();
-  if (!key) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('HONORCLAW_MASTER_KEY must be set in production to encrypt TOTP secrets');
-    }
-    // In dev, store plaintext but warn
-    console.warn('[totp] WARNING: HONORCLAW_MASTER_KEY not set — storing TOTP secret unencrypted');
-    return secret;
-  }
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const encrypted = Buffer.concat([cipher.update(Buffer.from(secret, 'utf8')), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  // Format: base64( iv || tag || ciphertext ) prefixed with "enc:" so we know it's encrypted
-  return 'enc:' + Buffer.concat([iv, tag, encrypted]).toString('base64');
-}
-
-function decryptTotpSecret(stored: string): string {
-  // If not prefixed with "enc:", it's a legacy plaintext value
-  if (!stored.startsWith('enc:')) {
-    return stored;
-  }
-  const key = getTotpEncryptionKey();
-  if (!key) {
-    throw new Error('HONORCLAW_MASTER_KEY is required to decrypt TOTP secrets');
-  }
-  const data = Buffer.from(stored.slice(4), 'base64');
-  const iv = data.subarray(0, 12);
-  const tag = data.subarray(12, 28);
-  const encrypted = data.subarray(28);
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-  decipher.setAuthTag(tag);
-  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
-}
+import { encryptSecret, decryptSecret } from './crypto.js';
+import { checkRateLimit, recordFailedAttempt, clearRateLimit } from './rate-limiter.js';
 
 export async function totpRoutes(app: FastifyInstance) {
   const rawSecret = process.env.JWT_SECRET;
@@ -97,7 +48,7 @@ export async function totpRoutes(app: FastifyInstance) {
     const secret = authenticator.generateSecret();
 
     // Encrypt and store the secret (not yet enabled — user must verify first)
-    const encryptedSecret = encryptTotpSecret(secret);
+    const encryptedSecret = encryptSecret(secret);
     await db.query(
       'UPDATE users SET totp_secret = $1, updated_at = now() WHERE id = $2',
       [encryptedSecret, request.userId]
@@ -111,6 +62,9 @@ export async function totpRoutes(app: FastifyInstance) {
 
   // Verify a TOTP code and issue session tokens
   app.post('/api/auth/totp/verify', async (request, reply) => {
+    // Rate limit by IP
+    if (!checkRateLimit(request, reply)) return;
+
     const { code } = request.body as { code: string };
 
     if (!code) {
@@ -168,15 +122,19 @@ export async function totpRoutes(app: FastifyInstance) {
     }
 
     // Decrypt the stored TOTP secret before verification
-    const decryptedSecret = decryptTotpSecret(user.totp_secret);
+    const decryptedSecret = decryptSecret(user.totp_secret);
 
     // Verify the TOTP code
     const isValid = authenticator.check(code, decryptedSecret);
 
     if (!isValid) {
+      recordFailedAttempt(request);
       reply.code(401).send({ error: 'Invalid TOTP code' });
       return;
     }
+
+    // TOTP verified successfully — clear rate limit for this IP
+    clearRateLimit(request);
 
     // If TOTP was not yet enabled (first verification after setup), enable it
     if (!user.totp_enabled) {

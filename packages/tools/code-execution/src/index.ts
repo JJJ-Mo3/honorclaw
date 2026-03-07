@@ -17,6 +17,48 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_TIMEOUT_MS = 120_000;
 const MAX_OUTPUT_BYTES = 100 * 1024; // 100KB
 
+// Sensitive env vars that must be stripped before spawning user code
+const SENSITIVE_ENV_VARS = [
+  'JWT_SECRET',
+  'HONORCLAW_MASTER_KEY',
+  'POSTGRES_URL',
+  'POSTGRES_PASSWORD',
+  'REDIS_URL',
+  'REDIS_PASSWORD',
+  'SESSION_COOKIE_SECRET',
+  'DATABASE_CREDENTIALS',
+  'OPENAI_API_KEY',
+  'ANTHROPIC_API_KEY',
+  'AZURE_OPENAI_API_KEY',
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_SESSION_TOKEN',
+  'GOOGLE_API_KEY',
+  'STRIPE_SECRET_KEY',
+  'GITHUB_TOKEN',
+  'GITLAB_TOKEN',
+];
+
+function buildSanitizedEnv(): Record<string, string> {
+  const env: Record<string, string> = {
+    PATH: '/usr/bin:/usr/local/bin',
+    LANG: 'en_US.UTF-8',
+    HOME: tmpdir(), // point HOME to temp to avoid leaking host user data
+  };
+
+  // Copy through non-sensitive env vars that runtimes may need
+  const allowedPrefixes = ['LC_', 'TERM'];
+  for (const [key, val] of Object.entries(process.env)) {
+    if (val === undefined) continue;
+    if (SENSITIVE_ENV_VARS.includes(key)) continue;
+    if (key.endsWith('_API_KEY') || key.endsWith('_SECRET') || key.endsWith('_TOKEN') || key.endsWith('_PASSWORD')) continue;
+    if (allowedPrefixes.some(p => key.startsWith(p))) {
+      env[key] = val;
+    }
+  }
+
+  return env;
+}
+
 function truncateOutput(output: string): string {
   if (Buffer.byteLength(output, 'utf-8') > MAX_OUTPUT_BYTES) {
     return output.slice(0, MAX_OUTPUT_BYTES) + '\n... [output truncated at 100KB]';
@@ -30,16 +72,11 @@ async function executeInProcess(
   timeoutMs: number,
 ): Promise<{ stdout: string; stderr: string; exit_code: number }> {
   return new Promise((resolve) => {
+    const sanitizedEnv = buildSanitizedEnv();
     const proc = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: timeoutMs,
-      env: {
-        ...process.env,
-        // Minimal env for sandboxed execution
-        PATH: process.env.PATH,
-        HOME: process.env.HOME,
-        LANG: 'en_US.UTF-8',
-      },
+      env: sanitizedEnv,
     });
 
     const stdoutChunks: Buffer[] = [];
@@ -107,7 +144,13 @@ createTool(InputSchema, async (input: Input) => {
       case 'javascript': {
         filename = 'script.mjs';
         command = 'node';
-        args = ['--experimental-vm-modules', join(tempDir, filename)];
+        args = [
+          '--experimental-vm-modules',
+          '--experimental-permission',
+          `--allow-fs-read=${tempDir}`,
+          `--allow-fs-write=${tempDir}`,
+          join(tempDir, filename),
+        ];
         break;
       }
       case 'typescript': {
@@ -129,6 +172,9 @@ createTool(InputSchema, async (input: Input) => {
       exit_code: result.exit_code,
       language: input.language,
       timed_out: result.exit_code === 124,
+      sandbox_note: 'Executed with restricted PATH, sanitized env vars, and memory limits. ' +
+        'Node.js uses --experimental-permission for filesystem sandboxing. ' +
+        'For full network/process isolation, deploy with Docker container execution.',
     };
   } finally {
     // Cleanup temp directory

@@ -201,4 +201,9 @@ export const cliApi = {
 
   /** Get the configured base URL. */
   getBaseUrl,
+
+  /** Get the auth headers for raw fetch requests. */
+  getAuthHeaders(): Record<string, string> {
+    return getAuthHeader();
+  },
 };

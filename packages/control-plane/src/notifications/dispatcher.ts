@@ -251,8 +251,8 @@ export class NotificationDispatcher {
       // Fall back to workspace admin email
       const result = await this.db.query<{ email: string }>(
         `SELECT u.email FROM users u
-         JOIN workspace_members wm ON wm.user_id = u.id
-         WHERE wm.workspace_id = $1 AND wm.role = 'workspace_admin'
+         JOIN user_workspace_roles uwr ON uwr.user_id = u.id
+         WHERE uwr.workspace_id = $1 AND uwr.role = 'workspace_admin'
          LIMIT 1`,
         [payload.workspaceId],
       );

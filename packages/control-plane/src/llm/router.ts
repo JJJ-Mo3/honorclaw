@@ -5,6 +5,9 @@ import { LLMRequestSchema } from '@honorclaw/core';
 import type { AuditEmitter } from '../audit/emitter.js';
 import type { LlmConfig } from '@honorclaw/core';
 import { OllamaAdapter } from './adapters/ollama.js';
+import { AnthropicAdapter } from './adapters/anthropic.js';
+import { OpenAIAdapter } from './adapters/openai.js';
+import { GeminiAdapter } from './adapters/gemini.js';
 import type { LLMAdapter } from './adapters/base.js';
 import { RegexOutputFilterProvider } from '@honorclaw/providers-built-in';
 import pino from 'pino';
@@ -22,10 +25,61 @@ export class LLMRouter {
     this.auditEmitter = auditEmitter;
     this.outputFilter = new RegexOutputFilterProvider();
 
-    // Register adapters
+    // Register adapters based on available configuration / credentials.
+    // Each adapter is only registered when credentials are present or when
+    // it does not require credentials (Ollama).
+
+    // Ollama — always registered (local, no API key needed)
     this.adapters.set('ollama', new OllamaAdapter(
-      config.providers?.ollama?.baseUrl ?? process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434'
+      config.providers?.ollama?.baseUrl ?? process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434',
     ));
+
+    // Anthropic
+    const anthropicKey =
+      config.providers?.anthropic?.apiKeySecret ?? process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey && config.providers?.anthropic?.enabled !== false) {
+      this.adapters.set('anthropic', new AnthropicAdapter(
+        anthropicKey,
+        config.providers?.anthropic?.baseUrl,
+      ));
+      logger.info('Registered LLM adapter: anthropic');
+    }
+
+    // OpenAI
+    const openaiKey =
+      config.providers?.openai?.apiKeySecret ?? process.env.OPENAI_API_KEY;
+    if (openaiKey && config.providers?.openai?.enabled !== false) {
+      this.adapters.set('openai', new OpenAIAdapter({
+        apiKey: openaiKey,
+        baseUrl: config.providers?.openai?.baseUrl,
+      }));
+      logger.info('Registered LLM adapter: openai');
+    }
+
+    // Azure OpenAI — registered under the "azure" provider prefix
+    const azureKey =
+      config.providers?.azure?.apiKeySecret ?? process.env.AZURE_OPENAI_API_KEY;
+    const azureEndpoint =
+      config.providers?.azure?.baseUrl ?? process.env.AZURE_OPENAI_ENDPOINT;
+    if (azureKey && azureEndpoint && config.providers?.azure?.enabled !== false) {
+      this.adapters.set('azure', new OpenAIAdapter({
+        apiKey: azureKey,
+        baseUrl: azureEndpoint,
+        isAzure: true,
+      }));
+      logger.info('Registered LLM adapter: azure (OpenAI)');
+    }
+
+    // Google Gemini
+    const geminiKey =
+      config.providers?.gemini?.apiKeySecret ?? process.env.GEMINI_API_KEY;
+    if (geminiKey && config.providers?.gemini?.enabled !== false) {
+      this.adapters.set('gemini', new GeminiAdapter(
+        geminiKey,
+        config.providers?.gemini?.baseUrl,
+      ));
+      logger.info('Registered LLM adapter: gemini');
+    }
   }
 
   async start(): Promise<void> {
@@ -65,7 +119,20 @@ export class LLMRouter {
     }
 
     try {
-      const response = await adapter.complete(request);
+      let response: LLMResponse;
+
+      if (request.stream && adapter.completeStream) {
+        // Streaming mode: push intermediate chunks to a dedicated Redis list
+        const streamChannel = `llm:${request.sessionId}:stream:${request.correlationId}`;
+        response = await adapter.completeStream(request, async (chunk: string) => {
+          await this.redis.lpush(streamChannel, JSON.stringify({ chunk, done: false }));
+        });
+        // Signal end of stream
+        await this.redis.lpush(streamChannel, JSON.stringify({ chunk: '', done: true }));
+      } else {
+        response = await adapter.complete(request);
+      }
+
       const duration = Date.now() - startTime;
 
       // Apply output filter to redact PII / credentials from LLM response

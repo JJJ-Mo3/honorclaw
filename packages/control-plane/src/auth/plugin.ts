@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
 import * as jose from 'jose';
 import bcrypt from 'bcryptjs';
+import { checkRateLimit, recordFailedAttempt, clearRateLimit } from './rate-limiter.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -45,6 +46,13 @@ async function authPluginImpl(app: FastifyInstance) {
 
     try {
       const { payload } = await jose.jwtVerify(token, jwtSecret, { issuer: 'honorclaw' });
+
+      // Only allow access tokens (reject refresh/mfa tokens used as access)
+      if (payload.type && payload.type !== 'access') {
+        reply.code(401).send({ error: 'Invalid token type' });
+        return;
+      }
+
       request.userId = payload.sub;
       request.workspaceId = payload.workspace_id as string | undefined;
       request.roles = (payload.roles as string[]) ?? [];
@@ -57,6 +65,9 @@ async function authPluginImpl(app: FastifyInstance) {
 
   // Auth routes
   app.post('/api/auth/login', async (request, reply) => {
+    // Rate limit by IP
+    if (!checkRateLimit(request, reply)) return;
+
     const { email, password } = request.body as { email: string; password: string };
     const db = (app as any).db;
 
@@ -64,6 +75,7 @@ async function authPluginImpl(app: FastifyInstance) {
     const user = result.rows[0];
 
     if (!user) {
+      recordFailedAttempt(request);
       reply.code(401).send({ error: 'Invalid credentials' });
       return;
     }
@@ -76,6 +88,7 @@ async function authPluginImpl(app: FastifyInstance) {
 
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
+      recordFailedAttempt(request);
       const newCount = (user.failed_login_count ?? 0) + 1;
       const lockUntil = newCount >= 5 ? new Date(Date.now() + 15 * 60_000).toISOString() : null;
       await db.query('UPDATE users SET failed_login_count = $1, locked_until = $2 WHERE id = $3', [newCount, lockUntil, user.id]);
@@ -83,7 +96,8 @@ async function authPluginImpl(app: FastifyInstance) {
       return;
     }
 
-    // Reset failed count
+    // Reset failed count and clear IP rate limit on success
+    clearRateLimit(request);
     await db.query('UPDATE users SET failed_login_count = 0, locked_until = NULL, last_login_at = now() WHERE id = $1', [user.id]);
 
     if (user.totp_enabled) {
@@ -123,6 +137,9 @@ async function authPluginImpl(app: FastifyInstance) {
   });
 
   app.post('/api/auth/register', async (request, reply) => {
+    // Rate limit by IP
+    if (!checkRateLimit(request, reply)) return;
+
     const { email, password } = request.body as { email: string; password: string };
     const db = (app as any).db;
 
@@ -180,11 +197,41 @@ async function authPluginImpl(app: FastifyInstance) {
       const { payload } = await jose.jwtVerify(refreshToken, jwtSecret, { issuer: 'honorclaw' });
       if (payload.type !== 'refresh') throw new Error('Invalid token type');
 
+      const userId = payload.sub!;
+      const db = (app as any).db;
+
+      // Query current roles from the database instead of reusing stale token claims
+      const userResult = await db.query(
+        `SELECT u.is_deployment_admin, uwr.role, uwr.workspace_id
+         FROM users u
+         LEFT JOIN user_workspace_roles uwr ON u.id = uwr.user_id
+         WHERE u.id = $1`,
+        [userId],
+      );
+
+      if (userResult.rows.length === 0) {
+        reply.code(401).send({ error: 'User not found' });
+        return;
+      }
+
+      const isDeploymentAdmin: boolean = userResult.rows[0]?.is_deployment_admin ?? false;
+      // Prefer the workspace from the original token if the user still has access, otherwise use the first available
+      const requestedWorkspace = payload.workspace_id as string | undefined;
+      const availableWorkspaces = userResult.rows
+        .filter((r: any) => r.workspace_id != null)
+        .map((r: any) => ({ workspaceId: r.workspace_id as string, role: r.role as string }));
+      const matchingWorkspace = availableWorkspaces.find((w: { workspaceId: string }) => w.workspaceId === requestedWorkspace);
+      const activeWorkspace = matchingWorkspace ?? availableWorkspaces[0];
+      const workspaceId = activeWorkspace?.workspaceId;
+      const roles = availableWorkspaces
+        .filter((w: { workspaceId: string }) => w.workspaceId === workspaceId)
+        .map((w: { role: string }) => w.role);
+
       const tokens = await issueTokens(
-        payload.sub!,
-        payload.workspace_id as string,
-        (payload.roles as string[]) ?? [],
-        (payload.is_deployment_admin as boolean) ?? false,
+        userId,
+        workspaceId,
+        roles,
+        isDeploymentAdmin,
         jwtSecret,
       );
 

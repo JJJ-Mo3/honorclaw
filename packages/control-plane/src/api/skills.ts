@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { requireWorkspace } from '../middleware/rbac.js';
+import { requireRoles, requireWorkspace } from '../middleware/rbac.js';
 
 export async function skillRoutes(app: FastifyInstance) {
   app.addHook('onRequest', requireWorkspace());
@@ -52,7 +52,7 @@ export async function skillRoutes(app: FastifyInstance) {
   });
 
   // Install a skill
-  app.post('/install', async (request, reply) => {
+  app.post('/install', { preHandler: requireRoles('workspace_admin') }, async (request, reply) => {
     const { name, version } = request.body as { name: string; version?: string };
     const db = (app as any).db;
 
@@ -84,7 +84,7 @@ export async function skillRoutes(app: FastifyInstance) {
   });
 
   // Scaffold a new skill template
-  app.post('/scaffold', async (request, reply) => {
+  app.post('/scaffold', { preHandler: requireRoles('workspace_admin') }, async (request, reply) => {
     const { name } = request.body as { name: string };
 
     if (!name) {
@@ -105,7 +105,7 @@ export async function skillRoutes(app: FastifyInstance) {
   });
 
   // Remove a skill
-  app.delete('/:name', async (request, reply) => {
+  app.delete('/:name', { preHandler: requireRoles('workspace_admin') }, async (request, reply) => {
     const { name } = request.params as { name: string };
     const db = (app as any).db;
 
