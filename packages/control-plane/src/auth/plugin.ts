@@ -13,8 +13,16 @@ declare module 'fastify' {
 }
 
 async function authPluginImpl(app: FastifyInstance) {
+  const rawSecret = process.env.JWT_SECRET;
+  if (!rawSecret) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[auth] WARNING: JWT_SECRET is not set. Using insecure default for development only.');
+    } else {
+      throw new Error('JWT_SECRET environment variable must be set in production');
+    }
+  }
   const jwtSecret = new TextEncoder().encode(
-    process.env.JWT_SECRET ?? 'honorclaw-dev-secret-change-in-production'
+    rawSecret ?? 'honorclaw-dev-secret-change-in-production'
   );
 
   app.decorateRequest('userId', undefined);
@@ -98,14 +106,14 @@ async function authPluginImpl(app: FastifyInstance) {
     reply
       .setCookie('token', tokens.accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV !== 'development',
         sameSite: 'strict',
         path: '/',
         maxAge: 3600,
       })
       .setCookie('refresh_token', tokens.refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV !== 'development',
         sameSite: 'strict',
         path: '/api/auth/refresh',
         maxAge: 7 * 86400,
@@ -135,7 +143,7 @@ async function authPluginImpl(app: FastifyInstance) {
       reply
         .setCookie('token', tokens.accessToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
+          secure: process.env.NODE_ENV !== 'development',
           sameSite: 'strict',
           path: '/',
           maxAge: 3600,

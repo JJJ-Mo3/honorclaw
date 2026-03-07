@@ -4,7 +4,7 @@ import helmet from '@fastify/helmet';
 import cookie from '@fastify/cookie';
 import pino from 'pino';
 import { loadConfig } from './config.js';
-import { createDb } from './db/index.js';
+import { createDb, runMigrations } from './db/index.js';
 import { createRedis } from './redis.js';
 import { authPlugin } from './auth/plugin.js';
 import { agentRoutes } from './api/agents.js';
@@ -15,6 +15,12 @@ import { workspaceRoutes } from './api/workspaces.js';
 import { userRoutes } from './api/users.js';
 import { manifestRoutes } from './api/manifests.js';
 import { modelRoutes } from './api/models.js';
+import { memoryRoutes } from './api/memory.js';
+import { notificationRoutes } from './api/notifications.js';
+import { evalRoutes } from './api/eval.js';
+import { metricsRoutes } from './api/metrics.js';
+import { approvalRoutes } from './api/approvals.js';
+import { totpRoutes } from './auth/totp.js';
 import { LLMRouter } from './llm/router.js';
 import { SessionManager } from './sessions/manager.js';
 import { ToolExecutor } from './tools/executor.js';
@@ -31,11 +37,31 @@ async function main() {
   });
 
   await app.register(cors, { origin: config.server.corsOrigins, credentials: true });
-  await app.register(helmet, { contentSecurityPolicy: false });
-  await app.register(cookie, { secret: config.server.sessionCookieSecret ?? 'change-me-in-production' });
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+        fontSrc: ["'self'"],
+      },
+    },
+  });
+
+  const cookieSecret = config.server.sessionCookieSecret;
+  if (!cookieSecret) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[main] WARNING: sessionCookieSecret is not set. Using insecure default for development only.');
+    } else {
+      throw new Error('sessionCookieSecret must be set in production');
+    }
+  }
+  await app.register(cookie, { secret: cookieSecret ?? 'change-me-in-production' });
 
   // Core services
   const db = createDb(config.database);
+  await runMigrations(db);
   const redis = createRedis(config.redis);
   const auditEmitter = new AuditEmitter(db);
   const llmRouter = new LLMRouter(config.llm, redis, auditEmitter);
@@ -62,6 +88,12 @@ async function main() {
   await app.register(userRoutes, { prefix: '/api/users' });
   await app.register(manifestRoutes, { prefix: '/api/manifests' });
   await app.register(modelRoutes, { prefix: '/api/models' });
+  await app.register(memoryRoutes, { prefix: '/api/agents' });
+  await app.register(notificationRoutes, { prefix: '/api/notifications' });
+  await app.register(evalRoutes, { prefix: '/api/eval' });
+  await app.register(metricsRoutes, { prefix: '/api' });
+  await app.register(approvalRoutes, { prefix: '/api/approvals' });
+  await app.register(totpRoutes);
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {

@@ -92,13 +92,33 @@ createTool(InputSchema, async (input: Input) => {
       ...(input.headers ?? {}),
     };
 
-    const res = await fetch(input.url, {
+    let res = await fetch(input.url, {
       method: input.method,
       headers: fetchHeaders,
       body: input.body && input.method !== 'GET' && input.method !== 'HEAD' ? input.body : undefined,
       signal: controller.signal,
-      redirect: 'follow',
+      redirect: 'manual',
     });
+
+    // Follow redirects manually with SSRF validation (max 10 hops)
+    let redirectCount = 0;
+    const MAX_REDIRECTS = 10;
+    while (redirectCount < MAX_REDIRECTS && [301, 302, 303, 307, 308].includes(res.status)) {
+      const location = res.headers.get('location');
+      if (!location) break;
+
+      const redirectUrl = new URL(location, res.url).href;
+      await validateUrl(redirectUrl);
+
+      res = await fetch(redirectUrl, {
+        method: [303].includes(res.status) ? 'GET' : input.method,
+        headers: fetchHeaders,
+        body: [303].includes(res.status) ? undefined : (input.body && input.method !== 'GET' && input.method !== 'HEAD' ? input.body : undefined),
+        signal: controller.signal,
+        redirect: 'manual',
+      });
+      redirectCount++;
+    }
 
     // Read response body with size limit
     const reader = res.body?.getReader();

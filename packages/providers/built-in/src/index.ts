@@ -1,4 +1,5 @@
 export { BuiltInSecretsProvider } from './secrets.js';
+export { BuiltInIdentityProvider } from './identity.js';
 export { BuiltInEncryptionProvider } from './encryption.js';
 export { PostgresAuditSink } from './audit.js';
 export { LocalFilesystemStorageProvider } from './storage.js';

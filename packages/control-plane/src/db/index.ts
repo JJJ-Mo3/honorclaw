@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import type { DatabaseConfig } from '@honorclaw/core';
 
@@ -17,4 +20,15 @@ export function createDb(config: DatabaseConfig): Database {
     database: config.name,
     max: config.poolSize,
   });
+}
+
+/**
+ * Run database migrations by executing schema.sql against the pool.
+ * Idempotent — all statements use IF NOT EXISTS / IF EXISTS guards.
+ */
+export async function runMigrations(pool: Database): Promise<void> {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const schemaPath = join(__dirname, 'schema.sql');
+  const sql = readFileSync(schemaPath, 'utf-8');
+  await pool.query(sql);
 }

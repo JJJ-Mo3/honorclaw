@@ -6,6 +6,12 @@ import { runDoctor } from './commands/doctor.js';
 import { runInit } from './commands/init.js';
 import { registerToolsCommand } from './commands/tools.js';
 import { registerModelsCommand } from './commands/models.js';
+import { registerEvalCommands } from './commands/eval.js';
+import { registerCertsCommands } from './commands/certs.js';
+import { registerBackupCommands } from './commands/backup.js';
+import { registerKeyRotationCommands } from './commands/key-rotation.js';
+import { registerBundleCommands } from './commands/bundle.js';
+import { registerMigrateModelCommand } from './commands/migrate-model.js';
 import { cliApi, CliApiError } from './api.js';
 
 const program = new Command();
@@ -189,6 +195,12 @@ agents
 
 registerToolsCommand(program);
 registerModelsCommand(program);
+registerEvalCommands(program);
+registerCertsCommands(program);
+registerBackupCommands(program);
+registerKeyRotationCommands(program);
+registerBundleCommands(program);
+registerMigrateModelCommand(program);
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Skills

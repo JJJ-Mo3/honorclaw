@@ -11,6 +11,7 @@ export function requireRoles(...allowedRoles: Role[]) {
 
     if (!hasRole) {
       reply.code(403).send({ error: 'Insufficient permissions' });
+      return reply;
     }
   };
 }
@@ -19,6 +20,7 @@ export function requireWorkspace() {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.workspaceId) {
       reply.code(400).send({ error: 'Workspace context required' });
+      return reply;
     }
   };
 }

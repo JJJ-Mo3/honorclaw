@@ -1,31 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# If running in "init" mode: interactive setup, then exit
-if [ "${1:-}" = "init" ]; then
-  exec node /app/packages/cli/dist/cli.js init "$@"
-fi
-
-# Embedded or external databases?
-if [ -n "${POSTGRES_URL:-}" ]; then
-  echo "Using external PostgreSQL: ${POSTGRES_URL%%@*}@***"
-  touch /tmp/skip-embedded-postgres
-fi
-if [ -n "${REDIS_URL:-}" ]; then
-  echo "Using external Redis"
-  touch /tmp/skip-embedded-redis
-  touch /tmp/skip-redis-proxy
-fi
-
-# Agent isolation mode: namespace (default) or container (--security full)
-export AGENT_ISOLATION_MODE=${AGENT_ISOLATION_MODE:-namespace}
-
-if [ "$AGENT_ISOLATION_MODE" = "namespace" ]; then
-  setup_agent_namespace
-fi
-
-# Hand off to s6 as PID 1
-exec /init
+# ── Function definitions ────────────────────────────────────────────────
 
 setup_agent_namespace() {
   REDIS_HOST="127.0.0.1"
@@ -58,5 +34,33 @@ setup_agent_namespace() {
 
   echo "agent-ns" > /tmp/agent-netns-name
   echo "10.100.0.1" > /tmp/agent-redis-proxy-ip
-  echo "✓ Agent network namespace created"
+  echo "Agent network namespace created"
 }
+
+# ── Main logic ──────────────────────────────────────────────────────────
+
+# If running in "init" mode: interactive setup, then exit
+if [ "${1:-}" = "init" ]; then
+  exec node /app/packages/cli/dist/cli.js init "$@"
+fi
+
+# Embedded or external databases?
+if [ -n "${POSTGRES_URL:-}" ]; then
+  echo "Using external PostgreSQL: ${POSTGRES_URL%%@*}@***"
+  touch /tmp/skip-embedded-postgres
+fi
+if [ -n "${REDIS_URL:-}" ]; then
+  echo "Using external Redis"
+  touch /tmp/skip-embedded-redis
+  touch /tmp/skip-redis-proxy
+fi
+
+# Agent isolation mode: namespace (default) or container (--security full)
+export AGENT_ISOLATION_MODE=${AGENT_ISOLATION_MODE:-namespace}
+
+if [ "$AGENT_ISOLATION_MODE" = "namespace" ]; then
+  setup_agent_namespace
+fi
+
+# Hand off to s6 as PID 1
+exec /init

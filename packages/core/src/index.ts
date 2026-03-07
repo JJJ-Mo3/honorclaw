@@ -6,6 +6,7 @@ export * from './types/eval.js';
 
 // Provider interfaces
 export * from './providers/index.js';
+export * from './providers/hsm.js';
 
 // Schemas
 export * from './schemas/manifest.js';
@@ -17,3 +18,7 @@ export * from './redis/channels.js';
 
 // Config
 export * from './config/schema.js';
+
+// Telemetry
+export * from './telemetry/index.js';
+export * from './telemetry/spans.js';

@@ -179,7 +179,11 @@ async function createBackup(options: {
         FROM audit_events a
     `;
     if (options.since) {
-      auditQuery += ` WHERE created_at >= '${options.since}'`;
+      if (isNaN(Date.parse(options.since))) {
+        throw new Error(`Invalid --since date: "${options.since}". Must be a valid ISO 8601 date.`);
+      }
+      const sanitizedDate = new Date(options.since).toISOString();
+      auditQuery += ` WHERE created_at >= '${sanitizedDate}'`;
     }
     auditQuery += ` ORDER BY created_at
       ) TO STDOUT;

@@ -166,7 +166,7 @@ export async function runInit(): Promise<void> {
   const envContent = [
     '# HonorClaw secrets — DO NOT COMMIT',
     `HONORCLAW_ENCRYPTION_KEY=${encryptionKey}`,
-    `HONORCLAW_JWT_SECRET=${jwtSecret}`,
+    `JWT_SECRET=${jwtSecret}`,
     `HONORCLAW_COOKIE_SECRET=${cookieSecret}`,
     '',
   ].join('\n');

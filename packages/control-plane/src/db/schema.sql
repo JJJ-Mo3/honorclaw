@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   workspace_id UUID NOT NULL REFERENCES workspaces(id),
   agent_id UUID NOT NULL REFERENCES agents(id),
   user_id UUID REFERENCES users(id),
+  session_type TEXT NOT NULL DEFAULT 'interactive',
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'draining', 'ended', 'error')),
   channel TEXT,
   external_channel_id TEXT,
@@ -86,6 +87,16 @@ CREATE TABLE IF NOT EXISTS sessions (
   tool_calls_count INTEGER DEFAULT 0,
   metadata JSONB DEFAULT '{}'
 );
+
+-- Add session_type column if it doesn't exist (idempotent migration)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'sessions' AND column_name = 'session_type'
+  ) THEN
+    ALTER TABLE sessions ADD COLUMN session_type TEXT NOT NULL DEFAULT 'interactive';
+  END IF;
+END $$;
 
 -- Session archives (conversation history)
 CREATE TABLE IF NOT EXISTS session_archives (
@@ -193,6 +204,30 @@ CREATE TABLE IF NOT EXISTS webhook_subscriptions (
   secret TEXT NOT NULL,
   active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Notifications
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id),
+  user_id UUID REFERENCES users(id),
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT,
+  channel TEXT NOT NULL DEFAULT 'in_app',
+  read BOOLEAN NOT NULL DEFAULT false,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Session messages
+CREATE TABLE IF NOT EXISTS session_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  role TEXT NOT NULL,
+  content TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Indexes
