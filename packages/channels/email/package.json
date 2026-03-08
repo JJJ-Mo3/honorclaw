@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "@honorclaw/core": "workspace:*",
-    "nodemailer": "^6.9.0",
-    "imapflow": "^1.0.0"
+    "imapflow": "^1.0.0",
+    "nodemailer": "^8.0.1"
   },
   "devDependencies": {
     "@types/nodemailer": "^6.4.0",
