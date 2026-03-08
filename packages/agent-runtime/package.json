@@ -9,7 +9,7 @@
     "build": "tsc",
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"

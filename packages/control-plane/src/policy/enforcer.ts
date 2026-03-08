@@ -1,4 +1,4 @@
-import type { CapabilityManifest, ToolCapability } from '@honorclaw/core';
+import type { CapabilityManifest } from '@honorclaw/core';
 
 export interface ToolCallRequest {
   toolName: string;

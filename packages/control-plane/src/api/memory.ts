@@ -62,7 +62,7 @@ export async function memoryRoutes(app: FastifyInstance) {
   app.delete(
     '/:id/memory/documents/:docId',
     { preHandler: [requireRoles('workspace_admin')] },
-    async (request, reply) => {
+    async (request, _reply) => {
       const { id: agentId, docId: sourceHash } = request.params as { id: string; docId: string };
       const db = (app as any).db;
       const auditEmitter = (app as any).auditEmitter;

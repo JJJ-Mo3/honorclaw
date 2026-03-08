@@ -9,7 +9,7 @@ export const INJECTION_PATTERNS: RegExp[] = [
   /forget\s+(?:everything|all|your\s+instructions)/i,
   /(?:override|bypass|disable)\s+(?:your\s+)?(?:safety|guardrails?|restrictions?|rules?)/i,
   /(?:jailbreak|DAN|do\s+anything\s+now)/i,
-  /act\s+as\s+(?:if\s+)?you\s+(?:have\s+no|without\s+any)\s+restrictions/i,
+  /act\s+as\s+(?:if\s+)?you\s+(?:have\s+no|without\s+any)\s+(?:\w+\s+)*restrictions/i,
   /pretend\s+you\s+(?:are|were|have\s+no)/i,
   /you\s+(?:must|should|will)\s+comply/i,
   /disregard\s+(?:your|all|any)\s+(?:previous\s+)?(?:instructions?|rules?|guidelines?)/i,

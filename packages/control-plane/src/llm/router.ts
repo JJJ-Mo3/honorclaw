@@ -1,5 +1,4 @@
 import type { Redis } from 'ioredis';
-import { RedisChannels } from '@honorclaw/core';
 import type { LLMRequest, LLMResponse, OutputFilterProvider } from '@honorclaw/core';
 import { LLMRequestSchema } from '@honorclaw/core';
 import type { AuditEmitter } from '../audit/emitter.js';

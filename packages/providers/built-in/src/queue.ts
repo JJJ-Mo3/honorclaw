@@ -53,7 +53,7 @@ export class RedisStreamsQueueProvider implements QueueProvider {
               await this.redis.xack(streamKey, this.consumerGroup, id);
             }
           }
-        } catch (err) {
+        } catch {
           if (running) {
             await new Promise(r => setTimeout(r, 1000));
           }

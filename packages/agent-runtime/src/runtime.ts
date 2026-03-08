@@ -1,5 +1,5 @@
 import { RedisChannels } from '@honorclaw/core';
-import type { LLMRequest, LLMResponse, ToolCallResult } from '@honorclaw/core';
+import type { LLMRequest, ToolCallResult } from '@honorclaw/core';
 import { AgentInputMessageSchema, LLMResponseSchema, ToolCallResultSchema, SessionControlSchema } from '@honorclaw/core';
 import { Transport } from './transport.js';
 import { SessionState } from './session.js';

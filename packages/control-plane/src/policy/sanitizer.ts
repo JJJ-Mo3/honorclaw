@@ -59,10 +59,13 @@ export async function sanitizeParameters(
 
       // Check for path parameters
       if (key === 'path' || key.endsWith('_path')) {
-        if (cleaned.includes('..') || cleaned.startsWith('/')) {
-          if (!cleaned.startsWith('/workspace/')) {
-            return { valid: false, sanitized: {}, reason: `Path parameter "${key}": traversal not allowed` };
-          }
+        // Block any path containing traversal sequences
+        if (cleaned.includes('..') || cleaned.includes('..\\')) {
+          return { valid: false, sanitized: {}, reason: `Path parameter "${key}": traversal not allowed` };
+        }
+        // Block absolute paths outside /workspace/
+        if (cleaned.startsWith('/') && !cleaned.startsWith('/workspace/')) {
+          return { valid: false, sanitized: {}, reason: `Path parameter "${key}": traversal not allowed` };
         }
       }
 

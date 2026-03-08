@@ -52,7 +52,7 @@ export class AgentLoop {
     logger.info('AgentLoop started — listening on agent:*:input');
   }
 
-  private async handleMessage(sessionId: string, content: string, senderId: string): Promise<void> {
+  private async handleMessage(sessionId: string, _content: string, _senderId: string): Promise<void> {
     // 1. Load session context from Redis (set by SessionManager.create)
     const contextRaw = await this.redis.get(`session:${sessionId}:context`);
     if (!contextRaw) {

@@ -15,9 +15,9 @@
  * 6. Multi-turn injection attempts — context manipulation
  */
 import { describe, it, expect } from 'vitest';
-import { validateToolCall } from '@honorclaw/control-plane/src/policy/enforcer.js';
-import { sanitizeParameters } from '@honorclaw/control-plane/src/policy/sanitizer.js';
-import { checkInput } from '@honorclaw/control-plane/src/guardrails/input-guardrail.js';
+import { validateToolCall } from '../../packages/control-plane/src/policy/enforcer.js';
+import { sanitizeParameters } from '../../packages/control-plane/src/policy/sanitizer.js';
+import { checkInput } from '../../packages/control-plane/src/guardrails/input-guardrail.js';
 import type { CapabilityManifest } from '@honorclaw/core';
 
 // ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ const baseManifest: CapabilityManifest = {
             'SELECT\\s+.*FROM',
             'DROP\\s+TABLE',
             'UNION\\s+SELECT',
-            ';\\.*(DELETE|INSERT|UPDATE)',
+            ';\\s*(DELETE|INSERT|UPDATE)',
             'xp_cmdshell',
             'EXEC\\s*\\(',
           ],

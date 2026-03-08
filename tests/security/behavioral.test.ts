@@ -15,8 +15,8 @@
  * - Credential Leak (3 variants)
  */
 import { describe, it, expect } from 'vitest';
-import { checkInput } from '@honorclaw/control-plane/src/guardrails/input-guardrail.js';
-import { sanitizeParameters } from '@honorclaw/control-plane/src/policy/sanitizer.js';
+import { checkInput } from '../../packages/control-plane/src/guardrails/input-guardrail.js';
+import { sanitizeParameters } from '../../packages/control-plane/src/policy/sanitizer.js';
 import type { CapabilityManifest } from '@honorclaw/core';
 
 // ---------------------------------------------------------------------------

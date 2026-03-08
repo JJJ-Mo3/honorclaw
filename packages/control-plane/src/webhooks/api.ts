@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { EncryptionProvider } from '@honorclaw/core';

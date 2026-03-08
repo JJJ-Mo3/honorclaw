@@ -70,7 +70,7 @@ export async function scan(
   manifest: ToolManifestForScan,
 ): Promise<ScanResult> {
   const blockReasons: string[] = [];
-  let cves: CveResult[] = [];
+  const cves: CveResult[] = [];
   let sbom: Record<string, unknown> | undefined;
 
   // -----------------------------------------------------------------------

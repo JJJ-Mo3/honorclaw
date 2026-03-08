@@ -99,7 +99,7 @@ export class WebhookDispatcher {
   private async deliver(
     sub: WebhookSubscriptionRow,
     event: AuditEvent,
-    attempt: number,
+    _attempt: number,
   ): Promise<DeliveryResult> {
     // SSRF check on every attempt (IP rotation protection)
     const urlCheck = await validateWebhookUrl(sub.url, this.allowHttp);

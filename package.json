@@ -2,6 +2,7 @@
   "name": "honorclaw",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Enterprise-grade, self-hosted AI agent platform where security is architectural, not behavioral",
   "license": "Apache-2.0",
   "engines": { "node": ">=22", "pnpm": ">=9" },

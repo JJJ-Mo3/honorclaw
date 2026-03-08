@@ -37,6 +37,9 @@ export function checkInput(
   _context: GuardrailContext,
 ): GuardrailResult {
   const guardrails = manifest.inputGuardrails;
+  // Strip zero-width characters before analysis (prevents pattern evasion)
+  // eslint-disable-next-line no-misleading-character-class
+  const normalized = message.replace(/[\u200B\u200C\u200D\uFEFF\u00AD]/g, '');
   const inputHash = crypto.createHash('sha256').update(message).digest('hex');
 
   // a) Max message length (always enforced)
@@ -48,7 +51,7 @@ export function checkInput(
   // b) Injection detection (default: enabled)
   if (guardrails?.injectionDetection !== false) {
     for (let i = 0; i < INJECTION_PATTERNS.length; i++) {
-      if (INJECTION_PATTERNS[i]!.test(message)) {
+      if (INJECTION_PATTERNS[i]!.test(normalized)) {
         return { allowed: false, violation: { type: 'injection_attempt', rule: `injection:pattern_${i}`, inputHash } };
       }
     }
@@ -57,7 +60,7 @@ export function checkInput(
   // b2) Tool discovery blocking (default: enabled)
   if (guardrails?.blockToolDiscovery !== false) {
     for (let i = 0; i < TOOL_DISCOVERY_PATTERNS.length; i++) {
-      if (TOOL_DISCOVERY_PATTERNS[i]!.test(message)) {
+      if (TOOL_DISCOVERY_PATTERNS[i]!.test(normalized)) {
         return { allowed: false, violation: { type: 'tool_discovery_attempt', rule: `tool_discovery:pattern_${i}`, inputHash } };
       }
     }
@@ -66,7 +69,7 @@ export function checkInput(
   // b3) Prompt extraction blocking (default: enabled)
   if (guardrails?.blockPromptExtraction !== false) {
     for (let i = 0; i < PROMPT_EXTRACTION_PATTERNS.length; i++) {
-      if (PROMPT_EXTRACTION_PATTERNS[i]!.test(message)) {
+      if (PROMPT_EXTRACTION_PATTERNS[i]!.test(normalized)) {
         return { allowed: false, violation: { type: 'prompt_extraction_attempt', rule: `prompt_extraction:pattern_${i}`, inputHash } };
       }
     }
@@ -77,7 +80,7 @@ export function checkInput(
     for (let i = 0; i < guardrails.blockedInputPatterns.length; i++) {
       try {
         const regex = new RegExp(guardrails.blockedInputPatterns[i]!, 'i');
-        if (regex.test(message)) {
+        if (regex.test(normalized)) {
           return { allowed: false, violation: { type: 'blocked_pattern', rule: `blocked_input:${i}`, inputHash } };
         }
       } catch {
@@ -89,7 +92,7 @@ export function checkInput(
   // d) Topic restriction
   if (guardrails?.allowedTopics?.length) {
     const matchesAnyAllowed = guardrails.allowedTopics.some(topic => {
-      try { return new RegExp(topic, 'i').test(message); } catch { return false; }
+      try { return new RegExp(topic, 'i').test(normalized); } catch { return false; }
     });
     if (!matchesAnyAllowed) {
       return { allowed: false, violation: { type: 'off_topic', rule: 'allowed_topics', inputHash } };
@@ -99,7 +102,7 @@ export function checkInput(
   if (guardrails?.blockedTopics?.length) {
     for (let i = 0; i < guardrails.blockedTopics.length; i++) {
       try {
-        if (new RegExp(guardrails.blockedTopics[i]!, 'i').test(message)) {
+        if (new RegExp(guardrails.blockedTopics[i]!, 'i').test(normalized)) {
           return { allowed: false, violation: { type: 'blocked_topic', rule: `blocked_topic:${i}`, inputHash } };
         }
       } catch { /* skip invalid regex */ }
