@@ -268,6 +268,19 @@ async function main() {
             return;
           }
 
+          // Handle tool approval messages from the Web UI
+          if (msgType === 'tool_approval') {
+            const toolCallId = parsed.toolCallId as string | undefined;
+            const decision = parsed.decision as string | undefined;
+            if (toolCallId && decision && currentSessionId) {
+              const approvalChannel = `honorclaw:tools:${currentSessionId}:approval:${toolCallId}`;
+              redis.publish(approvalChannel, JSON.stringify({ decision })).catch((err: unknown) => {
+                logger.error({ err }, 'Failed to publish tool approval');
+              });
+            }
+            return;
+          }
+
           // Accept both { type: 'user_message', content } and { content, agentId }
           if (content && (msgType === 'user_message' || msgAgentId)) {
             const effectiveAgentId = msgAgentId;
@@ -326,12 +339,12 @@ async function main() {
         }
       });
 
-      // Forward agent responses to the client in ChatPage-compatible format
+      // Forward agent responses to the client, preserving the original message type
       sub.on('message', (_channel: string, message: string) => {
         try {
           const data = JSON.parse(message) as Record<string, unknown>;
           socket.send(JSON.stringify({
-            type: 'agent_response',
+            type: data.type ?? 'agent_response',
             id: data.messageId ?? crypto.randomUUID(),
             content: data.content ?? '',
             timestamp: data.timestamp ?? new Date().toISOString(),

@@ -1,10 +1,13 @@
 import type { Redis } from 'ioredis';
 import type { Database } from './db/index.js';
 import type { HonorClawConfig, LLMRequest } from '@honorclaw/core';
+import type { z } from 'zod';
 import { RedisChannels, CapabilityManifestSchema } from '@honorclaw/core';
 import { checkInput } from './guardrails/input-guardrail.js';
 import crypto from 'node:crypto';
 import pino from 'pino';
+
+type CapabilityManifest = z.infer<typeof CapabilityManifestSchema>;
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
@@ -96,33 +99,38 @@ export class AgentLoop {
     };
 
     // 2. Run input guardrails (injection detection, topic filtering, PII redaction)
+    // Always apply guardrails, even without a manifest (use a safe default)
     const manifest = await this.loadManifest(context.agentId);
-    if (manifest) {
-      const guardrailResult = checkInput(content, manifest, {
-        userId: senderId,
-        sessionId,
-        workspaceId: context.workspaceId,
-      });
+    const effectiveManifest: CapabilityManifest = manifest ?? CapabilityManifestSchema.parse({
+      agentId: context.agentId,
+      workspaceId: context.workspaceId,
+      version: 1,
+    });
 
-      if (!guardrailResult.allowed) {
-        logger.warn(
-          { sessionId, violation: guardrailResult.violation },
-          'AgentLoop: input blocked by guardrails',
-        );
-        // Store the rejection and notify the user
-        const rejectionMsg = 'Your message was blocked by the security policy. Please rephrase your request.';
-        await this.db.query(
-          'INSERT INTO session_messages (session_id, role, content) VALUES ($1, $2, $3)',
-          [sessionId, 'assistant', rejectionMsg],
-        );
-        await this.publishOutput(sessionId, rejectionMsg, context.model);
-        return;
-      }
+    const guardrailResult = checkInput(content, effectiveManifest, {
+      userId: senderId,
+      sessionId,
+      workspaceId: context.workspaceId,
+    });
 
-      // Use sanitized message if PII was redacted
-      if (guardrailResult.sanitizedMessage) {
-        content = guardrailResult.sanitizedMessage;
-      }
+    if (!guardrailResult.allowed) {
+      logger.warn(
+        { sessionId, violation: guardrailResult.violation },
+        'AgentLoop: input blocked by guardrails',
+      );
+      // Store the rejection and notify the user
+      const rejectionMsg = 'Your message was blocked by the security policy. Please rephrase your request.';
+      await this.db.query(
+        'INSERT INTO session_messages (session_id, role, content) VALUES ($1, $2, $3)',
+        [sessionId, 'assistant', rejectionMsg],
+      );
+      await this.publishOutput(sessionId, rejectionMsg, context.model);
+      return;
+    }
+
+    // Use sanitized message if PII was redacted
+    if (guardrailResult.sanitizedMessage) {
+      content = guardrailResult.sanitizedMessage;
     }
 
     // 3. Load conversation history (bounded to prevent token explosion)

@@ -65,7 +65,8 @@ export function AuditViewer() {
         setEvents(result.events);
       }
       setNextCursor(result.nextCursor);
-      setTotalCount(result.totalCount);
+      if (result.totalCount != null) setTotalCount(result.totalCount);
+      else if (!cursor) setTotalCount(result.events.length);
     } catch {
       // handled by global error
     } finally {

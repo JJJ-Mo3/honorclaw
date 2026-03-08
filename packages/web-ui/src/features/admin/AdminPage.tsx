@@ -192,8 +192,10 @@ export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEdito
     if (!agent) return;
     async function loadPrompt() {
       try {
-        const data = await api.get<{ agent: { system_prompt: string } }>(`/agents/${agent!.id}`);
-        setSystemPrompt(data.agent?.system_prompt ?? '');
+        const data = await api.get<{ agent: { systemPrompt: string; name: string; model: string } }>(`/agents/${agent!.id}`);
+        setSystemPrompt(data.agent?.systemPrompt ?? '');
+        if (data.agent?.name) setName(data.agent.name);
+        if (data.agent?.model) setModel(data.agent.model);
       } catch {
         // Best effort
       }
@@ -317,11 +319,17 @@ function UserManagement({ workspaceId: _workspaceId }: { workspaceId: string | n
     e.preventDefault();
     setInviting(true);
     try {
-      const resp = await api.post<{ user: User }>('/users', {
+      const resp = await api.post<{ user: { id: string; email: string } }>('/users', {
         email: inviteEmail,
         role: inviteRole,
       });
-      setUsers((prev) => [...prev, resp.user]);
+      setUsers((prev) => [...prev, {
+        id: resp.user.id,
+        email: resp.user.email,
+        displayName: resp.user.email,
+        role: inviteRole,
+        createdAt: new Date().toISOString(),
+      }]);
       setInviteEmail('');
     } catch {
       // handled by global error

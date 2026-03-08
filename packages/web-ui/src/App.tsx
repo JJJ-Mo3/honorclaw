@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from './auth/useAuth.js';
 import { LoginPage } from './auth/LoginPage.js';
@@ -10,6 +11,7 @@ import { AuditViewer } from './features/audit/AuditViewer.js';
 import { IntegrationsPage } from './pages/integrations/IntegrationsPage.js';
 import { SkillsPage } from './features/skills/SkillsPage.js';
 import { NavBar } from './components/NavBar.js';
+import { api } from './api/client.js';
 
 export function App() {
   return (
@@ -103,8 +105,8 @@ export function App() {
 }
 
 /**
- * Standalone agent editor page wrapper that extracts route params
- * and provides navigation callbacks to the AgentEditor component.
+ * Standalone agent editor page wrapper that extracts route params,
+ * fetches the agent data from the API, and provides it to AgentEditor.
  */
 function AgentEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -112,12 +114,44 @@ function AgentEditorPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <AgentEditor
-        workspaceId={null}
-        agent={{ id: id!, name: '', model: '', status: 'active', workspaceId: '' }}
-        onSave={() => navigate('/admin')}
-        onCancel={() => navigate('/admin')}
-      />
+      <AgentEditorPageInner agentId={id!} onDone={() => navigate('/admin')} />
     </div>
+  );
+}
+
+function AgentEditorPageInner({ agentId, onDone }: { agentId: string; onDone: () => void }) {
+  const [agent, setAgent] = useState<{ id: string; name: string; model: string; status: 'active' | 'paused' | 'error'; workspaceId: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await api.get<{ agent: { id: string; name: string; model: string; status: string; workspaceId: string } }>(`/agents/${agentId}`);
+        setAgent({
+          id: data.agent.id,
+          name: data.agent.name,
+          model: data.agent.model,
+          status: (data.agent.status as 'active' | 'paused' | 'error') ?? 'active',
+          workspaceId: data.agent.workspaceId ?? '',
+        });
+      } catch {
+        // Agent not found
+      } finally {
+        setLoading(false);
+      }
+    }
+    void load();
+  }, [agentId]);
+
+  if (loading) return <div className="text-sm text-gray-500 py-8 text-center">Loading agent...</div>;
+  if (!agent) return <div className="text-sm text-red-500 py-8 text-center">Agent not found</div>;
+
+  return (
+    <AgentEditor
+      workspaceId={null}
+      agent={agent}
+      onSave={onDone}
+      onCancel={onDone}
+    />
   );
 }

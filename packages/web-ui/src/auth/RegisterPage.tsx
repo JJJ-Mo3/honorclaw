@@ -30,7 +30,9 @@ export function RegisterPage() {
         password,
         displayName,
       });
-      navigate('/login', { replace: true });
+      // The register endpoint sets auth cookies automatically, so
+      // navigate to the main page instead of forcing a redundant login
+      navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {

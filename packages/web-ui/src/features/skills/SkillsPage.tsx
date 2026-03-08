@@ -8,8 +8,8 @@ interface Skill {
   name: string;
   version: string;
   description: string;
-  system_prompt?: string;
-  installed_at?: string;
+  systemPrompt?: string;
+  installedAt?: string;
 }
 
 interface Agent {
@@ -177,8 +177,8 @@ export function SkillsPage() {
                     </h3>
                     <p className="mt-1 text-xs text-gray-500">
                       v{skill.version}
-                      {skill.installed_at &&
-                        ` \u00b7 Installed ${new Date(skill.installed_at).toLocaleDateString()}`}
+                      {skill.installedAt &&
+                        ` \u00b7 Installed ${new Date(skill.installedAt).toLocaleDateString()}`}
                     </p>
                     <p className="mt-2 text-sm text-gray-600">
                       {skill.description || 'No description available.'}

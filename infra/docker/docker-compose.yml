@@ -50,7 +50,7 @@ services:
       OLLAMA_BASE_URL: http://ollama:11434
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required - generate with: openssl rand -base64 48}
       SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET:?SESSION_COOKIE_SECRET is required - generate with: openssl rand -base64 48}
-      HONORCLAW_MASTER_KEY: ${HONORCLAW_MASTER_KEY:-}
+      HONORCLAW_MASTER_KEY: ${HONORCLAW_MASTER_KEY:?HONORCLAW_MASTER_KEY is required - generate with: openssl rand -base64 32}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       NODE_ENV: ${NODE_ENV:-production}
     volumes:

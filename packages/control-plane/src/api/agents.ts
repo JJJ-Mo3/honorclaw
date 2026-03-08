@@ -14,14 +14,17 @@ export async function agentRoutes(app: FastifyInstance) {
     return { agents: mapRows(result.rows) };
   });
 
-  app.get('/:id', async (request) => {
+  app.get('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const db = (app as any).db;
     const result = await db.query(
       'SELECT * FROM agents WHERE id = $1 AND workspace_id = $2',
       [id, request.workspaceId]
     );
-    if (result.rows.length === 0) return { error: 'Agent not found' };
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: 'Agent not found' });
+      return;
+    }
 
     // Get latest manifest
     const manifest = await db.query(
@@ -51,7 +54,7 @@ export async function agentRoutes(app: FastifyInstance) {
       );
     }
 
-    reply.code(201).send({ agent });
+    reply.code(201).send({ agent: toCamelCase(agent) });
   });
 
   app.put('/:id', { preHandler: [requireRoles('workspace_admin')] }, async (request) => {
@@ -71,7 +74,7 @@ export async function agentRoutes(app: FastifyInstance) {
       [name, displayName, model, systemPrompt, status, id, request.workspaceId]
     );
 
-    return { agent: result.rows[0] };
+    return { agent: toCamelCase(result.rows[0]) };
   });
 
   // Soft-delete an agent (set status to 'archived')

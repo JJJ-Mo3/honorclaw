@@ -11,7 +11,9 @@ import { requireWorkspace } from '../middleware/rbac.js';
  * GET  /eval/sessions/:id/events   — stream session events (SSE)
  */
 export async function evalRoutes(app: FastifyInstance) {
+  const { requireRoles } = await import('../middleware/rbac.js');
   app.addHook('onRequest', requireWorkspace());
+  app.addHook('onRequest', requireRoles('workspace_admin'));
 
   /**
    * POST /eval/sessions
