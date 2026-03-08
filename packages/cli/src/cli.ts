@@ -849,37 +849,68 @@ secrets
 const memory = program.command('memory').description('Manage agent memory');
 
 memory
-  .command('ingest')
-  .description('Ingest documents into an agent memory store')
+  .command('stats')
+  .description('Show memory statistics for an agent')
   .requiredOption('-a, --agent <id>', 'Agent ID')
-  .requiredOption('-f, --file <path>', 'File or directory to ingest')
-  .action(async (opts: { agent: string; file: string }) => {
-    const spinner = ora('Ingesting documents...').start();
+  .action(async (opts: { agent: string }) => {
+    const spinner = ora('Loading memory stats...').start();
     try {
-      const result = await cliApi.post<{ documentsIngested: number }>(`/agents/${opts.agent}/memory/ingest`, {
-        path: opts.file,
-      });
-      spinner.succeed(`Ingested ${result.documentsIngested} document(s)`);
+      const stats = await cliApi.get<{
+        agentId: string;
+        totalDocuments: number;
+        totalChunks: number;
+        estimatedTokens: number;
+      }>(`/agents/${opts.agent}/memory/stats`);
+      spinner.stop();
+      console.log(chalk.bold('\nMemory Stats\n'));
+      console.log(`  Documents:        ${stats.totalDocuments}`);
+      console.log(`  Chunks:           ${stats.totalChunks}`);
+      console.log(`  Estimated tokens: ${stats.estimatedTokens}`);
+      console.log('');
     } catch (err) {
-      spinner.fail('Ingestion failed');
+      spinner.fail('Failed to load stats');
       printError(err);
     }
   });
 
 memory
-  .command('export')
-  .description('Export agent memory')
+  .command('documents')
+  .description('List documents in agent memory')
   .requiredOption('-a, --agent <id>', 'Agent ID')
-  .option('-o, --output <file>', 'Output file', 'memory-export.jsonl')
-  .action(async (opts: { agent: string; output: string }) => {
-    const spinner = ora('Exporting memory...').start();
+  .action(async (opts: { agent: string }) => {
+    const spinner = ora('Loading documents...').start();
     try {
-      await cliApi.post(`/agents/${opts.agent}/memory/export`, {
-        outputPath: opts.output,
-      });
-      spinner.succeed(`Exported to ${chalk.bold(opts.output)}`);
+      const result = await cliApi.get<{
+        documents: Array<{ source_name: string; source_hash: string; chunk_count: string; ingested_at: string }>;
+      }>(`/agents/${opts.agent}/memory/documents`);
+      spinner.stop();
+      const docs = result.documents ?? [];
+      if (docs.length === 0) {
+        console.log(chalk.dim('No documents in memory.'));
+        return;
+      }
+      console.log(chalk.bold(`\nMemory Documents (${docs.length})\n`));
+      for (const doc of docs) {
+        console.log(`  ${chalk.bold(doc.source_name ?? 'unknown')} ${chalk.dim(`[${doc.source_hash?.slice(0, 8) ?? 'N/A'}]`)}`);
+        console.log(`    Chunks: ${doc.chunk_count}  Ingested: ${doc.ingested_at ? new Date(doc.ingested_at).toLocaleString() : 'N/A'}`);
+      }
+      console.log('');
     } catch (err) {
-      spinner.fail('Export failed');
+      spinner.fail('Failed to list documents');
+      printError(err);
+    }
+  });
+
+memory
+  .command('delete')
+  .description('Delete a document from agent memory')
+  .requiredOption('-a, --agent <id>', 'Agent ID')
+  .requiredOption('-d, --doc <hash>', 'Document source hash')
+  .action(async (opts: { agent: string; doc: string }) => {
+    try {
+      const result = await cliApi.delete<{ deleted: number }>(`/agents/${opts.agent}/memory/documents/${opts.doc}`);
+      console.log(chalk.green(`Deleted ${result.deleted} chunk(s)`));
+    } catch (err) {
       printError(err);
     }
   });

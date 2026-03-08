@@ -120,7 +120,7 @@ function AgentEditorPage() {
 }
 
 function AgentEditorPageInner({ agentId, onDone }: { agentId: string; onDone: () => void }) {
-  const [agent, setAgent] = useState<{ id: string; name: string; model: string; status: 'active' | 'paused' | 'error'; workspaceId: string } | null>(null);
+  const [agent, setAgent] = useState<{ id: string; name: string; model: string; status: 'active' | 'inactive' | 'archived'; workspaceId: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -131,7 +131,7 @@ function AgentEditorPageInner({ agentId, onDone }: { agentId: string; onDone: ()
           id: data.agent.id,
           name: data.agent.name,
           model: data.agent.model,
-          status: (data.agent.status as 'active' | 'paused' | 'error') ?? 'active',
+          status: (data.agent.status as 'active' | 'inactive' | 'archived') ?? 'active',
           workspaceId: data.agent.workspaceId ?? '',
         });
       } catch {

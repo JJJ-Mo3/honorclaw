@@ -7,7 +7,7 @@ import { api } from '../../api/client.js';
 interface Agent {
   id: string;
   name: string;
-  status: 'active' | 'paused' | 'error';
+  status: 'active' | 'inactive' | 'archived';
 }
 
 type MessageType = 'user' | 'agent_response' | 'tool_call_pending' | 'tool_result';

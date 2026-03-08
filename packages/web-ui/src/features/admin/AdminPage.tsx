@@ -9,7 +9,7 @@ interface Agent {
   id: string;
   name: string;
   model: string;
-  status: 'active' | 'paused' | 'error';
+  status: 'active' | 'inactive' | 'archived';
   workspaceId: string;
 }
 
@@ -438,8 +438,8 @@ function UserManagement({ workspaceId: _workspaceId }: { workspaceId: string | n
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     active: 'bg-green-100 text-green-800',
-    paused: 'bg-yellow-100 text-yellow-800',
-    error: 'bg-red-100 text-red-800',
+    inactive: 'bg-yellow-100 text-yellow-800',
+    archived: 'bg-gray-100 text-gray-600',
   };
 
   return (
