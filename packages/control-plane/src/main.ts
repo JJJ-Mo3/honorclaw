@@ -182,7 +182,7 @@ async function main() {
   // WebSocket chat endpoint
   const rawJwtSecret = process.env.JWT_SECRET;
   const jwtSecret = new TextEncoder().encode(
-    rawJwtSecret ?? 'honorclaw-dev-secret-change-in-production',
+    rawJwtSecret ?? (process.env.NODE_ENV === 'development' ? 'honorclaw-dev-secret-change-in-production' : ''),
   );
 
   app.get('/api/ws/chat', { websocket: true }, (socket, request) => {

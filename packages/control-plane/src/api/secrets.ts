@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireRoles, requireWorkspace } from '../middleware/rbac.js';
+import { toCamelCase } from './row-mapper.js';
 import crypto from 'node:crypto';
 import { encryptSecret } from '../auth/crypto.js';
 
@@ -56,7 +57,7 @@ export async function secretRoutes(app: FastifyInstance) {
       [request.workspaceId, secretPath, encryptedValue, expires_at ?? null]
     );
 
-    reply.code(201).send({ secret: result.rows[0] });
+    reply.code(201).send({ secret: toCamelCase(result.rows[0]) });
   });
 
   // Rotate a secret
@@ -88,6 +89,6 @@ export async function secretRoutes(app: FastifyInstance) {
       return;
     }
 
-    return { secret: result.rows[0], rotated: true };
+    return { secret: toCamelCase(result.rows[0]), rotated: true };
   });
 }

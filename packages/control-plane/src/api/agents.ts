@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireRoles, requireWorkspace } from '../middleware/rbac.js';
+import { mapRows, toCamelCase } from './row-mapper.js';
 
 export async function agentRoutes(app: FastifyInstance) {
   app.addHook('onRequest', requireWorkspace());
@@ -7,10 +8,10 @@ export async function agentRoutes(app: FastifyInstance) {
   app.get('/', async (request) => {
     const db = (app as any).db;
     const result = await db.query(
-      'SELECT id, name, display_name, model, status, created_at, updated_at FROM agents WHERE workspace_id = $1 ORDER BY name',
+      'SELECT id, workspace_id, name, display_name, model, status, created_at, updated_at FROM agents WHERE workspace_id = $1 ORDER BY name',
       [request.workspaceId]
     );
-    return { agents: result.rows };
+    return { agents: mapRows(result.rows) };
   });
 
   app.get('/:id', async (request) => {
@@ -28,7 +29,7 @@ export async function agentRoutes(app: FastifyInstance) {
       [id]
     );
 
-    return { agent: result.rows[0], manifest: manifest.rows[0]?.manifest };
+    return { agent: toCamelCase(result.rows[0]), manifest: manifest.rows[0]?.manifest };
   });
 
   app.post('/', { preHandler: [requireRoles('workspace_admin')] }, async (request, reply) => {

@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { requireRoles, requireWorkspace } from '../middleware/rbac.js';
+import { mapRows } from './row-mapper.js';
 import bcrypt from 'bcryptjs';
 
 const VALID_ROLES = ['workspace_admin', 'agent_user', 'auditor', 'api_service'] as const;
@@ -15,7 +16,7 @@ export async function userRoutes(app: FastifyInstance) {
        WHERE uwr.workspace_id = $1 ORDER BY u.email`,
       [request.workspaceId]
     );
-    return { users: result.rows };
+    return { users: mapRows(result.rows) };
   });
 
   app.post('/', { preHandler: [requireRoles('workspace_admin')] }, async (request, reply) => {

@@ -257,6 +257,8 @@ CREATE TABLE IF NOT EXISTS session_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE INDEX IF NOT EXISTS idx_session_messages_session ON session_messages (session_id, created_at);
+
 -- Skills
 CREATE TABLE IF NOT EXISTS skills (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

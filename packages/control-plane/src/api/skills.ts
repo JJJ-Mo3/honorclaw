@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireRoles, requireWorkspace } from '../middleware/rbac.js';
+import { mapRows, toCamelCase } from './row-mapper.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -106,7 +107,7 @@ export async function skillRoutes(app: FastifyInstance) {
       'SELECT id, name, version, description, manifest_yaml, system_prompt, installed_at, updated_at FROM skills WHERE workspace_id = $1 ORDER BY name',
       [request.workspaceId]
     );
-    return { skills: result.rows };
+    return { skills: mapRows(result.rows) };
   });
 
   // List all available skill bundles (regardless of installation status)
@@ -133,18 +134,21 @@ export async function skillRoutes(app: FastifyInstance) {
 
     const lowerQ = q.toLowerCase();
 
+    // Escape ILIKE special characters to prevent pattern injection
+    const escapedQ = q.replace(/[%_\\]/g, '\\$&');
+
     // First query the DB for installed skills matching the query
     const result = await db.query(
       `SELECT id, name, version, description, manifest_yaml, installed_at, updated_at
        FROM skills
        WHERE workspace_id = $1 AND name ILIKE $2
        ORDER BY name`,
-      [request.workspaceId, `%${q}%`]
+      [request.workspaceId, `%${escapedQ}%`]
     );
 
     if (result.rows.length > 0) {
       return {
-        skills: result.rows.map((row: any) => ({
+        skills: mapRows(result.rows).map((row) => ({
           ...row,
           source: 'installed',
         })),
@@ -201,7 +205,7 @@ export async function skillRoutes(app: FastifyInstance) {
       return;
     }
 
-    return { skill: result.rows[0] };
+    return { skill: toCamelCase(result.rows[0]) };
   });
 
   // Install a skill
@@ -244,7 +248,7 @@ export async function skillRoutes(app: FastifyInstance) {
         [request.workspaceId, name, skillVersion, manifestYaml, systemPrompt, description]
       );
 
-      reply.code(201).send({ skill: result.rows[0] });
+      reply.code(201).send({ skill: toCamelCase(result.rows[0]) });
     } catch (err: unknown) {
       const pgErr = err as { code?: string };
       if (pgErr.code === '23505') {
@@ -308,7 +312,7 @@ export async function skillRoutes(app: FastifyInstance) {
        ORDER BY ags.installed_at`,
       [agentId, request.workspaceId]
     );
-    return { skills: result.rows };
+    return { skills: mapRows(result.rows) };
   });
 
   // Apply a skill to an agent

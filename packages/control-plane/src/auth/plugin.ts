@@ -15,15 +15,14 @@ declare module 'fastify' {
 
 async function authPluginImpl(app: FastifyInstance) {
   const rawSecret = process.env.JWT_SECRET;
+  if (!rawSecret && process.env.NODE_ENV !== 'development') {
+    throw new Error('JWT_SECRET environment variable must be set (only skipped when NODE_ENV=development)');
+  }
   if (!rawSecret) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[auth] WARNING: JWT_SECRET is not set. Using insecure default for development only.');
-    } else {
-      throw new Error('JWT_SECRET environment variable must be set in production');
-    }
+    console.warn('[auth] WARNING: JWT_SECRET is not set. Using insecure default for development only.');
   }
   const jwtSecret = new TextEncoder().encode(
-    rawSecret ?? 'honorclaw-dev-secret-change-in-production'
+    rawSecret ?? (process.env.NODE_ENV === 'development' ? 'honorclaw-dev-secret-change-in-production' : '')
   );
 
   app.decorateRequest('userId', undefined);
@@ -160,6 +159,14 @@ async function authPluginImpl(app: FastifyInstance) {
     const countResult = await db.query('SELECT count(*) AS cnt FROM users');
     const isFirst = parseInt(countResult.rows[0].cnt, 10) === 0;
 
+    // Registration gate: after the first user, self-registration is disabled
+    // unless ALLOW_SELF_REGISTRATION=true is set. New users must be invited
+    // by a workspace_admin via the users API.
+    if (!isFirst && process.env.ALLOW_SELF_REGISTRATION !== 'true') {
+      reply.code(403).send({ error: 'Self-registration is disabled. Contact your administrator for an invite.' });
+      return;
+    }
+
     const passwordHash = await bcrypt.hash(password, 12);
 
     try {
@@ -173,17 +180,45 @@ async function authPluginImpl(app: FastifyInstance) {
 
       // Auto-assign to default workspace
       const ws = await db.query(`SELECT id FROM workspaces WHERE name = 'default' LIMIT 1`);
+      let workspaceId: string | undefined;
+      let roles: string[] = [];
       if (ws.rows.length > 0) {
+        workspaceId = ws.rows[0].id;
         const role = isFirst ? 'workspace_admin' : 'agent_user';
+        roles = [role];
         await db.query(
           'INSERT INTO user_workspace_roles (user_id, workspace_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
-          [user.id, ws.rows[0].id, role],
+          [user.id, workspaceId, role],
         );
       }
 
-      reply.code(201).send({
-        user: { id: user.id, email: user.email, isDeploymentAdmin: user.is_deployment_admin },
-      });
+      // Auto-login: issue tokens so the user is immediately authenticated
+      const tokens = await issueTokens(user.id, workspaceId, roles, user.is_deployment_admin, jwtSecret);
+
+      reply
+        .code(201)
+        .setCookie('token', tokens.accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV !== 'development',
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 3600,
+        })
+        .setCookie('refresh_token', tokens.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV !== 'development',
+          sameSite: 'strict',
+          path: '/api/auth/refresh',
+          maxAge: 7 * 86400,
+        })
+        .send({
+          user: { id: user.id, email: user.email, isDeploymentAdmin: user.is_deployment_admin },
+          workspaceId,
+          roles,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+        });
     } catch (err: unknown) {
       const pgErr = err as { code?: string };
       if (pgErr.code === '23505') {

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { Redis } from 'ioredis';
 import { RedisChannels } from '@honorclaw/core';
 import { requireWorkspace } from '../middleware/rbac.js';
+import { mapRows, toCamelCase } from './row-mapper.js';
 
 export async function sessionRoutes(app: FastifyInstance) {
   app.addHook('onRequest', requireWorkspace());
@@ -102,7 +103,7 @@ export async function sessionRoutes(app: FastifyInstance) {
       'SELECT * FROM sessions WHERE id = $1 AND workspace_id = $2',
       [id, request.workspaceId]
     );
-    return { session: result.rows[0] };
+    return { session: toCamelCase(result.rows[0]) };
   });
 
   // Get messages for a session, with optional ?after=<iso-timestamp> filter
@@ -136,7 +137,7 @@ export async function sessionRoutes(app: FastifyInstance) {
     }
 
     const result = await db.query(query, params);
-    return { messages: result.rows };
+    return { messages: mapRows(result.rows) };
   });
 
   app.delete('/:id', async (request, reply) => {

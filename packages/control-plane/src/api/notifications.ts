@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireWorkspace } from '../middleware/rbac.js';
+import { mapRows } from './row-mapper.js';
 
 /**
  * Notification API routes.
@@ -72,7 +73,7 @@ export async function notificationRoutes(app: FastifyInstance) {
     );
 
     return {
-      notifications: result.rows,
+      notifications: mapRows(result.rows),
       unreadCount: Number(unreadResult.rows[0]?.count ?? 0),
     };
   });

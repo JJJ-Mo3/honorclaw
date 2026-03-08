@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import type { EncryptionProvider } from '@honorclaw/core';
 import { WebhookDispatcher } from './dispatcher.js';
 import { validateWebhookUrl } from './url-validator.js';
+import { requireRoles, requireWorkspace } from '../middleware/rbac.js';
 
 export function registerWebhookRoutes(
   app: FastifyInstance,
@@ -11,8 +12,11 @@ export function registerWebhookRoutes(
   encryption: EncryptionProvider,
   dispatcher: WebhookDispatcher,
 ) {
+  // All webhook routes require workspace_admin role
+  const webhookPreHandler = [requireWorkspace(), requireRoles('workspace_admin')];
+
   // List webhook subscriptions for workspace
-  app.get('/webhooks', async (request, reply) => {
+  app.get('/webhooks', { preHandler: webhookPreHandler }, async (request, reply) => {
     const workspaceId = request.workspaceId;
     if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
 
@@ -26,7 +30,7 @@ export function registerWebhookRoutes(
   });
 
   // Create webhook subscription
-  app.post('/webhooks', async (request, reply) => {
+  app.post('/webhooks', { preHandler: webhookPreHandler }, async (request, reply) => {
     const workspaceId = request.workspaceId;
     if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
 
@@ -61,7 +65,7 @@ export function registerWebhookRoutes(
   });
 
   // Update webhook subscription
-  app.put('/webhooks/:id', async (request, reply) => {
+  app.put('/webhooks/:id', { preHandler: webhookPreHandler }, async (request, reply) => {
     const workspaceId = request.workspaceId;
     if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
 
@@ -114,7 +118,7 @@ export function registerWebhookRoutes(
   });
 
   // Delete webhook subscription
-  app.delete('/webhooks/:id', async (request, reply) => {
+  app.delete('/webhooks/:id', { preHandler: webhookPreHandler }, async (request, reply) => {
     const workspaceId = request.workspaceId;
     if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
 
@@ -129,7 +133,7 @@ export function registerWebhookRoutes(
   });
 
   // Test webhook delivery
-  app.post('/webhooks/:id/test', async (request, reply) => {
+  app.post('/webhooks/:id/test', { preHandler: webhookPreHandler }, async (request, reply) => {
     const workspaceId = request.workspaceId;
     if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
 
@@ -164,7 +168,7 @@ export function registerWebhookRoutes(
   });
 
   // Get delivery log for a subscription
-  app.get('/webhooks/:id/deliveries', async (request, reply) => {
+  app.get('/webhooks/:id/deliveries', { preHandler: webhookPreHandler }, async (request, reply) => {
     const workspaceId = request.workspaceId;
     if (!workspaceId) return reply.status(401).send({ error: 'No workspace context' });
 

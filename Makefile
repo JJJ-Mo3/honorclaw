@@ -22,13 +22,15 @@ build-image:
 	docker build -t $(IMAGE_TAG) -f infra/docker/honorclaw.Dockerfile .
 
 # ── Environment setup ────────────────────────────────────────────────────
+# Generate .env from .env.example with real secrets (avoids duplicate keys)
 .env:
-	@cp .env.example .env
-	@echo "JWT_SECRET=$$(openssl rand -base64 48)" >> .env
-	@echo "SESSION_COOKIE_SECRET=$$(openssl rand -base64 32)" >> .env
-	@echo "HONORCLAW_MASTER_KEY=$$(openssl rand -base64 32)" >> .env
-	@echo "POSTGRES_PASSWORD=$$(openssl rand -base64 16)" >> .env
-	@echo "REDIS_PASSWORD=$$(openssl rand -base64 16)" >> .env
+	@sed \
+		-e "s|^JWT_SECRET=.*|JWT_SECRET=$$(openssl rand -base64 48)|" \
+		-e "s|^SESSION_COOKIE_SECRET=.*|SESSION_COOKIE_SECRET=$$(openssl rand -base64 32)|" \
+		-e "s|^HONORCLAW_MASTER_KEY=.*|HONORCLAW_MASTER_KEY=$$(openssl rand -base64 32)|" \
+		-e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$$(openssl rand -base64 16)|" \
+		-e "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$$(openssl rand -base64 16)|" \
+		.env.example > .env
 	@echo "Created .env with generated secrets"
 
 # ── Primary deployment (docker-compose) ──────────────────────────────────

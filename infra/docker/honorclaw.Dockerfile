@@ -42,8 +42,16 @@ RUN apk add --no-cache --virtual .build-deps build-base postgresql16-dev git && 
     rm -rf /tmp/pgvector && \
     apk del .build-deps
 
-# Install Ollama
-RUN curl -fsSL https://ollama.com/install.sh | sh
+# Install Ollama (pre-built static binary, compatible with Alpine musl)
+ARG OLLAMA_VERSION=0.6.2
+RUN case "${TARGETARCH:-amd64}" in \
+      amd64) OLLAMA_ARCH="amd64" ;; \
+      arm64) OLLAMA_ARCH="arm64" ;; \
+      *)     OLLAMA_ARCH="${TARGETARCH}" ;; \
+    esac && \
+    wget -qO /usr/local/bin/ollama \
+      "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-${OLLAMA_ARCH}" && \
+    chmod +x /usr/local/bin/ollama
 
 # Copy application (owned by node user for privilege-dropped execution)
 COPY --from=build --chown=node:node /app/packages /app/packages

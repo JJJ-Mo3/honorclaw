@@ -13,6 +13,7 @@ import { registerKeyRotationCommands } from './commands/key-rotation.js';
 import { registerBundleCommands } from './commands/bundle.js';
 import { registerMigrateModelCommand } from './commands/migrate-model.js';
 import { registerUpgradeCommand } from './commands/upgrade.js';
+import path from 'node:path';
 import { cliApi, CliApiError } from './api.js';
 
 const program = new Command();
@@ -212,7 +213,7 @@ agents
         name: string;
         model: string;
         status: string;
-        workspace_id: string;
+        workspaceId: string;
       }> }>('/agents');
       spinner.stop();
 
@@ -227,7 +228,7 @@ agents
           ? chalk.green(agent.status)
           : chalk.yellow(agent.status);
         console.log(`  ${chalk.bold(agent.name)} [${status}] — ${agent.model}`);
-        console.log(`    ${chalk.dim(`id: ${agent.id}  workspace: ${agent.workspace_id.slice(0, 8)}`)}`);
+        console.log(`    ${chalk.dim(`id: ${agent.id}  workspace: ${agent.workspaceId?.slice(0, 8) ?? 'N/A'}`)}`);
       }
       console.log('');
     } catch (err) {
@@ -268,19 +269,19 @@ agents
         name: string;
         model: string;
         status: string;
-        workspace_id: string;
-        system_prompt?: string;
-        created_at: string;
+        workspaceId: string;
+        systemPrompt?: string;
+        createdAt: string;
       } }>(`/agents/${id}`);
 
       console.log(chalk.bold(`\n${agent.name}\n`));
       console.log(`  ID:             ${agent.id}`);
       console.log(`  Model:          ${agent.model}`);
       console.log(`  Status:         ${statusColor(agent.status)}`);
-      console.log(`  Workspace:      ${agent.workspace_id}`);
-      console.log(`  Created:        ${new Date(agent.created_at).toLocaleString()}`);
-      if (agent.system_prompt) {
-        console.log(`  System Prompt:  ${chalk.dim(agent.system_prompt.slice(0, 100))}${agent.system_prompt.length > 100 ? '...' : ''}`);
+      console.log(`  Workspace:      ${agent.workspaceId}`);
+      console.log(`  Created:        ${new Date(agent.createdAt).toLocaleString()}`);
+      if (agent.systemPrompt) {
+        console.log(`  System Prompt:  ${chalk.dim(agent.systemPrompt.slice(0, 100))}${agent.systemPrompt.length > 100 ? '...' : ''}`);
       }
       console.log('');
     } catch (err) {
@@ -309,7 +310,7 @@ agents
         manifests: Array<{
           version: number;
           manifest: unknown;
-          created_at: string;
+          createdAt: string;
         }>;
       }>(`/manifests/${agentId}`);
 
@@ -323,7 +324,7 @@ agents
 
       // Post the old manifest as a new version (rollback = re-deploy old config)
       const result = await cliApi.post<{
-        manifest: { version: number; agent_id: string };
+        manifest: { version: number; agentId: string };
       }>(`/manifests/${agentId}`, {
         manifest: target.manifest,
       });
@@ -347,8 +348,8 @@ agents
       const { manifests } = await cliApi.get<{
         manifests: Array<{
           version: number;
-          created_at: string;
-          created_by: string;
+          createdAt: string;
+          createdBy: string;
         }>;
       }>(`/manifests/${agentId}`);
       spinner.stop();
@@ -360,9 +361,9 @@ agents
 
       console.log(chalk.bold(`\nManifest Versions for ${agentId}\n`));
       for (const m of manifests) {
-        const ts = new Date(m.created_at).toLocaleString();
+        const ts = new Date(m.createdAt).toLocaleString();
         const latest = m === manifests[0] ? chalk.green(' (current)') : '';
-        console.log(`  v${m.version}${latest}  ${chalk.dim(ts)}  ${chalk.dim(m.created_by ?? '')}`);
+        console.log(`  v${m.version}${latest}  ${chalk.dim(ts)}  ${chalk.dim(m.createdBy ?? '')}`);
       }
       console.log('');
     } catch (err) {
@@ -455,11 +456,25 @@ skills
 
 skills
   .command('init <name>')
-  .description('Scaffold a new skill project')
+  .description('Scaffold a new skill project locally')
   .action(async (name: string) => {
     const spinner = ora(`Scaffolding skill ${chalk.bold(name)}...`).start();
     try {
-      await cliApi.post('/skills/scaffold', { name });
+      const fs = await import('node:fs');
+      const skillDir = path.resolve(process.cwd(), name);
+      if (fs.existsSync(skillDir)) {
+        spinner.fail(`Directory ${name}/ already exists`);
+        return;
+      }
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(skillDir, 'skill.yaml'),
+        `name: ${name}\nversion: 0.1.0\ndescription: A new HonorClaw skill\ntools: []\n`,
+      );
+      fs.writeFileSync(
+        path.join(skillDir, 'system-prompt.md'),
+        `# ${name}\n\nDescribe the skill's system prompt here.\n`,
+      );
       spinner.succeed(`Skill project created at ./${name}/`);
     } catch (err) {
       spinner.fail('Failed to scaffold skill');
@@ -581,16 +596,17 @@ users
 users
   .command('add-workspace')
   .description('Add a user to a workspace')
-  .requiredOption('-u, --user <id>', 'User ID')
+  .requiredOption('-u, --user <email>', 'User email')
   .requiredOption('-w, --workspace <id>', 'Workspace ID')
-  .option('-r, --role <role>', 'Role in workspace', 'member')
+  .option('-r, --role <role>', 'Role in workspace (workspace_admin, agent_user, auditor, api_service)', 'agent_user')
   .action(async (opts: { user: string; workspace: string; role: string }) => {
     try {
-      await cliApi.post(`/users/${opts.user}/workspaces`, {
+      await cliApi.post('/users', {
+        email: opts.user,
         workspaceId: opts.workspace,
         role: opts.role,
       });
-      console.log(chalk.green(`Added user ${opts.user} to workspace ${opts.workspace}`));
+      console.log(chalk.green(`Added user ${opts.user} to workspace ${opts.workspace} with role ${opts.role}`));
     } catch (err) {
       printError(err);
     }
@@ -633,7 +649,8 @@ workspaces
   .action(async (opts: { name: string }) => {
     const spinner = ora(`Creating workspace ${chalk.bold(opts.name)}...`).start();
     try {
-      const ws = await cliApi.post<{ id: string; name: string }>('/workspaces', { name: opts.name });
+      const resp = await cliApi.post<{ workspace: { id: string; name: string } }>('/workspaces', { name: opts.name });
+      const ws = resp.workspace;
       spinner.succeed(`Created workspace ${chalk.bold(ws.name)} (${ws.id})`);
     } catch (err) {
       spinner.fail('Failed to create workspace');
@@ -994,7 +1011,7 @@ program
               await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
               try {
                 const { messages } = await cliApi.get<{
-                  messages: Array<{ role: string; content: string; created_at: string }>;
+                  messages: Array<{ role: string; content: string; createdAt: string }>;
                 }>(`/sessions/${sessionId}/messages`, { after: sentAt });
 
                 const assistantMsg = messages.find((m) => m.role === 'assistant');

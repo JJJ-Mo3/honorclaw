@@ -22,10 +22,9 @@ setInterval(() => {
 }, 60_000).unref();
 
 function getClientIP(request: FastifyRequest): string {
-  const forwarded = request.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0]!.trim();
-  }
+  // Use Fastify's request.ip which respects trustProxy settings and correctly
+  // handles X-Forwarded-For from trusted proxies. Do NOT parse X-Forwarded-For
+  // manually — it is attacker-controlled when there is no trusted proxy.
   return request.ip ?? 'unknown';
 }
 
