@@ -511,7 +511,7 @@ skills
   .description('Show details for a skill')
   .action(async (name: string) => {
     try {
-      const { skill } = await cliApi.get<{ skill: { name: string; version: string; description: string; tools?: string[]; manifest_yaml?: string } }>(
+      const { skill } = await cliApi.get<{ skill: { name: string; version: string; description: string; tools?: string[]; manifestYaml?: string } }>(
         `/skills/${encodeURIComponent(name)}`,
       );
       console.log(chalk.bold(`\n${skill.name} v${skill.version}\n`));
@@ -881,7 +881,7 @@ memory
     const spinner = ora('Loading documents...').start();
     try {
       const result = await cliApi.get<{
-        documents: Array<{ source_name: string; source_hash: string; chunk_count: string; ingested_at: string }>;
+        documents: Array<{ sourceName: string; sourceHash: string; chunkCount: string; ingestedAt: string }>;
       }>(`/agents/${opts.agent}/memory/documents`);
       spinner.stop();
       const docs = result.documents ?? [];
@@ -891,8 +891,8 @@ memory
       }
       console.log(chalk.bold(`\nMemory Documents (${docs.length})\n`));
       for (const doc of docs) {
-        console.log(`  ${chalk.bold(doc.source_name ?? 'unknown')} ${chalk.dim(`[${doc.source_hash?.slice(0, 8) ?? 'N/A'}]`)}`);
-        console.log(`    Chunks: ${doc.chunk_count}  Ingested: ${doc.ingested_at ? new Date(doc.ingested_at).toLocaleString() : 'N/A'}`);
+        console.log(`  ${chalk.bold(doc.sourceName ?? 'unknown')} ${chalk.dim(`[${doc.sourceHash?.slice(0, 8) ?? 'N/A'}]`)}`);
+        console.log(`    Chunks: ${doc.chunkCount}  Ingested: ${doc.ingestedAt ? new Date(doc.ingestedAt).toLocaleString() : 'N/A'}`);
       }
       console.log('');
     } catch (err) {

@@ -30,6 +30,7 @@ import { notificationRoutes } from './api/notifications.js';
 import { evalRoutes } from './api/eval.js';
 import { metricsRoutes } from './api/metrics.js';
 import { approvalRoutes } from './api/approvals.js';
+import { integrationRoutes } from './api/integrations.js';
 import { totpRoutes } from './auth/totp.js';
 import { registerWebhookRoutes } from './webhooks/api.js';
 import { WebhookDispatcher } from './webhooks/dispatcher.js';
@@ -156,6 +157,7 @@ async function main() {
   await app.register(approvalRoutes, { prefix: '/api/approvals' });
   await app.register(skillRoutes, { prefix: '/api/skills' });
   await app.register(secretRoutes, { prefix: '/api/secrets' });
+  await app.register(integrationRoutes, { prefix: '/api/integrations' });
   await app.register(statusRoutes, { prefix: '/api' });
   await app.register(upgradeRoutes, { prefix: '/api/upgrade' });
   await app.register(migrateRoutes, { prefix: '/api/migrate' });

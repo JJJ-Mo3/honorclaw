@@ -194,8 +194,8 @@ export async function skillRoutes(app: FastifyInstance) {
               name: bundle.name,
               version: bundle.version,
               description: bundle.description,
-              manifest_yaml: bundle.manifestYaml,
-              system_prompt: bundle.systemPrompt,
+              manifestYaml: bundle.manifestYaml,
+              systemPrompt: bundle.systemPrompt,
               source: 'bundle',
             },
           };

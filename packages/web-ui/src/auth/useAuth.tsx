@@ -25,6 +25,7 @@ export interface AuthState {
   roles: Role[];
   isLoading: boolean;
   logout: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
 }
 
 interface MeResponse {
@@ -77,6 +78,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const refreshAuth = useCallback(async () => {
+    try {
+      const me = await api.get<MeResponse>('/auth/me');
+      setUser(me.user);
+      setWorkspaceId(me.workspaceId);
+      setRoles(me.roles);
+    } catch {
+      setUser(null);
+      setWorkspaceId(null);
+      setRoles([]);
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout');
@@ -89,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, workspaceId, roles, isLoading, logout }}>
+    <AuthContext.Provider value={{ user, workspaceId, roles, isLoading, logout, refreshAuth }}>
       {children}
     </AuthContext.Provider>
   );

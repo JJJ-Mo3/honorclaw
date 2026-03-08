@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../api/client.js';
+import { useAuth } from './useAuth.js';
 
 interface RegisterResponse {
   user: { id: string; email: string; isDeploymentAdmin: boolean };
@@ -12,6 +13,7 @@ interface RegisterResponse {
  */
 export function RegisterPage() {
   const navigate = useNavigate();
+  const { refreshAuth } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,7 +33,8 @@ export function RegisterPage() {
         displayName,
       });
       // The register endpoint sets auth cookies automatically, so
-      // navigate to the main page instead of forcing a redundant login
+      // refresh auth state then navigate to the main page
+      await refreshAuth();
       navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');

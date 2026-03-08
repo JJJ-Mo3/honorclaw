@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { api } from '../api/client.js';
+import { useAuth } from './useAuth.js';
 
 interface LoginResponse {
   requiresMfa: boolean;
@@ -23,6 +24,7 @@ interface MfaResponse {
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshAuth } = useAuth();
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/';
 
   // ── Form state ──────────────────────────────────────────────────────
@@ -47,7 +49,8 @@ export function LoginPage() {
       if (result.requiresMfa && result.mfaToken) {
         setMfaToken(result.mfaToken);
       } else {
-        // Login complete — redirect
+        // Login complete — refresh auth state then redirect
+        await refreshAuth();
         navigate(from, { replace: true });
       }
     } catch (err) {
@@ -68,6 +71,7 @@ export function LoginPage() {
         code: mfaCode,
       });
 
+      await refreshAuth();
       navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'MFA verification failed');

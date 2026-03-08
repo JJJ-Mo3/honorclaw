@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireRoles, requireWorkspace } from '../middleware/rbac.js';
+import { mapRows } from './row-mapper.js';
 import pino from 'pino';
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
@@ -34,7 +35,7 @@ export async function memoryRoutes(app: FastifyInstance) {
       [request.workspaceId, agentId],
     );
 
-    return { documents: result.rows };
+    return { documents: mapRows(result.rows) };
   });
 
   // -----------------------------------------------------------------------
@@ -53,7 +54,7 @@ export async function memoryRoutes(app: FastifyInstance) {
       [request.workspaceId, agentId, sourceHash],
     );
 
-    return { chunks: result.rows };
+    return { chunks: mapRows(result.rows) };
   });
 
   // -----------------------------------------------------------------------
