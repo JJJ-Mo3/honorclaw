@@ -9,9 +9,9 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Chat', to: '/' },
-  { label: 'Admin', to: '/admin', roles: ['admin'] },
-  { label: 'Audit', to: '/audit', roles: ['auditor', 'admin'] },
-  { label: 'Integrations', to: '/integrations', roles: ['admin'] },
+  { label: 'Admin', to: '/admin', roles: ['workspace_admin'] },
+  { label: 'Audit', to: '/audit', roles: ['auditor', 'workspace_admin'] },
+  { label: 'Integrations', to: '/integrations', roles: ['workspace_admin'] },
 ];
 
 export function NavBar() {

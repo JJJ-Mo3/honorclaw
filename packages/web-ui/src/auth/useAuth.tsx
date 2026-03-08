@@ -17,7 +17,7 @@ export interface AuthUser {
   displayName: string;
 }
 
-export type Role = 'admin' | 'operator' | 'auditor' | 'member';
+export type Role = 'workspace_admin' | 'agent_user' | 'auditor' | 'api_service';
 
 export interface AuthState {
   user: AuthUser | null;

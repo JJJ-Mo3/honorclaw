@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { api } from '../api/client.js';
 
 interface LoginResponse {
@@ -63,7 +63,7 @@ export function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await api.post<MfaResponse>('/auth/mfa/verify', {
+      await api.post<MfaResponse>('/auth/totp/verify', {
         mfaToken,
         code: mfaCode,
       });
@@ -176,6 +176,13 @@ export function LoginPage() {
             </button>
           </form>
         )}
+
+        <p className="mt-4 text-center text-sm text-gray-500">
+          Don't have an account?{' '}
+          <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+            Create account
+          </Link>
+        </p>
       </div>
     </div>
   );

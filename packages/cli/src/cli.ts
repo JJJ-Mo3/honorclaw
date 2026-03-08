@@ -73,6 +73,129 @@ program
 registerUpgradeCommand(program);
 
 // ═══════════════════════════════════════════════════════════════════════
+//  Authentication
+// ═══════════════════════════════════════════════════════════════════════
+
+program
+  .command('login')
+  .description('Authenticate with a HonorClaw server')
+  .option('-s, --server <url>', 'Server URL (overrides HONORCLAW_API_URL)')
+  .action(async (opts: { server?: string }) => {
+    const readline = await import('node:readline');
+
+    const serverUrl = opts.server ?? cliApi.getBaseUrl();
+    console.log(chalk.bold(`\nLogging in to ${serverUrl}\n`));
+
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    const question = (prompt: string): Promise<string> =>
+      new Promise((resolve) => {
+        rl.question(prompt, (answer: string) => resolve(answer));
+      });
+
+    try {
+      const email = await question('  Email: ');
+      // Hide password input by writing to stderr and reading raw stdin
+      const password = await new Promise<string>((resolve) => {
+        const stdin = process.stdin;
+        const wasRaw = stdin.isRaw;
+        if (stdin.isTTY) stdin.setRawMode(true);
+        process.stdout.write('  Password: ');
+        let pw = '';
+        const onData = (data: Buffer) => {
+          const ch = data.toString('utf-8');
+          if (ch === '\n' || ch === '\r') {
+            stdin.removeListener('data', onData);
+            if (stdin.isTTY && wasRaw !== undefined) stdin.setRawMode(wasRaw);
+            process.stdout.write('\n');
+            resolve(pw);
+          } else if (ch === '\u007f' || ch === '\b') {
+            // backspace
+            pw = pw.slice(0, -1);
+          } else if (ch === '\u0003') {
+            // Ctrl+C
+            process.stdout.write('\n');
+            process.exit(1);
+          } else {
+            pw += ch;
+          }
+        };
+        stdin.on('data', onData);
+        stdin.resume();
+      });
+
+      rl.close();
+
+      if (!email || !password) {
+        console.error(chalk.red('  Email and password are required.'));
+        return;
+      }
+
+      const spinner = ora('Authenticating...').start();
+
+      // Call the login endpoint directly (not through cliApi which adds /api prefix)
+      const url = `${serverUrl}/api/auth/login`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        let msg = `Login failed (HTTP ${response.status})`;
+        try {
+          const parsed = JSON.parse(body) as { error?: string };
+          if (parsed.error) msg = parsed.error;
+        } catch { /* not JSON */ }
+        spinner.fail(msg);
+        return;
+      }
+
+      const data = await response.json() as {
+        accessToken?: string;
+        refreshToken?: string;
+        expiresAt?: string;
+        requiresMfa?: boolean;
+        user?: { id: string; email: string };
+      };
+
+      if (data.requiresMfa) {
+        spinner.warn('MFA is required. Please complete MFA verification through the web UI.');
+        return;
+      }
+
+      if (!data.accessToken) {
+        spinner.fail('Login succeeded but no access token was returned. Server may need to be updated.');
+        return;
+      }
+
+      cliApi.saveToken({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        expiresAt: data.expiresAt ?? new Date(Date.now() + 3600 * 1000).toISOString(),
+      });
+
+      spinner.succeed(`Logged in as ${chalk.bold(data.user?.email ?? email)}`);
+      console.log(chalk.dim(`  Token saved to ~/.honorclaw/token.json\n`));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(chalk.red(`  Login failed: ${msg}`));
+    }
+  });
+
+program
+  .command('logout')
+  .description('Remove stored authentication credentials')
+  .action(() => {
+    cliApi.clearToken();
+    console.log(chalk.green('  Logged out. Token removed from ~/.honorclaw/token.json'));
+  });
+
+// ═══════════════════════════════════════════════════════════════════════
 //  Agents
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -287,6 +410,30 @@ skills
       console.log('');
     } catch (err) {
       spinner.fail('Failed to list skills');
+      printError(err);
+    }
+  });
+
+skills
+  .command('available')
+  .description('List all available skill bundles')
+  .action(async () => {
+    const spinner = ora('Loading available skills...').start();
+    try {
+      const { skills: list } = await cliApi.get<{ skills: Array<{ name: string; version: string; description: string; source: string }> }>('/skills/available');
+      spinner.stop();
+      if (list.length === 0) {
+        console.log(chalk.dim('No skill bundles found.'));
+        return;
+      }
+      console.log(chalk.bold('\nAvailable Skills\n'));
+      for (const skill of list) {
+        console.log(`  ${chalk.bold(skill.name)} ${chalk.dim(`v${skill.version}`)}`);
+        if (skill.description) console.log(`    ${chalk.dim(skill.description)}`);
+      }
+      console.log(chalk.dim(`\n  Install with: honorclaw skills install <name>\n`));
+    } catch (err) {
+      spinner.fail('Failed to list available skills');
       printError(err);
     }
   });
@@ -822,14 +969,50 @@ program
         }
 
         try {
-          const response = await cliApi.post<{ sent: boolean; reply?: string }>(`/sessions/${sessionId}/messages`, {
+          // Send the message; the server will try to return a sync response
+          const sendSpinner = ora({ text: 'Thinking...', spinner: 'dots' }).start();
+          const response = await cliApi.post<{ sent: boolean; reply?: string | null; error?: boolean; message?: string }>(`/sessions/${sessionId}/messages`, {
             content: trimmed,
           });
+          sendSpinner.stop();
 
-          if (response.reply) {
+          if (response.error) {
+            console.log(chalk.red(`agent> ${response.reply ?? response.message ?? 'Unknown error'}\n`));
+          } else if (response.reply) {
             console.log(chalk.cyan(`agent> ${response.reply}\n`));
           } else {
-            console.log(chalk.dim('(message sent)\n'));
+            // Sync response was null — fall back to polling the messages endpoint
+            const pollSpinner = ora({ text: 'Waiting for response...', spinner: 'dots' }).start();
+            const sentAt = new Date().toISOString();
+            const POLL_INTERVAL = 500;
+            const POLL_TIMEOUT = 30_000;
+            const startTime = Date.now();
+            let agentReply: string | null = null;
+
+            while (Date.now() - startTime < POLL_TIMEOUT) {
+              await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+              try {
+                const { messages } = await cliApi.get<{
+                  messages: Array<{ role: string; content: string; created_at: string }>;
+                }>(`/sessions/${sessionId}/messages`, { after: sentAt });
+
+                const assistantMsg = messages.find((m) => m.role === 'assistant');
+                if (assistantMsg) {
+                  agentReply = assistantMsg.content;
+                  break;
+                }
+              } catch {
+                // Ignore poll errors, keep retrying
+              }
+            }
+
+            pollSpinner.stop();
+
+            if (agentReply) {
+              console.log(chalk.cyan(`agent> ${agentReply}\n`));
+            } else {
+              console.log(chalk.dim('(no response received within timeout)\n'));
+            }
           }
         } catch (err) {
           printError(err);

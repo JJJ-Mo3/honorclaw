@@ -72,7 +72,7 @@ export class LLMRouter {
 
     // Google Gemini
     const geminiKey =
-      config.providers?.gemini?.apiKeySecret ?? process.env.GEMINI_API_KEY;
+      config.providers?.gemini?.apiKeySecret ?? process.env.GOOGLE_AI_API_KEY;
     if (geminiKey && config.providers?.gemini?.enabled !== false) {
       this.adapters.set('gemini', new GeminiAdapter(
         geminiKey,

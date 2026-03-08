@@ -268,6 +268,26 @@ CREATE TABLE IF NOT EXISTS skills (
   UNIQUE(workspace_id, name)
 );
 
+-- Add system_prompt column to skills if it doesn't exist (idempotent migration)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'skills' AND column_name = 'system_prompt'
+  ) THEN
+    ALTER TABLE skills ADD COLUMN system_prompt TEXT DEFAULT '';
+  END IF;
+END $$;
+
+-- Add description column to skills if it doesn't exist (idempotent migration)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'skills' AND column_name = 'description'
+  ) THEN
+    ALTER TABLE skills ADD COLUMN description TEXT DEFAULT '';
+  END IF;
+END $$;
+
 -- Schema migrations tracking
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version TEXT PRIMARY KEY,

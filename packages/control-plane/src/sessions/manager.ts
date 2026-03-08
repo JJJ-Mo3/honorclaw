@@ -104,6 +104,13 @@ export class SessionManager {
   }
 
   async sendMessage(sessionId: string, content: string, userId: string): Promise<void> {
+    // Store the user message in the database for history
+    await this.db.query(
+      'INSERT INTO session_messages (session_id, role, content, metadata) VALUES ($1, $2, $3, $4)',
+      [sessionId, 'user', content, JSON.stringify({ senderId: userId })],
+    );
+
+    // Publish to the agent input channel so the AgentLoop picks it up
     await this.redis.publish(RedisChannels.agentInput(sessionId), JSON.stringify({
       sessionId,
       content,

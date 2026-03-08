@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from './auth/useAuth.js';
 import { LoginPage } from './auth/LoginPage.js';
+import { RegisterPage } from './auth/RegisterPage.js';
 import { ChatPage } from './features/chat/ChatPage.js';
 import { AdminPage, AgentEditor } from './features/admin/AdminPage.js';
 import { ManifestEditor } from './features/admin/ManifestEditor.js';
@@ -17,6 +18,7 @@ export function App() {
         <Routes>
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
           {/* Protected: any authenticated user */}
           <Route
@@ -32,7 +34,7 @@ export function App() {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
                 <AdminPage />
               </ProtectedRoute>
             }
@@ -41,7 +43,7 @@ export function App() {
           <Route
             path="/admin/agents/:id"
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
                 <AgentEditorPage />
               </ProtectedRoute>
             }
@@ -50,7 +52,7 @@ export function App() {
           <Route
             path="/admin/agents/:id/manifest"
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
                 <ManifestEditor />
               </ProtectedRoute>
             }
@@ -59,7 +61,7 @@ export function App() {
           <Route
             path="/admin/agents/:id/manifest/visual"
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
                 <VisualManifestEditor />
               </ProtectedRoute>
             }
@@ -69,7 +71,7 @@ export function App() {
           <Route
             path="/audit"
             element={
-              <ProtectedRoute allowedRoles={['auditor', 'admin']}>
+              <ProtectedRoute allowedRoles={['auditor', 'workspace_admin']}>
                 <AuditViewer />
               </ProtectedRoute>
             }
@@ -79,7 +81,7 @@ export function App() {
           <Route
             path="/integrations"
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
                 <IntegrationsPage />
               </ProtectedRoute>
             }

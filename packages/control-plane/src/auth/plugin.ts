@@ -133,7 +133,15 @@ async function authPluginImpl(app: FastifyInstance) {
         path: '/api/auth/refresh',
         maxAge: 7 * 86400,
       })
-      .send({ user: { id: user.id, email: user.email, isDeploymentAdmin: user.is_deployment_admin }, workspaceId, roles });
+      .send({
+        user: { id: user.id, email: user.email, isDeploymentAdmin: user.is_deployment_admin },
+        workspaceId,
+        roles,
+        // Include tokens in response body so CLI and headless clients can capture them
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+      });
   });
 
   app.post('/api/auth/register', async (request, reply) => {
@@ -247,6 +255,18 @@ async function authPluginImpl(app: FastifyInstance) {
     } catch {
       reply.code(401).send({ error: 'Invalid refresh token' });
     }
+  });
+
+  app.get('/api/auth/me', async (request, reply) => {
+    // request.userId, request.workspaceId, request.roles are set by the onRequest hook
+    const db = (app as any).db;
+    const { rows } = await db.query('SELECT id, email, display_name FROM users WHERE id = $1', [request.userId]);
+    if (!rows[0]) return reply.code(404).send({ error: 'User not found' });
+    return {
+      user: { id: rows[0].id, email: rows[0].email, displayName: rows[0].display_name },
+      workspaceId: request.workspaceId,
+      roles: request.roles ?? [],
+    };
   });
 
   app.post('/api/auth/logout', async (_request, reply) => {

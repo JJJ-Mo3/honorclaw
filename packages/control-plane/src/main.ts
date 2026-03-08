@@ -40,6 +40,7 @@ import { SessionManager } from './sessions/manager.js';
 import { ToolExecutor } from './tools/executor.js';
 import { AuditEmitter } from './audit/emitter.js';
 import { AgentScheduler } from './scheduler/index.js';
+import { AgentLoop } from './agent-loop.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -123,6 +124,10 @@ async function main() {
   await llmRouter.start();
   await toolExecutor.start();
 
+  // Start the AgentLoop — bridges user input to LLM requests and delivers responses
+  const agentLoop = new AgentLoop(db, redis, config);
+  await agentLoop.start();
+
   // Decorate Fastify
   app.decorate('db', db);
   app.decorate('redis', redis);
@@ -183,9 +188,25 @@ async function main() {
     let userId: string | undefined;
     let workspaceId: string | undefined;
 
-    // Authenticate via token query parameter
+    // Authenticate via cookie first (browser), then fall back to ?token= param (CLI/API)
     const url = new URL(request.url, `http://${request.headers.host}`);
-    const token = url.searchParams.get('token');
+    const agentIdFromQuery = url.searchParams.get('agentId');
+
+    let token: string | null = null;
+
+    // Try to extract token from cookie header
+    const cookieHeader = request.headers.cookie;
+    if (cookieHeader) {
+      const match = cookieHeader.split(';').map(c => c.trim()).find(c => c.startsWith('token='));
+      if (match) {
+        token = match.split('=').slice(1).join('=');
+      }
+    }
+
+    // Fall back to query parameter for CLI/API clients
+    if (!token) {
+      token = url.searchParams.get('token');
+    }
 
     if (!token) {
       socket.send(JSON.stringify({ type: 'error', message: 'Authentication required' }));
@@ -209,14 +230,23 @@ async function main() {
       // Subscribe to agent output channels for this user
       const sub = redis.duplicate();
       const subscribedChannels = new Set<string>();
+      let currentSessionId: string | null = null;
 
       socket.on('message', (raw) => {
         try {
-          const msg = JSON.parse(raw.toString()) as { agentId?: string; sessionId?: string; content?: string; action?: string };
+          const parsed = JSON.parse(raw.toString()) as Record<string, unknown>;
 
-          if (msg.action === 'subscribe' && msg.sessionId) {
+          // Handle legacy format: { agentId, sessionId, content, action }
+          // Handle ChatPage format: { type: 'user_message', content, id }
+          const msgType = parsed.type as string | undefined;
+          const content = parsed.content as string | undefined;
+          const msgAgentId = (parsed.agentId as string | undefined) ?? agentIdFromQuery;
+          const msgSessionId = (parsed.sessionId as string | undefined) ?? currentSessionId;
+          const action = parsed.action as string | undefined;
+
+          if (action === 'subscribe' && msgSessionId) {
             // Subscribe to output for a specific session
-            const outputChannel = RedisChannels.agentOutput(msg.sessionId);
+            const outputChannel = RedisChannels.agentOutput(msgSessionId);
             if (!subscribedChannels.has(outputChannel)) {
               subscribedChannels.add(outputChannel);
               sub.subscribe(outputChannel).catch((err: unknown) => {
@@ -226,16 +256,23 @@ async function main() {
             return;
           }
 
-          if (msg.content && msg.agentId) {
-            // Create session or send message
-            if (!msg.sessionId) {
-              // Create a new session
+          // Accept both { type: 'user_message', content } and { content, agentId }
+          if (content && (msgType === 'user_message' || msgAgentId)) {
+            const effectiveAgentId = msgAgentId;
+            if (!effectiveAgentId) {
+              socket.send(JSON.stringify({ type: 'error', message: 'agentId is required' }));
+              return;
+            }
+
+            if (!msgSessionId) {
+              // Create a new session on first message
               sessionManager.create({
                 workspaceId: workspaceId!,
-                agentId: msg.agentId,
+                agentId: effectiveAgentId,
                 userId: userId!,
                 channel: 'websocket',
               }).then((session) => {
+                currentSessionId = session.id;
                 socket.send(JSON.stringify({ type: 'session_created', sessionId: session.id }));
 
                 // Subscribe to output for the new session
@@ -246,7 +283,7 @@ async function main() {
                 });
 
                 // Send the message
-                sessionManager.sendMessage(session.id, msg.content!, userId!).catch((err: unknown) => {
+                sessionManager.sendMessage(session.id, content!, userId!).catch((err: unknown) => {
                   logger.error({ err }, 'Failed to send message');
                   socket.send(JSON.stringify({ type: 'error', message: 'Failed to send message' }));
                 });
@@ -256,7 +293,7 @@ async function main() {
               });
             } else {
               // Send message to existing session
-              sessionManager.sendMessage(msg.sessionId, msg.content, userId!).catch((err: unknown) => {
+              sessionManager.sendMessage(msgSessionId, content, userId!).catch((err: unknown) => {
                 logger.error({ err }, 'Failed to send message');
                 socket.send(JSON.stringify({ type: 'error', message: 'Failed to send message' }));
               });

@@ -78,8 +78,15 @@ export function ManifestEditor() {
   useEffect(() => {
     async function load() {
       try {
-        const data = await api.get<CapabilityManifest>(`/admin/agents/${agentId}/manifest`);
-        setManifest(data);
+        const data = await api.get<{ manifests: Array<{ manifest: CapabilityManifest } & Record<string, unknown>> }>(`/manifests/${agentId}`);
+        if (data.manifests.length > 0) {
+          // Extract the latest manifest (first entry, ordered by version DESC)
+          const latest = data.manifests[0]!;
+          const parsed = typeof latest.manifest === 'string' ? JSON.parse(latest.manifest) as CapabilityManifest : latest.manifest;
+          setManifest(parsed);
+        } else {
+          setError('No manifest found for this agent');
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load manifest');
       } finally {
@@ -98,11 +105,14 @@ export function ManifestEditor() {
     setSaving(true);
 
     try {
-      const saved = await api.put<CapabilityManifest>(
-        `/admin/agents/${agentId}/manifest`,
-        manifest,
+      const saved = await api.post<{ manifest: { manifest: CapabilityManifest } & Record<string, unknown> }>(
+        `/manifests/${agentId}`,
+        { manifest },
       );
-      setManifest(saved);
+      const parsedManifest = typeof saved.manifest.manifest === 'string'
+        ? JSON.parse(saved.manifest.manifest) as CapabilityManifest
+        : saved.manifest.manifest;
+      setManifest(parsedManifest);
       setSuccessMsg('Manifest saved successfully');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save manifest');

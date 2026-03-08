@@ -33,5 +33,22 @@ export function loadConfig(): HonorClawConfig {
     parsed.llm = llm;
   }
 
+  if (process.env.SESSION_COOKIE_SECRET) {
+    const server = (parsed.server as Record<string, unknown>) ?? {};
+    server.sessionCookieSecret = process.env.SESSION_COOKIE_SECRET;
+    parsed.server = server;
+  }
+  if (process.env.JWT_SECRET) {
+    const auth = (parsed.auth as Record<string, unknown>) ?? {};
+    auth.jwtSecret = process.env.JWT_SECRET;
+    parsed.auth = auth;
+  }
+  if (process.env.REDIS_SOCKET) {
+    parsed.redis = { ...(parsed.redis as Record<string, unknown> ?? {}), socket: process.env.REDIS_SOCKET };
+  }
+  if (process.env.DATABASE_SOCKET) {
+    parsed.database = { ...(parsed.database as Record<string, unknown> ?? {}), socket: process.env.DATABASE_SOCKET };
+  }
+
   return HonorClawConfigSchema.parse(parsed);
 }

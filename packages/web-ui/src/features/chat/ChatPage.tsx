@@ -57,10 +57,10 @@ export function ChatPage() {
   useEffect(() => {
     async function load() {
       try {
-        const data = await api.get<Agent[]>('/agents');
-        setAgents(data);
-        if (data.length > 0 && !selectedAgentId) {
-          setSelectedAgentId(data[0]!.id);
+        const data = await api.get<{ agents: Agent[] }>('/agents');
+        setAgents(data.agents);
+        if (data.agents.length > 0 && !selectedAgentId) {
+          setSelectedAgentId(data.agents[0]!.id);
         }
       } catch {
         // Will be handled by global error handling

@@ -1,5 +1,100 @@
 import type { FastifyInstance } from 'fastify';
 import { requireRoles, requireWorkspace } from '../middleware/rbac.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ── Skill Bundle Helpers ─────────────────────────────────────────────────
+
+interface SkillBundle {
+  name: string;
+  version: string;
+  description: string;
+  manifestYaml: string;
+  systemPrompt: string;
+}
+
+/**
+ * Locate the honorclaw-skills/ directory.
+ * Checks Docker path first, then relative paths from both dist and src.
+ */
+function findSkillsDir(): string | null {
+  const candidates = [
+    '/app/honorclaw-skills',
+    path.resolve(__dirname, '..', '..', '..', '..', 'honorclaw-skills'),       // from dist/api/
+    path.resolve(__dirname, '..', '..', '..', '..', '..', 'honorclaw-skills'), // deeper nesting
+    path.resolve(__dirname, '..', '..', 'honorclaw-skills'),                   // from src/api/
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Read a single skill bundle from the honorclaw-skills directory.
+ */
+function readSkillBundle(skillsDir: string, name: string): SkillBundle | null {
+  const skillDir = path.join(skillsDir, name);
+  const yamlPath = path.join(skillDir, 'skill.yaml');
+
+  if (!fs.existsSync(yamlPath)) {
+    return null;
+  }
+
+  const manifestYaml = fs.readFileSync(yamlPath, 'utf-8');
+
+  // Parse basic fields from YAML without a full YAML parser
+  const version = extractYamlField(manifestYaml, 'version') ?? '1.0.0';
+  const description = extractYamlField(manifestYaml, 'description') ?? '';
+
+  // Read system prompt if present
+  const promptPath = path.join(skillDir, 'system-prompt.md');
+  const systemPrompt = fs.existsSync(promptPath)
+    ? fs.readFileSync(promptPath, 'utf-8')
+    : '';
+
+  return { name, version, description, manifestYaml, systemPrompt };
+}
+
+/**
+ * List all available skill bundles from the honorclaw-skills directory.
+ */
+function listSkillBundles(): SkillBundle[] {
+  const skillsDir = findSkillsDir();
+  if (!skillsDir) return [];
+
+  const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+  const bundles: SkillBundle[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const bundle = readSkillBundle(skillsDir, entry.name);
+    if (bundle) bundles.push(bundle);
+  }
+
+  return bundles.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Extract a top-level scalar field from YAML without a full parser.
+ * Handles both quoted and unquoted values.
+ */
+function extractYamlField(yaml: string, field: string): string | null {
+  const regex = new RegExp(`^${field}:\\s*(?:"([^"]*?)"|'([^']*?)'|(.+?))\\s*$`, 'm');
+  const match = regex.exec(yaml);
+  if (!match) return null;
+  return match[1] ?? match[2] ?? match[3] ?? null;
+}
+
+// ── Routes ───────────────────────────────────────────────────────────────
 
 export async function skillRoutes(app: FastifyInstance) {
   app.addHook('onRequest', requireWorkspace());
@@ -8,10 +103,23 @@ export async function skillRoutes(app: FastifyInstance) {
   app.get('/', async (request) => {
     const db = (app as any).db;
     const result = await db.query(
-      'SELECT id, name, version, manifest_yaml, installed_at, updated_at FROM skills WHERE workspace_id = $1 ORDER BY name',
+      'SELECT id, name, version, description, manifest_yaml, system_prompt, installed_at, updated_at FROM skills WHERE workspace_id = $1 ORDER BY name',
       [request.workspaceId]
     );
     return { skills: result.rows };
+  });
+
+  // List all available skill bundles (regardless of installation status)
+  app.get('/available', async () => {
+    const bundles = listSkillBundles();
+    return {
+      skills: bundles.map((b) => ({
+        name: b.name,
+        version: b.version,
+        description: b.description,
+        source: 'bundle',
+      })),
+    };
   });
 
   // Search available skills
@@ -23,14 +131,42 @@ export async function skillRoutes(app: FastifyInstance) {
       return { skills: [] };
     }
 
+    const lowerQ = q.toLowerCase();
+
+    // First query the DB for installed skills matching the query
     const result = await db.query(
-      `SELECT id, name, version, manifest_yaml, installed_at, updated_at
+      `SELECT id, name, version, description, manifest_yaml, installed_at, updated_at
        FROM skills
        WHERE workspace_id = $1 AND name ILIKE $2
        ORDER BY name`,
       [request.workspaceId, `%${q}%`]
     );
-    return { skills: result.rows };
+
+    if (result.rows.length > 0) {
+      return {
+        skills: result.rows.map((row: any) => ({
+          ...row,
+          source: 'installed',
+        })),
+      };
+    }
+
+    // Fallback: scan bundles for matching skills
+    const bundles = listSkillBundles();
+    const matching = bundles.filter(
+      (b) =>
+        b.name.toLowerCase().includes(lowerQ) ||
+        b.description.toLowerCase().includes(lowerQ)
+    );
+
+    return {
+      skills: matching.map((b) => ({
+        name: b.name,
+        version: b.version,
+        description: b.description,
+        source: 'bundle',
+      })),
+    };
   });
 
   // Get skill details by name
@@ -44,6 +180,23 @@ export async function skillRoutes(app: FastifyInstance) {
     );
 
     if (result.rows.length === 0) {
+      // Try to find in bundles
+      const skillsDir = findSkillsDir();
+      if (skillsDir) {
+        const bundle = readSkillBundle(skillsDir, name);
+        if (bundle) {
+          return {
+            skill: {
+              name: bundle.name,
+              version: bundle.version,
+              description: bundle.description,
+              manifest_yaml: bundle.manifestYaml,
+              system_prompt: bundle.systemPrompt,
+              source: 'bundle',
+            },
+          };
+        }
+      }
       reply.code(404).send({ error: 'Skill not found' });
       return;
     }
@@ -61,15 +214,34 @@ export async function skillRoutes(app: FastifyInstance) {
       return;
     }
 
-    const skillVersion = version ?? 'latest';
+    // Try to load from bundles first
+    let manifestYaml = '{}';
+    let systemPrompt = '';
+    let description = '';
+    let skillVersion = version ?? 'latest';
+
+    const skillsDir = findSkillsDir();
+    if (skillsDir) {
+      const bundle = readSkillBundle(skillsDir, name);
+      if (bundle) {
+        manifestYaml = bundle.manifestYaml;
+        systemPrompt = bundle.systemPrompt;
+        description = bundle.description;
+        // Use bundle version unless a specific version was requested
+        if (!version) {
+          skillVersion = bundle.version;
+        }
+      }
+    }
 
     try {
       const result = await db.query(
-        `INSERT INTO skills (workspace_id, name, version, manifest_yaml)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (workspace_id, name) DO UPDATE SET version = $3, manifest_yaml = $4, updated_at = now()
+        `INSERT INTO skills (workspace_id, name, version, manifest_yaml, system_prompt, description)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (workspace_id, name) DO UPDATE
+           SET version = $3, manifest_yaml = $4, system_prompt = $5, description = $6, updated_at = now()
          RETURNING *`,
-        [request.workspaceId, name, skillVersion, '{}']
+        [request.workspaceId, name, skillVersion, manifestYaml, systemPrompt, description]
       );
 
       reply.code(201).send({ skill: result.rows[0] });

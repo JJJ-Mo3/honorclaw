@@ -81,8 +81,8 @@ function AgentList({ workspaceId }: { workspaceId: string | null }) {
   useEffect(() => {
     async function load() {
       try {
-        const data = await api.get<Agent[]>('/admin/agents');
-        setAgents(data);
+        const data = await api.get<{ agents: Agent[] }>('/agents');
+        setAgents(data.agents);
       } catch {
         // handled by global error
       } finally {
@@ -192,8 +192,8 @@ export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEdito
     if (!agent) return;
     async function loadPrompt() {
       try {
-        const data = await api.get<{ systemPrompt: string }>(`/admin/agents/${agent!.id}`);
-        setSystemPrompt(data.systemPrompt);
+        const data = await api.get<{ agent: { system_prompt: string } }>(`/agents/${agent!.id}`);
+        setSystemPrompt(data.agent?.system_prompt ?? '');
       } catch {
         // Best effort
       }
@@ -216,9 +216,11 @@ export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEdito
 
       let result: Agent;
       if (agent) {
-        result = await api.put<Agent>(`/admin/agents/${agent.id}`, payload);
+        const resp = await api.put<{ agent: Agent }>(`/agents/${agent.id}`, payload);
+        result = resp.agent;
       } else {
-        result = await api.post<Agent>('/admin/agents', payload);
+        const resp = await api.post<{ agent: Agent }>('/agents', payload);
+        result = resp.agent;
       }
 
       onSave(result);
@@ -294,14 +296,14 @@ function UserManagement({ workspaceId: _workspaceId }: { workspaceId: string | n
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('member');
+  const [inviteRole, setInviteRole] = useState('agent_user');
   const [inviting, setInviting] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await api.get<User[]>('/admin/users');
-        setUsers(data);
+        const data = await api.get<{ users: User[] }>('/users');
+        setUsers(data.users);
       } catch {
         // handled by global error
       } finally {
@@ -315,11 +317,11 @@ function UserManagement({ workspaceId: _workspaceId }: { workspaceId: string | n
     e.preventDefault();
     setInviting(true);
     try {
-      const user = await api.post<User>('/admin/users/invite', {
+      const resp = await api.post<{ user: User }>('/users', {
         email: inviteEmail,
         role: inviteRole,
       });
-      setUsers((prev) => [...prev, user]);
+      setUsers((prev) => [...prev, resp.user]);
       setInviteEmail('');
     } catch {
       // handled by global error
@@ -362,10 +364,10 @@ function UserManagement({ workspaceId: _workspaceId }: { workspaceId: string | n
           onChange={(e) => setInviteRole(e.target.value)}
           className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
         >
-          <option value="member">Member</option>
-          <option value="operator">Operator</option>
+          <option value="agent_user">Agent User</option>
           <option value="auditor">Auditor</option>
-          <option value="admin">Admin</option>
+          <option value="workspace_admin">Admin</option>
+          <option value="api_service">API Service</option>
         </select>
         <button
           type="submit"

@@ -50,6 +50,12 @@ COPY --from=build --chown=root:root /app/packages /app/packages
 COPY --from=build --chown=root:root /app/node_modules /app/node_modules
 COPY --from=build --chown=root:root /app/package.json /app/package.json
 
+# Config template (provides sane defaults for the embedded single-container setup)
+COPY config/honorclaw.yaml.template /data/honorclaw.yaml
+
+# Skill bundles (available at runtime for `honorclaw skills install`)
+COPY honorclaw-skills/ /app/honorclaw-skills/
+
 # s6 service definitions
 COPY infra/docker/s6/ /etc/s6-overlay/
 COPY infra/docker/entrypoint.sh /entrypoint.sh

@@ -89,6 +89,18 @@ export class CliApiError extends Error {
 }
 
 function friendlyError(status: number, body: string): CliApiError {
+  if (status === 401) {
+    // Check if there's a stored token that may have expired
+    const token = loadToken();
+    if (token) {
+      const expiresAt = new Date(token.expiresAt);
+      if (expiresAt <= new Date()) {
+        return new CliApiError(status, 'Your session has expired. Run `honorclaw login` to re-authenticate.');
+      }
+    }
+    return new CliApiError(status, 'Authentication required. Run `honorclaw login` first.');
+  }
+
   try {
     const parsed = JSON.parse(body) as { error?: string; message?: string };
     const msg = parsed.error ?? parsed.message ?? `Request failed (HTTP ${status})`;
@@ -98,8 +110,6 @@ function friendlyError(status: number, body: string): CliApiError {
   }
 
   switch (status) {
-    case 401:
-      return new CliApiError(status, 'Authentication required. Run `honorclaw login` first.');
     case 403:
       return new CliApiError(status, 'Permission denied. Check your role and workspace.');
     case 404:
