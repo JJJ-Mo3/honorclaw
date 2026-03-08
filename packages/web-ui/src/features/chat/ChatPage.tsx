@@ -89,20 +89,25 @@ export function ChatPage() {
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data as string) as WsInboundMessage;
+        const data = JSON.parse(event.data as string) as Record<string, unknown>;
+        const msgType = data.type as string;
 
-        if ((data as unknown as { sessionId?: string }).sessionId && !sessionId) {
-          setSessionId((data as unknown as { sessionId: string }).sessionId);
+        // Handle control messages without adding to chat
+        if (msgType === 'connected' || msgType === 'error') return;
+        if (msgType === 'session_created') {
+          setSessionId(data.sessionId as string);
+          return;
         }
 
+        // Chat messages: agent_response, tool_call_pending, tool_result
         const msg: ChatMessage = {
-          id: data.id,
-          type: data.type,
-          content: data.content ?? '',
-          timestamp: data.timestamp,
-          toolCallId: data.toolCallId,
-          toolName: data.toolName,
-          toolParams: data.toolParams,
+          id: (data.id as string) ?? crypto.randomUUID(),
+          type: msgType as MessageType,
+          content: (data.content as string) ?? '',
+          timestamp: (data.timestamp as string) ?? new Date().toISOString(),
+          toolCallId: data.toolCallId as string | undefined,
+          toolName: data.toolName as string | undefined,
+          toolParams: data.toolParams as Record<string, unknown> | undefined,
           toolStatus: data.toolStatus as ChatMessage['toolStatus'],
           toolResult: data.toolResult,
         };

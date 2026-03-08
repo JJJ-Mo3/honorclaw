@@ -24,11 +24,22 @@ export async function sessionRoutes(app: FastifyInstance) {
     reply.code(201).send({ session });
   });
 
-  app.post('/:id/messages', async (request) => {
+  app.post('/:id/messages', async (request, reply) => {
     const { id } = request.params as { id: string };
     const { content, sync } = request.body as { content: string; sync?: boolean };
     const sessionManager = (app as any).sessionManager;
     const redis = (app as any).redis as Redis;
+    const db = (app as any).db;
+
+    // Verify session belongs to the requester's workspace
+    const ownerCheck = await db.query(
+      'SELECT id FROM sessions WHERE id = $1 AND workspace_id = $2',
+      [id, request.workspaceId]
+    );
+    if (ownerCheck.rows.length === 0) {
+      reply.code(404).send({ error: 'Session not found' });
+      return;
+    }
 
     // If the client wants a synchronous response (e.g., CLI chat), subscribe to
     // the output channel BEFORE sending the message to avoid a race condition
@@ -128,9 +139,21 @@ export async function sessionRoutes(app: FastifyInstance) {
     return { messages: result.rows };
   });
 
-  app.delete('/:id', async (request) => {
+  app.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const db = (app as any).db;
     const sessionManager = (app as any).sessionManager;
+
+    // Verify session belongs to the requester's workspace
+    const ownerCheck = await db.query(
+      'SELECT id FROM sessions WHERE id = $1 AND workspace_id = $2',
+      [id, request.workspaceId]
+    );
+    if (ownerCheck.rows.length === 0) {
+      reply.code(404).send({ error: 'Session not found' });
+      return;
+    }
+
     await sessionManager.end(id);
     return { ended: true };
   });

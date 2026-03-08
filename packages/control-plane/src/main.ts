@@ -4,6 +4,7 @@ import helmet from '@fastify/helmet';
 import cookie from '@fastify/cookie';
 import websocket from '@fastify/websocket';
 import fastifyStatic from '@fastify/static';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pino from 'pino';
@@ -245,14 +246,25 @@ async function main() {
           const action = parsed.action as string | undefined;
 
           if (action === 'subscribe' && msgSessionId) {
-            // Subscribe to output for a specific session
-            const outputChannel = RedisChannels.agentOutput(msgSessionId);
-            if (!subscribedChannels.has(outputChannel)) {
-              subscribedChannels.add(outputChannel);
-              sub.subscribe(outputChannel).catch((err: unknown) => {
-                logger.error({ err, channel: outputChannel }, 'Failed to subscribe to agent output');
+            // Verify session belongs to the user's workspace before subscribing
+            const db = (app as any).db;
+            db.query('SELECT id FROM sessions WHERE id = $1 AND workspace_id = $2', [msgSessionId, workspaceId])
+              .then((result: any) => {
+                if (result.rows.length === 0) {
+                  socket.send(JSON.stringify({ type: 'error', message: 'Session not found' }));
+                  return;
+                }
+                const outputChannel = RedisChannels.agentOutput(msgSessionId);
+                if (!subscribedChannels.has(outputChannel)) {
+                  subscribedChannels.add(outputChannel);
+                  sub.subscribe(outputChannel).catch((err: unknown) => {
+                    logger.error({ err, channel: outputChannel }, 'Failed to subscribe to agent output');
+                  });
+                }
+              })
+              .catch(() => {
+                socket.send(JSON.stringify({ type: 'error', message: 'Failed to verify session' }));
               });
-            }
             return;
           }
 
@@ -292,11 +304,20 @@ async function main() {
                 socket.send(JSON.stringify({ type: 'error', message: 'Failed to create session' }));
               });
             } else {
-              // Send message to existing session
-              sessionManager.sendMessage(msgSessionId, content, userId!).catch((err: unknown) => {
-                logger.error({ err }, 'Failed to send message');
-                socket.send(JSON.stringify({ type: 'error', message: 'Failed to send message' }));
-              });
+              // Verify session ownership then send message
+              const db = (app as any).db;
+              db.query('SELECT id FROM sessions WHERE id = $1 AND workspace_id = $2', [msgSessionId, workspaceId])
+                .then((result: any) => {
+                  if (result.rows.length === 0) {
+                    socket.send(JSON.stringify({ type: 'error', message: 'Session not found' }));
+                    return;
+                  }
+                  return sessionManager.sendMessage(msgSessionId!, content!, userId!);
+                })
+                .catch((err: unknown) => {
+                  logger.error({ err }, 'Failed to send message');
+                  socket.send(JSON.stringify({ type: 'error', message: 'Failed to send message' }));
+                });
             }
           }
         } catch (err) {
@@ -305,9 +326,24 @@ async function main() {
         }
       });
 
-      // Forward agent responses to the client
-      sub.on('message', (channel: string, message: string) => {
-        socket.send(JSON.stringify({ type: 'agent_message', channel, data: JSON.parse(message) }));
+      // Forward agent responses to the client in ChatPage-compatible format
+      sub.on('message', (_channel: string, message: string) => {
+        try {
+          const data = JSON.parse(message) as Record<string, unknown>;
+          socket.send(JSON.stringify({
+            type: 'agent_response',
+            id: data.messageId ?? crypto.randomUUID(),
+            content: data.content ?? '',
+            timestamp: data.timestamp ?? new Date().toISOString(),
+            toolCallId: data.toolCallId,
+            toolName: data.toolName,
+            toolParams: data.toolParams,
+            toolStatus: data.toolStatus,
+            toolResult: data.toolResult,
+          }));
+        } catch {
+          socket.send(JSON.stringify({ type: 'agent_response', id: crypto.randomUUID(), content: message, timestamp: new Date().toISOString() }));
+        }
       });
 
       socket.on('close', () => {

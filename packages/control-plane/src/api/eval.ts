@@ -92,10 +92,10 @@ export async function evalRoutes(app: FastifyInstance) {
     const db = (app as any).db;
     const redis = (app as any).redis;
 
-    // Verify session exists and is running
+    // Verify session exists, belongs to workspace, and is running
     const sessionResult = await db.query(
-      `SELECT id, agent_id, workspace_id, status FROM sessions WHERE id = $1`,
-      [id],
+      `SELECT id, agent_id, workspace_id, status FROM sessions WHERE id = $1 AND workspace_id = $2`,
+      [id, request.workspaceId],
     );
 
     const session = sessionResult.rows[0];

@@ -608,7 +608,8 @@ workspaces
   .action(async () => {
     const spinner = ora('Loading workspaces...').start();
     try {
-      const list = await cliApi.get<Array<{ id: string; name: string; createdAt: string }>>('/workspaces');
+      const resp = await cliApi.get<{ workspaces: Array<{ id: string; name: string; createdAt: string }> }>('/workspaces');
+      const list = resp.workspaces ?? [];
       spinner.stop();
       if (list.length === 0) {
         console.log(chalk.dim('No workspaces.'));

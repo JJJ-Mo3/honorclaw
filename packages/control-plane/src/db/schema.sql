@@ -289,6 +289,17 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Agent-skill associations (which skills are applied to which agents)
+CREATE TABLE IF NOT EXISTS agent_skills (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id UUID NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  skill_name TEXT NOT NULL,
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  enabled BOOLEAN DEFAULT true,
+  installed_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(agent_id, skill_name)
+);
+
 -- Schema migrations tracking
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version TEXT PRIMARY KEY,

@@ -45,10 +45,10 @@ RUN apk add --no-cache --virtual .build-deps build-base postgresql16-dev git && 
 # Install Ollama
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
-# Copy application
-COPY --from=build --chown=root:root /app/packages /app/packages
-COPY --from=build --chown=root:root /app/node_modules /app/node_modules
-COPY --from=build --chown=root:root /app/package.json /app/package.json
+# Copy application (owned by node user for privilege-dropped execution)
+COPY --from=build --chown=node:node /app/packages /app/packages
+COPY --from=build --chown=node:node /app/node_modules /app/node_modules
+COPY --from=build --chown=node:node /app/package.json /app/package.json
 
 # Config template (provides sane defaults for the embedded single-container setup)
 COPY config/honorclaw.yaml.template /data/honorclaw.yaml

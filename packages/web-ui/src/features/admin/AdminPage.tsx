@@ -332,7 +332,7 @@ function UserManagement({ workspaceId: _workspaceId }: { workspaceId: string | n
 
   async function handleRoleChange(userId: string, newRole: string) {
     try {
-      await api.patch(`/admin/users/${userId}/role`, { role: newRole });
+      await api.patch(`/users/${userId}/role`, { role: newRole });
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)),
       );
@@ -392,7 +392,7 @@ function UserManagement({ workspaceId: _workspaceId }: { workspaceId: string | n
           <tbody className="divide-y divide-gray-200">
             {users.map((user) => (
               <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm font-medium text-gray-900">{user.displayName}</td>
+                <td className="px-4 py-3 text-sm font-medium text-gray-900">{user.displayName ?? user.email}</td>
                 <td className="px-4 py-3 text-sm text-gray-500">{user.email}</td>
                 <td className="px-4 py-3">
                   <select
@@ -400,10 +400,10 @@ function UserManagement({ workspaceId: _workspaceId }: { workspaceId: string | n
                     onChange={(e) => handleRoleChange(user.id, e.target.value)}
                     className="rounded border border-gray-300 px-2 py-1 text-xs"
                   >
-                    <option value="member">Member</option>
-                    <option value="operator">Operator</option>
+                    <option value="agent_user">Agent User</option>
                     <option value="auditor">Auditor</option>
-                    <option value="admin">Admin</option>
+                    <option value="workspace_admin">Admin</option>
+                    <option value="api_service">API Service</option>
                   </select>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-500">

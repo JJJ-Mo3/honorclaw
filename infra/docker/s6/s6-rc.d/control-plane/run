@@ -18,4 +18,5 @@ fi
 
 export NODE_ENV=${NODE_ENV:-production}
 
-exec node /app/packages/control-plane/dist/main.js
+# Drop privileges: run the Node.js app as the 'node' user (created by node:alpine base image)
+exec su-exec node node /app/packages/control-plane/dist/main.js

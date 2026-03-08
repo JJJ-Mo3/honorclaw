@@ -293,4 +293,59 @@ export async function skillRoutes(app: FastifyInstance) {
 
     reply.code(204).send();
   });
+
+  // ── Agent-Skill associations ──────────────────────────────────────────
+
+  // List skills applied to an agent
+  app.get('/agents/:agentId', async (request) => {
+    const { agentId } = request.params as { agentId: string };
+    const db = (app as any).db;
+    const result = await db.query(
+      `SELECT ags.skill_name, ags.enabled, ags.installed_at, s.description, s.system_prompt
+       FROM agent_skills ags
+       LEFT JOIN skills s ON s.name = ags.skill_name AND s.workspace_id = ags.workspace_id
+       WHERE ags.agent_id = $1 AND ags.workspace_id = $2
+       ORDER BY ags.installed_at`,
+      [agentId, request.workspaceId]
+    );
+    return { skills: result.rows };
+  });
+
+  // Apply a skill to an agent
+  app.post('/agents/:agentId', { preHandler: requireRoles('workspace_admin') }, async (request, reply) => {
+    const { agentId } = request.params as { agentId: string };
+    const { skillName } = request.body as { skillName: string };
+    const db = (app as any).db;
+
+    // Verify skill is installed
+    const skillCheck = await db.query(
+      'SELECT name FROM skills WHERE workspace_id = $1 AND name = $2',
+      [request.workspaceId, skillName]
+    );
+    if (skillCheck.rows.length === 0) {
+      reply.code(404).send({ error: 'Skill not installed in this workspace' });
+      return;
+    }
+
+    await db.query(
+      `INSERT INTO agent_skills (agent_id, skill_name, workspace_id)
+       VALUES ($1, $2, $3) ON CONFLICT (agent_id, skill_name) DO NOTHING`,
+      [agentId, skillName, request.workspaceId]
+    );
+
+    reply.code(201).send({ applied: true, agentId, skillName });
+  });
+
+  // Remove a skill from an agent
+  app.delete('/agents/:agentId/:skillName', { preHandler: requireRoles('workspace_admin') }, async (request, reply) => {
+    const { agentId, skillName } = request.params as { agentId: string; skillName: string };
+    const db = (app as any).db;
+
+    await db.query(
+      'DELETE FROM agent_skills WHERE agent_id = $1 AND skill_name = $2 AND workspace_id = $3',
+      [agentId, skillName, request.workspaceId]
+    );
+
+    reply.code(204).send();
+  });
 }

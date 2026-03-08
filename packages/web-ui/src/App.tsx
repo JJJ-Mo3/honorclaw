@@ -8,6 +8,7 @@ import { ManifestEditor } from './features/admin/ManifestEditor.js';
 import { VisualManifestEditor } from './features/admin/VisualManifestEditor.js';
 import { AuditViewer } from './features/audit/AuditViewer.js';
 import { IntegrationsPage } from './pages/integrations/IntegrationsPage.js';
+import { SkillsPage } from './features/skills/SkillsPage.js';
 import { NavBar } from './components/NavBar.js';
 
 export function App() {
@@ -78,6 +79,15 @@ export function App() {
           />
 
           {/* Protected: admin only */}
+          <Route
+            path="/skills"
+            element={
+              <ProtectedRoute>
+                <SkillsPage />
+              </ProtectedRoute>
+            }
+          />
+
           <Route
             path="/integrations"
             element={

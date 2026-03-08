@@ -65,16 +65,16 @@ export async function totpRoutes(app: FastifyInstance) {
     // Rate limit by IP
     if (!checkRateLimit(request, reply)) return;
 
-    const { code } = request.body as { code: string };
+    const { code, mfaToken: bodyToken } = request.body as { code: string; mfaToken?: string };
 
     if (!code) {
       reply.code(400).send({ error: 'TOTP code is required' });
       return;
     }
 
-    // Extract the mfa_pending token from Authorization header
+    // Extract the mfa_pending token from: body (Web UI), Authorization header (CLI), or cookie
     const authHeader = request.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : request.cookies?.token;
+    const token = bodyToken ?? (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : request.cookies?.token);
 
     if (!token) {
       reply.code(401).send({ error: 'MFA pending token required' });
