@@ -22,6 +22,7 @@ ON CONFLICT (name) DO NOTHING;
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email TEXT NOT NULL UNIQUE,
+  display_name TEXT,
   password_hash TEXT,
   totp_secret TEXT,
   totp_enabled BOOLEAN DEFAULT false,

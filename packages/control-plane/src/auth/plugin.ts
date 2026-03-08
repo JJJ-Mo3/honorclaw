@@ -148,7 +148,7 @@ async function authPluginImpl(app: FastifyInstance) {
     // Rate limit by IP
     if (!checkRateLimit(request, reply)) return;
 
-    const { email, password } = request.body as { email: string; password: string };
+    const { email, password, displayName } = request.body as { email: string; password: string; displayName?: string };
     const db = (app as any).db;
 
     if (!email || !password || password.length < 8) {
@@ -164,10 +164,10 @@ async function authPluginImpl(app: FastifyInstance) {
 
     try {
       const result = await db.query(
-        `INSERT INTO users (email, password_hash, is_deployment_admin)
-         VALUES ($1, $2, $3)
-         RETURNING id, email, is_deployment_admin`,
-        [email, passwordHash, isFirst],
+        `INSERT INTO users (email, display_name, password_hash, is_deployment_admin)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, email, display_name, is_deployment_admin`,
+        [email, displayName ?? null, passwordHash, isFirst],
       );
       const user = result.rows[0];
 
@@ -263,7 +263,7 @@ async function authPluginImpl(app: FastifyInstance) {
     const { rows } = await db.query('SELECT id, email, display_name FROM users WHERE id = $1', [request.userId]);
     if (!rows[0]) return reply.code(404).send({ error: 'User not found' });
     return {
-      user: { id: rows[0].id, email: rows[0].email, displayName: rows[0].display_name },
+      user: { id: rows[0].id, email: rows[0].email, displayName: rows[0].display_name ?? rows[0].email },
       workspaceId: request.workspaceId,
       roles: request.roles ?? [],
     };
