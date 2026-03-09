@@ -48,7 +48,10 @@ helm install falco falcosecurity/falco -n falco --create-namespace
 ### 2. Install HonorClaw CLI
 
 ```bash
-curl -fsSL https://honorclaw.dev/install.sh | sh
+git clone https://github.com/JJJ-Mo3/honorclaw.git
+cd honorclaw
+pnpm install && pnpm build
+npm link packages/cli
 ```
 
 ### 3. Initialize
@@ -78,7 +81,7 @@ kubectl apply -f k8s/
 ### 7. Verify
 
 ```bash
-honorclaw doctor --full
+honorclaw doctor
 kubectl get pods -n honorclaw
 kubectl get pods -n honorclaw-agents
 ```
@@ -268,7 +271,7 @@ For manual control:
 ```bash
 # Update image tags
 kubectl set image deployment/honorclaw-control-plane \
-  control-plane=ghcr.io/honorclaw/honorclaw:0.2.0 \
+  control-plane=ghcr.io/jjj-mo3/honorclaw:0.2.0 \
   -n honorclaw
 
 # Watch rollout

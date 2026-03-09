@@ -76,7 +76,7 @@ HonorClaw matches OpenClaw's feature set (agents, memory, tool calling, multi-ag
 - Human-in-the-loop approval flows for sensitive tool calls
 - **Agent-to-human escalation**: agents can emit an `escalate` event with context (reason, confidence, conversation summary) routed to a configured channel (Slack, Teams, email, webhook, or Admin UI queue). Human can respond in the agent's context or provide guidance for the agent to continue. Critical for customer support and IT helpdesk deployments.
 - **Graceful shutdown / session draining**: on SIGTERM, Control Plane stops accepting new sessions, checkpoints active session state to PostgreSQL, waits for in-flight turns to complete (configurable timeout), then shuts down. Rolling updates and restarts do not lose mid-conversation context.
-- **Agent manifest versioning and rollback**: `honorclaw agent rollback <agent-id> --to-version <N>`; manifest history shown in Admin UI with diff view; canary deployments — new manifest version active for a configurable percentage of sessions before full rollout. Manifests stored as immutable rows.
+- **Agent manifest versioning and rollback**: `honorclaw agents rollback <agent-id> --to-version <N>`; manifest history shown in Admin UI with diff view; canary deployments — new manifest version active for a configurable percentage of sessions before full rollout. Manifests stored as immutable rows.
 
 - Scheduled (cron) agent sessions: run agents on a schedule without a user message; output delivered to configured channel. Defined in manifest: `schedule: "0 9 * * 1-5"` (cron syntax). Requires headless session concept in Control Plane.
 - Webhook-triggered sessions: inbound HTTP → headless agent session → result to output channel
@@ -291,13 +291,13 @@ Users can swap or add providers at any time via `honorclaw secrets set` and `hon
 - **Prometheus metrics endpoint**: `GET /metrics` on the Control Plane — exposes session latency (P50/P95), token usage per agent/workspace, tool call volume and rejection rate, audit sink lag, active session count. Zero-config: works with any Prometheus-compatible scraper.
 - **Per-agent token and cost tracking**: `honorclaw usage --agent <name> --since 30d` — reports token counts, estimated cost by LLM provider, and trend. Essential for operating at scale; without it, operators have no visibility into spend.
 - **Workspace cost tracking and chargeback**: configurable $/token rates per model; usage aggregated by workspace and agent; budget alert thresholds with notification via email or webhook; CSV/JSON export for chargeback/showback reporting. Hard requirement for enterprise IT finance approval.
-- **Agent manifest rollback**: `honorclaw agent rollback <agent-id> --to v<N>` — reverts to a previous manifest version. Manifests are already stored with immutable versioning; rollback is the operational completion of that design.
+- **Agent manifest rollback**: `honorclaw agents rollback <agent-id> --to v<N>` — reverts to a previous manifest version. Manifests are already stored with immutable versioning; rollback is the operational completion of that design.
 - **Backup and restore**: `honorclaw backup create --output backup.tar.gz` — dumps PostgreSQL (pg_dump), Redis RDB snapshot, and local filesystem storage into a single AES-256-GCM encrypted archive (encrypted with master key). `honorclaw backup restore --input backup.tar.gz`. Schedulable via cron with configurable retention. Table stakes for any self-hosted product that stores important data.
-- **Upgrade path with schema versioning**: `honorclaw upgrade` — pulls new images, runs pending migrations (via migration framework with `schema_migrations` table), verifies compatibility, restarts services, runs health check. Down-migration scripts for rollback. `docker pull ghcr.io/honorclaw/honorclaw:latest && honorclaw upgrade && make up` is the complete upgrade flow.
+- **Upgrade path with schema versioning**: `honorclaw upgrade` — pulls new images, runs pending migrations (via migration framework with `schema_migrations` table), verifies compatibility, restarts services, runs health check. Down-migration scripts for rollback. `docker pull ghcr.io/jjj-mo3/honorclaw:latest && honorclaw upgrade && make up` is the complete upgrade flow.
 - **Structured logging standard**: defined log schema across all containers — `{ timestamp, level, component, trace_id, session_id, workspace_id, agent_id, message, metadata }`. OpenTelemetry-compatible trace IDs propagated across Control Plane → Redis → Agent Runtime → Tool Execution. `honorclaw logs --trace <trace-id>` CLI command correlates logs across containers.
 - **Health and readiness checks**: `/health/live` (liveness) and `/health/ready` (readiness, checks all providers) — already included. Add `/health/deep` for full dependency diagnostics (DB latency, Redis round-trip, Ollama model availability, audit sink lag).
 - **OpenTelemetry distributed traces**: full traces across Control Plane → Agent Runtime → Tool Execution for debugging multi-agent workflows and performance analysis. Exports to any OTLP-compatible backend (Jaeger, Grafana Tempo, Honeycomb, Datadog).
-- **Per-agent status and uptime**: Admin UI panel showing each agent's last session time, session success/error rate, average latency, recent failures, and active/degraded/down status. If an agent has failed the last N consecutive sessions, surface it prominently with the failure reason. `honorclaw agent status <id>` in CLI.
+- **Per-agent status and uptime**: Admin UI panel showing each agent's last session time, session success/error rate, average latency, recent failures, and active/degraded/down status. If an agent has failed the last N consecutive sessions, surface it prominently with the failure reason. `honorclaw agents status <id>` in CLI.
 
 **Tool & Skill Ecosystem**
 
@@ -323,7 +323,7 @@ HonorClaw has no centrally maintained marketplace. Distribution is decentralized
 - Discovery: `honorclaw skills search <term>` queries GitHub topics (`honorclaw-skill`); organizations maintain their own internal skill registries as a Git repo
 
 *Model migration*:
-- `honorclaw agent migrate-model --from ollama/llama3 --to anthropic/claude-3-5-sonnet` — adapts manifest and flags prompt incompatibilities between model families. Reduces LLM vendor lock-in.
+- `honorclaw agents migrate-model --from ollama/llama3 --to anthropic/claude-3-5-sonnet` — adapts manifest and flags prompt incompatibilities between model families. Reduces LLM vendor lock-in.
 
 **Deployment (Cloud-Agnostic)**
 - **Tier 1:** Single container — `make init && make up` — **one container, one volume, one port**. PostgreSQL, Redis, and Ollama run as s6-supervised child processes inside the honorclaw container on Unix sockets. Agent runtime runs as a Linux network namespace-isolated child process. No external services required. `make init-full` generates a five-container compose file (`docker-compose.security-full.yml`) with fully isolated agent container for regulated environments.
@@ -529,7 +529,7 @@ make init-full && make up-full   # generates + starts docker-compose.security-fu
 **Hardened Images + Signing**
 - Base: Distroless (~40MB). Alpine debug variant available.
 - Published to GHCR with **Cosign/Sigstore keyless signing** — certificate identity tied to GitHub Actions OIDC (not a static key pair)
-- `cosign verify ghcr.io/honorclaw/control-plane:VERSION` for verification
+- `cosign verify ghcr.io/jjj-mo3/control-plane:VERSION` for verification
 - Kubernetes: Kyverno admission policy enforces signed-images-only
 
 ---
@@ -757,7 +757,7 @@ Deliverables:
 - **Scheduled agents**: cron scheduler in Control Plane; `schedule` field in agent manifest; headless session execution; output routed to configured channel
 - **`honorclaw eval`**: test conversation runner powered by `promptfoo` (devDependency, MIT); YAML-defined test cases with expected output patterns; model-graded + rule-based + statistical assertion types; diff output; integrates into CI; per-manifest version regression tracking
 - **OpenTelemetry traces**: distributed tracing across Control Plane → Agent Runtime → Tool Execution; OTLP export to any compatible backend
-- **Model migration tooling**: `honorclaw agent migrate-model` — manifest adapter + prompt compatibility report across model families
+- **Model migration tooling**: `honorclaw agents migrate-model` — manifest adapter + prompt compatibility report across model families
 
 **Section 6 acceptance criteria:**
 - [ ] Teams bot responds to messages and routes to correct agent

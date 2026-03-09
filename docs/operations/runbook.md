@@ -15,7 +15,7 @@ This runbook covers common operational procedures for HonorClaw deployments. It 
 honorclaw doctor
 
 # Full health check (includes database, Redis, agent runtime)
-honorclaw doctor --full
+honorclaw doctor
 
 # Docker Compose: check all containers
 docker compose ps
@@ -40,7 +40,7 @@ kubectl logs -n honorclaw deploy/honorclaw-control-plane -f
 
 ```bash
 # List active sessions via API
-curl -s http://localhost:3000/api/sessions?status=active | jq '.data | length'
+curl -s http://localhost:3000/api/sessions?status=active | jq '.sessions | length'
 ```
 
 ---
@@ -51,22 +51,22 @@ curl -s http://localhost:3000/api/sessions?status=active | jq '.data | length'
 
 ```bash
 # Interactive
-honorclaw user create --role admin
+honorclaw users create -e admin@example.com -p <password> -r workspace_admin
 
 # Non-interactive
-honorclaw user create --email admin@example.com --role admin --password-stdin < /dev/urandom | head -c 32 | base64
+honorclaw users create -e admin@example.com -p <password> -r workspace_admin
 ```
 
 ### Disable a User
 
 ```bash
-honorclaw user disable <user-id>
+honorclaw users disable <user-id>
 ```
 
 ### Reset User Password
 
 ```bash
-honorclaw user reset-password <user-id>
+honorclaw users reset-password <user-id>
 ```
 
 ### Rotate API Keys
@@ -87,36 +87,36 @@ honorclaw auth rotate-keys --all
 
 ```bash
 # Validate manifest before deploying
-honorclaw agent validate agent.yaml
+honorclaw agents deploy agent.yaml
 
 # Deploy the agent
-honorclaw agent deploy agent.yaml
+honorclaw agents deploy agent.yaml
 
 # Check agent status
-honorclaw agent status <agent-id>
+honorclaw agents status <agent-id>
 ```
 
 ### Disable an Agent
 
 ```bash
 # Disable (prevents new sessions, existing sessions continue)
-honorclaw agent disable <agent-id>
+honorclaw agents update <agent-id> -s inactive
 
 # Force disable (kills active sessions)
-honorclaw agent disable <agent-id> --force
+honorclaw agents update <agent-id> -s inactive --force
 ```
 
 ### Update Agent Manifest
 
 ```bash
 # Update with new manifest (creates new version)
-honorclaw agent update <agent-id> --manifest updated-agent.yaml
+honorclaw agents update <agent-id> --manifest updated-agent.yaml
 
 # View manifest history
-honorclaw agent history <agent-id>
+honorclaw agents history <agent-id>
 
 # Rollback to previous version
-honorclaw agent rollback <agent-id> --version 2
+honorclaw agents rollback <agent-id> --version 2
 ```
 
 ---

@@ -95,7 +95,7 @@ docker compose up -d
 honorclaw backup restore latest-backup.tar.gz
 
 # 5. Verify
-honorclaw doctor --full
+honorclaw doctor
 ```
 
 **Recovery (Tier 3/4 — multi-node):**
@@ -133,7 +133,7 @@ honorclaw backup restore backups/honorclaw-backup-YYYYMMDD.tar.gz
 docker compose up -d  # or kubectl scale --replicas=1
 
 # 5. Verify data integrity
-honorclaw doctor --full
+honorclaw doctor
 ```
 
 ### Scenario 5: Full Environment Loss
@@ -142,13 +142,20 @@ honorclaw doctor --full
 
 **Recovery:**
 1. Provision new infrastructure (Terraform/Pulumi)
-2. Install HonorClaw: `curl -fsSL https://honorclaw.dev/install.sh | sh`
+2. Install HonorClaw:
+   ```bash
+   git clone https://github.com/JJJ-Mo3/honorclaw.git
+   cd honorclaw
+   make init
+   ```
 3. Restore from off-site backup
 4. Verify and resume operations
 
 ```bash
 # 1. Install HonorClaw CLI
-curl -fsSL https://honorclaw.dev/install.sh | sh
+git clone https://github.com/JJJ-Mo3/honorclaw.git
+cd honorclaw
+make init
 
 # 2. Initialize new deployment
 honorclaw init --tier 3
@@ -162,7 +169,7 @@ honorclaw backup restore ./latest.tar.gz
 
 # 5. Update DNS records to point to new deployment
 # 6. Verify
-honorclaw doctor --full
+honorclaw doctor
 ```
 
 ---
@@ -214,7 +221,7 @@ gpg --decrypt honorclaw-backup.tar.gz.gpg > honorclaw-backup.tar.gz
 2. Copy the latest production backup to the test environment
 3. Execute the restore procedure
 4. Verify:
-   - All services are healthy (`honorclaw doctor --full`)
+   - All services are healthy (`honorclaw doctor`)
    - Audit logs are complete
    - Agent manifests are intact
    - A test agent session can execute successfully

@@ -29,14 +29,14 @@ Tier 1 is the simplest deployment option. All HonorClaw components run in a sing
 ### 1. Install the CLI
 
 ```bash
-curl -fsSL https://honorclaw.dev/install.sh | sh
+git clone https://github.com/JJJ-Mo3/honorclaw.git && cd honorclaw && pnpm install && pnpm build && npm link packages/cli
 ```
 
 ### 2. Initialize
 
 ```bash
 mkdir honorclaw && cd honorclaw
-honorclaw init --tier 1
+honorclaw init
 ```
 
 This generates:
@@ -99,7 +99,7 @@ honorclaw doctor
 ### 6. Create Admin User
 
 ```bash
-honorclaw user create --email admin@example.com --role admin
+honorclaw users create -e admin@example.com -p <password> -r workspace_admin
 ```
 
 ---
@@ -138,10 +138,10 @@ honorclaw user create --email admin@example.com --role admin
 
 | Service | Image | Ports | Volumes |
 |---------|-------|-------|---------|
-| `postgres` | `postgres:16-alpine` | 5432 (internal) | `honorclaw_pgdata` |
+| `postgres` | `pgvector/pgvector:pg16` | 5432 (internal) | `honorclaw_pgdata` |
 | `redis` | `redis:7-alpine` | 6379 (internal) | None (ephemeral) |
 | `ollama` | `ollama/ollama` | 11434 (internal) | `honorclaw_ollama` |
-| `honorclaw` | `ghcr.io/honorclaw/honorclaw` | 3000 | Config mount |
+| `honorclaw` | `ghcr.io/jjj-mo3/honorclaw` | 3000 | Config mount |
 
 ---
 

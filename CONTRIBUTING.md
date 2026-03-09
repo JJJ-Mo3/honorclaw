@@ -11,7 +11,7 @@ Thank you for your interest in contributing. HonorClaw is an enterprise-grade AI
 # - Docker Engine >= 24
 
 # Clone and install
-git clone https://github.com/honorclaw/honorclaw.git
+git clone https://github.com/JJJ-Mo3/honorclaw.git
 cd honorclaw
 pnpm install
 

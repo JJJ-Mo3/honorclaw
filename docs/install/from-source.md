@@ -16,14 +16,14 @@ This guide covers building HonorClaw from source. Useful for:
 | Requirement | Version |
 |------------|---------|
 | Node.js | 22+ |
-| pnpm | 10+ |
+| pnpm | 9+ |
 | Docker | 24+ |
 | Git | 2.30+ |
 
 ## Clone the Repository
 
 ```bash
-git clone https://github.com/honorclaw/honorclaw.git
+git clone https://github.com/JJJ-Mo3/honorclaw.git
 cd honorclaw
 ```
 

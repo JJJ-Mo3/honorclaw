@@ -125,7 +125,7 @@ spec:
         spec:
           containers:
             - name: backup
-              image: ghcr.io/honorclaw/honorclaw:latest
+              image: ghcr.io/jjj-mo3/honorclaw:latest
               command: ["honorclaw", "backup", "create"]
               env:
                 - name: HONORCLAW_PG_HOST
@@ -166,7 +166,7 @@ spec:
 After restoring, always verify the deployment:
 
 ```bash
-honorclaw doctor --full
+honorclaw doctor
 ```
 
 This checks:

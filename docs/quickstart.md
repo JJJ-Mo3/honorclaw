@@ -1,171 +1,127 @@
-# Quickstart: First Agent in 10 Minutes
+# HonorClaw Quickstart
+
+Get HonorClaw running in under 5 minutes.
 
 ## Prerequisites
 
-- Docker and Docker Compose installed
-- 8 GB RAM minimum (16 GB recommended for local LLM)
-- 20 GB free disk space
+- **Docker** (20.10+) with Docker Compose
+- **4 GB RAM** minimum (8 GB recommended for local LLM inference via Ollama)
 
----
-
-## Step 1: Install the CLI
+## Step 1: Clone and Initialize
 
 ```bash
-curl -fsSL https://honorclaw.dev/install.sh | sh
+git clone https://github.com/JJJ-Mo3/honorclaw.git
+cd honorclaw
+
+# Initialize — generates secrets, creates database schema, sets up admin user
+make init
 ```
 
-Or download manually from [GitHub Releases](https://github.com/honorclaw/honorclaw/releases).
+During `make init`, you will be prompted to create an admin email and password. These are your first login credentials.
 
-## Step 2: Initialize the Deployment
+## Step 2: Start HonorClaw
 
 ```bash
-honorclaw init
+make up
 ```
 
-This will:
-- Create configuration files
-- Pull Docker images
-- Start PostgreSQL, Redis, Ollama, and the control plane
-- Run database migrations
-- Pull the default LLM model (llama3.2)
+This starts the HonorClaw container with PostgreSQL (pgvector), Redis, and the control plane on a single port.
 
-Wait for initialization to complete (2-5 minutes depending on your internet speed).
+## Step 3: Open the Web UI
 
-## Step 3: Verify the Deployment
-
-```bash
-honorclaw doctor
-```
-
-You should see all checks passing:
-
-```
-[ok] Docker is running
-[ok] PostgreSQL is healthy
-[ok] Redis is healthy
-[ok] Ollama is running
-[ok] Control plane API is responding
-[ok] LLM model is available
-```
+Navigate to [http://localhost:3000](http://localhost:3000) and log in with the admin credentials you created during `make init`.
 
 ## Step 4: Create Your First Agent
 
-Create a file called `my-agent.yaml`:
+### Option A: Web UI
 
-```yaml
-name: my-first-agent
-description: A simple assistant that can search the web
+1. Go to **Agents** in the sidebar
+2. Click **Create Agent**
+3. Fill in the agent name, select a model (e.g., `ollama/llama3.2`), and optionally set a system prompt
+4. Click **Save**
 
-model:
-  provider: ollama
-  model: llama3.2
-
-systemPrompt: |
-  You are a helpful assistant. Be concise and accurate.
-
-tools:
-  - name: web_search
-    enabled: true
-    parameters:
-      query:
-        type: string
-        maxLength: 500
-
-egress:
-  allowedDomains:
-    - "*.google.com"
-    - "*.wikipedia.org"
-
-inputGuardrails:
-  injectionDetection: true
-  blockToolDiscovery: true
-  maxMessageLength: 4000
-```
-
-Deploy it:
+### Option B: CLI
 
 ```bash
-honorclaw agents create --name my-first-agent --model ollama/llama3.2 --prompt "You are a helpful assistant. Be concise and accurate."
+# Authenticate the CLI
+honorclaw login -s http://localhost:3000
+
+# Create an agent
+honorclaw agents create -n "my-assistant" -m "ollama/llama3.2" -p "You are a helpful assistant."
+
+# Start chatting
+honorclaw chat my-assistant
 ```
 
-Or, if you prefer to manage agents via manifest files, use the control plane API directly:
+### Option C: REST API
 
 ```bash
-curl -X POST http://localhost:3000/api/manifests/my-first-agent \
+# Get an access token
+TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"manifest": '"$(cat my-agent.yaml | python3 -c 'import sys,json,yaml; print(json.dumps(yaml.safe_load(sys.stdin)))')"'}'
-```
+  -d '{"email":"admin@example.com","password":"your-password"}' \
+  | jq -r '.accessToken')
 
-## Step 5: Interact with Your Agent
-
-You can interact with your agent through the **Web UI** or the **REST API**.
-
-**Via the REST API:**
-
-```bash
-curl -X POST http://localhost:3000/api/channels/api/message \
+# Create an agent
+curl -X POST http://localhost:3000/api/agents \
+  -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "channelId": "my-channel",
-    "userId": "user-1",
-    "content": "What is the weather like today?"
+    "name": "my-assistant",
+    "model": "ollama/llama3.2",
+    "systemPrompt": "You are a helpful assistant."
   }'
+
+# Start a session
+SESSION_ID=$(curl -s -X POST http://localhost:3000/api/sessions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"agentId": "<agent-id-from-above>"}' \
+  | jq -r '.session.id')
+
+# Send a message
+curl -X POST "http://localhost:3000/api/sessions/$SESSION_ID/messages" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Hello! What can you help me with?"}'
 ```
 
-**Via the Web UI:**
+## Step 5: Deploy an Agent from a Manifest
 
-Open `http://localhost:3000` in your browser to access the web chat interface.
+For production agents, define capabilities in a YAML manifest:
 
-Try asking:
-- "What is the weather like today?"
-- "Summarize the Wikipedia article about quantum computing"
-
-## Step 6: Review the Audit Log
-
-Every interaction is logged:
+```yaml
+# agent.yaml
+name: support-bot
+model: ollama/llama3.2
+system_prompt: "You are a customer support assistant."
+tools:
+  - name: web_search
+    constraints:
+      max_results: 5
+  - name: memory_search
+rate_limit:
+  requests_per_minute: 30
+```
 
 ```bash
-honorclaw audit query --limit 10
+honorclaw agents deploy agent.yaml
 ```
 
----
+## Step 6: Verify Health
+
+```bash
+# Run diagnostic checks
+honorclaw doctor
+
+# Check platform status
+honorclaw status
+```
 
 ## Next Steps
 
-- **[Creating Your First Agent](operations/first-agent.md)** — Detailed guide with all configuration options
-- **[Tier 1 Docker Compose Guide](install/tier1-docker-compose.md)** — Full deployment guide
-- **[Security Model](security/security-model.md)** — Understand how HonorClaw keeps agents safe
-- **[Example Agents](https://github.com/honorclaw/honorclaw/tree/main/examples)** — Pre-built agent templates
-
----
-
-## Troubleshooting
-
-### "Docker is not running"
-
-Start Docker Desktop or the Docker daemon:
-```bash
-# macOS/Windows: Start Docker Desktop
-# Linux:
-sudo systemctl start docker
-```
-
-### "LLM model not available"
-
-The first model pull can take several minutes. Check progress:
-```bash
-docker compose logs ollama
-```
-
-### "Control plane API not responding"
-
-Check the logs:
-```bash
-docker compose logs honorclaw
-```
-
-Common issues:
-- Port 3000 is already in use: change the port in the configuration
-- Database migration failed: run `honorclaw upgrade`
-
-For more troubleshooting help, see [Troubleshooting Guide](operations/troubleshooting.md).
+- [Administration Guide](administration.md) — User management, RBAC, secrets, audit
+- [Security Architecture](security/security-model.md) — The Capability Sandwich explained
+- [API Reference](api-reference.md) — Complete REST API documentation
+- [First Agent Guide](operations/first-agent.md) — Detailed agent deployment walkthrough
+- [Deployment Tiers](install/tier1-docker-compose.md) — Docker Compose, Swarm, and Kubernetes guides

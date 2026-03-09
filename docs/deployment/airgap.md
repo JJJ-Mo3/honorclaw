@@ -170,9 +170,9 @@ honorclaw doctor
 Use the included example manifests:
 
 ```bash
-honorclaw agent deploy manifests/general-assistant.yaml
-honorclaw agent deploy manifests/code-assistant.yaml
-honorclaw agent deploy manifests/rag-assistant.yaml
+honorclaw agents deploy manifests/general-assistant.yaml
+honorclaw agents deploy manifests/code-assistant.yaml
+honorclaw agents deploy manifests/rag-assistant.yaml
 ```
 
 ---
@@ -207,15 +207,15 @@ for tarfile in images/*.tar; do
 done
 
 # Re-tag for local registry
-docker tag ghcr.io/honorclaw/honorclaw:latest localhost:5000/honorclaw:latest
-docker tag ghcr.io/honorclaw/agent-runtime:latest localhost:5000/agent-runtime:latest
+docker tag ghcr.io/jjj-mo3/honorclaw:latest localhost:5000/honorclaw:latest
+docker tag ghcr.io/jjj-mo3/agent-runtime:latest localhost:5000/agent-runtime:latest
 
 # Push to local registry
 docker push localhost:5000/honorclaw:latest
 docker push localhost:5000/agent-runtime:latest
 ```
 
-Then update your Kubernetes manifests to reference `localhost:5000/` instead of `ghcr.io/honorclaw/`.
+Then update your Kubernetes manifests to reference `localhost:5000/` instead of `ghcr.io/jjj-mo3/`.
 
 ---
 

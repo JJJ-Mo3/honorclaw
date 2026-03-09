@@ -55,7 +55,7 @@ This playbook defines the incident response procedures for HonorClaw deployments
    honorclaw audit query --workspace-id <ws-id> --since 1h --severity high
 
    # Check agent session details
-   honorclaw session inspect <session-id>
+   honorclaw sessions inspect <session-id>
 
    # Check Falco alerts
    kubectl logs -n falco -l app=falco --since=1h | grep honorclaw
@@ -77,16 +77,16 @@ This playbook defines the incident response procedures for HonorClaw deployments
 
 ```bash
 # Kill the agent session immediately
-honorclaw session kill <session-id>
+honorclaw sessions kill <session-id>
 
 # Disable the agent to prevent new sessions
-honorclaw agent disable <agent-id>
+honorclaw agents disable <agent-id>
 
 # If the agent-runtime pod is compromised, kill it
 kubectl delete pod <pod-name> -n honorclaw-agents --grace-period=0
 
 # Block the user if credential compromise is suspected
-honorclaw user disable <user-id>
+honorclaw users disable <user-id>
 ```
 
 #### For Network-Level Incident
@@ -186,7 +186,7 @@ for policy in infra/kubernetes/policies/*.rego; do
 done
 
 # Run full health check
-honorclaw doctor --full
+honorclaw doctor
 
 # Verify network isolation
 kubectl run test-egress --rm -it --image=busybox -n honorclaw-agents -- wget -qO- http://google.com
@@ -199,14 +199,14 @@ kubectl run test-egress --rm -it --image=busybox -n honorclaw-agents -- wget -qO
 
 1. **Re-enable affected components**
    ```bash
-   honorclaw agent enable <agent-id>
+   honorclaw agents enable <agent-id>
    # Remove emergency NetworkPolicy if applied
    kubectl delete networkpolicy emergency-isolate-agents -n honorclaw-agents
    ```
 
 2. **Verify system integrity**
    ```bash
-   honorclaw doctor --full
+   honorclaw doctor
    # Check that all health endpoints return healthy
    curl -s http://localhost:3000/health | jq
    ```
@@ -304,7 +304,7 @@ Consult legal counsel before external notification.
 |----------|--------|
 | Falco: unexpected process in agent | `kubectl delete pod <pod> -n honorclaw-agents --grace-period=0` |
 | Falco: identity file write | Pod auto-killed by Falco response. Investigate immediately. |
-| Repeated prompt injection from single user | `honorclaw user disable <user-id>` |
+| Repeated prompt injection from single user | `honorclaw users disable <user-id>` |
 | Agent calling tool not in manifest | Check for manifest tampering. `honorclaw audit query --type tool_not_allowed` |
 | SSRF attempt detected | Review sanitizer logs. No action needed if blocked (verify). |
 | Dependency CVE (CVSS >= 9) | Emergency patch: `pnpm update <package>`, rebuild, redeploy |

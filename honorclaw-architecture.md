@@ -1995,7 +1995,7 @@ services:
   # ─── HonorClaw (Control Plane + Adapters + Tool Execution) ─
   honorclaw:
     <<: *hardened
-    image: ghcr.io/honorclaw/honorclaw:${HONORCLAW_VERSION:-latest}
+    image: ghcr.io/jjj-mo3/honorclaw:${HONORCLAW_VERSION:-latest}
     ports:
       - "${HONORCLAW_PORT:-8443}:8443"     # API + WebSocket
       - "${HONORCLAW_WEB_PORT:-3000}:3000"  # Web UI
@@ -2022,7 +2022,7 @@ services:
   # ─── Agent Runtime (ISOLATED — no internet access) ────────
   agent-runtime:
     <<: *hardened
-    image: ghcr.io/honorclaw/agent-runtime:${HONORCLAW_VERSION:-latest}
+    image: ghcr.io/jjj-mo3/agent-runtime:${HONORCLAW_VERSION:-latest}
     networks: [agents]            # internal: true → NO internet gateway
     security_opt:
       - "no-new-privileges:true"
@@ -2139,7 +2139,7 @@ The `honorclaw` container includes: Control Plane, Web UI, Channel Adapters (Sla
 
 ```bash
 # 1. Initialize (creates DB schema, master key, admin user)
-docker run --rm -it -v honorclaw-data:/data ghcr.io/honorclaw/honorclaw:latest init
+docker run --rm -it -v honorclaw-data:/data ghcr.io/jjj-mo3/honorclaw:latest init
 # → Enter admin email: admin@example.com
 # → Enter admin password: ********
 # → Master key generated: Qm9AZGFzZGZhc2RmYXNkZmFzZGY=
@@ -2151,7 +2151,7 @@ docker run -d --name honorclaw \
   -v honorclaw-data:/data \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --cap-add SYS_ADMIN \
-  ghcr.io/honorclaw/honorclaw:latest
+  ghcr.io/jjj-mo3/honorclaw:latest
 
 # 3. Open http://localhost:3000 — log in, create your first agent
 ```
@@ -2262,8 +2262,8 @@ ENTRYPOINT ["/nodejs/bin/node", "dist/index.js"]
 
 **Debug variant** (Alpine-based, for troubleshooting only):
 ```
-ghcr.io/honorclaw/honorclaw:1.0.0          # distroless (production)
-ghcr.io/honorclaw/honorclaw:1.0.0-debug    # Alpine (debugging only)
+ghcr.io/jjj-mo3/honorclaw:1.0.0          # distroless (production)
+ghcr.io/jjj-mo3/honorclaw:1.0.0-debug    # Alpine (debugging only)
 ```
 
 ### Image Publishing & Signing
@@ -2272,15 +2272,15 @@ Published to **GitHub Container Registry (GHCR)** with keyless Cosign signatures
 
 ```bash
 # CI signs every release image via GitHub OIDC (no static keys)
-cosign sign --yes ghcr.io/honorclaw/honorclaw:1.0.0
+cosign sign --yes ghcr.io/jjj-mo3/honorclaw:1.0.0
 
 # Users verify before deploying
-cosign verify ghcr.io/honorclaw/honorclaw:1.0.0 \
-  --certificate-identity=https://github.com/honorclaw/honorclaw/.github/workflows/release.yml@refs/tags/v1.0.0 \
+cosign verify ghcr.io/jjj-mo3/honorclaw:1.0.0 \
+  --certificate-identity=https://github.com/JJJ-Mo3/honorclaw/.github/workflows/release.yml@refs/tags/v1.0.0 \
   --certificate-oidc-issuer=https://token.actions.githubusercontent.com
 
 # SBOM inspection
-cosign verify-attestation --type spdx ghcr.io/honorclaw/honorclaw:1.0.0
+cosign verify-attestation --type spdx ghcr.io/jjj-mo3/honorclaw:1.0.0
 ```
 
 **Guarantees:**
@@ -2486,7 +2486,7 @@ honorclaw audit export | honorclaw audit import-worm  # audit → WORM storage
 - Notification system: user-preferred channel delivery (Slack, Teams, email, in-app), WebSocket push for in-app badge/drawer, 90-day retention
 - `honorclaw eval` framework: YAML test cases, assertion types (contains/not_contains/regex/tool_called/max_turns/pii/response_time_ms), mock tool result injection, JUnit + terminal reporters, budget cap, diff mode (compare two manifest versions)
 - OpenTelemetry distributed traces: W3C TraceContext propagation across Redis messages, 8 span types (session, turn, LLM request/response, tool dispatch/execute, policy proxy, manifest enforce), OTLP export, Prometheus metrics endpoint
-- Model migration tooling: `honorclaw agent migrate-model` — compatibility report, manifest diff, eval integration, model family knowledge base
+- Model migration tooling: `honorclaw agents migrate-model` — compatibility report, manifest diff, eval integration, model family knowledge base
 - Docker Compose observability profile: Jaeger + OpenTelemetry Collector overlay (`docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d`)
 
 **Acceptance criteria:**
@@ -2500,7 +2500,7 @@ honorclaw audit export | honorclaw audit import-worm  # audit → WORM storage
 - [ ] Eval diff mode: regression between manifest v3 and v4 correctly identified
 - [ ] OTel trace: session with 2 tool calls produces parent span + 2 child tool spans, visible in Jaeger
 - [ ] Trace propagation: span context flows Control Plane → Redis → Agent Runtime → back
-- [ ] `honorclaw agent migrate-model`: compatibility report + manifest diff generated; eval regressions reported
+- [ ] `honorclaw agents migrate-model`: compatibility report + manifest diff generated; eval regressions reported
 
 ---
 
@@ -2515,7 +2515,7 @@ honorclaw audit export | honorclaw audit import-worm  # audit → WORM storage
 - Visual manifest editor: React form over Zod schema (6 tabs: Identity, LLM, Tools, Egress, Schedule, Advanced); live validation; YAML preview pane (read-only, Monaco/CodeMirror, copy button); version history + diff view; "Restore this version" (creates new version from old content, never modifies history); canary deployment weight slider; RBAC gating (workspace admin+ to edit, member sees read-only)
 - Tool marketplace: `honorclaw tools search/info/install/uninstall/update` via GitHub topics (`honorclaw-tool`); OCI registry distribution; security scan gate on install (same as first-party); Cosign verification (warn if unsigned, block on failed scan, `--force` logs WARN to audit); `--all` bulk update; `honorclaw doctor` warns on available updates; private registry config option
 - Master key rotation audit trail: `honorclaw keys rotate` (atomic: generate → re-encrypt all secrets → re-encrypt DEK → rename key file → signed audit record); `honorclaw keys rotate --dry-run`; `honorclaw keys history`; `honorclaw keys verify`; Admin UI key management page (fingerprint, last rotated, rotation history table, re-auth gate on rotation)
-- `honorclaw eval` CI integration: `honorclaw/eval-action@v1` GitHub Action (runs eval, posts PR annotations, action outputs for conditional steps); GitLab CI job snippet; pre-built `ghcr.io/honorclaw/eval-runner:latest` Docker image (included in release pipeline)
+- `honorclaw eval` CI integration: `JJJ-Mo3/eval-action@v1` GitHub Action (runs eval, posts PR annotations, action outputs for conditional steps); GitLab CI job snippet; pre-built `ghcr.io/jjj-mo3/eval-runner:latest` Docker image (included in release pipeline)
 
 **Acceptance criteria:**
 - [ ] mTLS: connection without client cert rejected; valid cert succeeds; rotation completes without dropped connections

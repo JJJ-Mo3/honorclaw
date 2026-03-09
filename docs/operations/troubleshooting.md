@@ -22,7 +22,7 @@
 
 ### Agent deployment fails
 
-**Symptom:** `honorclaw agent deploy agent.yaml` returns an error.
+**Symptom:** `honorclaw agents deploy agent.yaml` returns an error.
 
 **Common causes:**
 
@@ -40,14 +40,14 @@
 
 3. **Missing required fields**
    ```bash
-   honorclaw agent validate agent.yaml
+   honorclaw agents deploy agent.yaml
    ```
 
 4. **Duplicate agent name**
    ```bash
-   honorclaw agent list
+   honorclaw agents list
    # If exists, update instead:
-   honorclaw agent update <agent-id> --manifest agent.yaml
+   honorclaw agents update <agent-id> --manifest agent.yaml
    ```
 
 ---
@@ -255,8 +255,8 @@ server:
 
 2. **Pull images manually:**
    ```bash
-   docker pull ghcr.io/honorclaw/honorclaw:latest
-   docker pull ghcr.io/honorclaw/agent-runtime:latest
+   docker pull ghcr.io/jjj-mo3/honorclaw:latest
+   docker pull ghcr.io/jjj-mo3/agent-runtime:latest
    ```
 
 3. **Build from source:**
@@ -297,7 +297,7 @@ server:
 
 If your issue is not covered here:
 
-1. Run `honorclaw doctor --full` and save the output
+1. Run `honorclaw doctor` and save the output
 2. Collect logs: `docker compose logs > honorclaw-logs.txt`
-3. Check the [GitHub Issues](https://github.com/honorclaw/honorclaw/issues)
+3. Check the [GitHub Issues](https://github.com/JJJ-Mo3/honorclaw/issues)
 4. Open a new issue with the diagnostic output

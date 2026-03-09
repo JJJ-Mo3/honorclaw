@@ -36,7 +36,10 @@ sudo k3s kubectl get nodes
 ### 2. Install HonorClaw CLI
 
 ```bash
-curl -fsSL https://honorclaw.dev/install.sh | sh
+git clone https://github.com/JJJ-Mo3/honorclaw.git
+cd honorclaw
+pnpm install && pnpm build
+npm link packages/cli
 ```
 
 ### 3. Initialize HonorClaw

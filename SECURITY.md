@@ -51,4 +51,4 @@ We maintain a security hall of fame for responsible disclosures. Contributors wh
 
 ## Security Architecture
 
-HonorClaw's security model is documented in the [Architecture Guide](docs/security-architecture.md). The core principle: **the agent's LLM runtime is treated as an untrusted component**, sandwiched between trusted enforcement layers.
+HonorClaw's security model is documented in the [Security Architecture Guide](docs/security/security-model.md). The core principle: **the agent's LLM runtime is treated as an untrusted component**, sandwiched between trusted enforcement layers.

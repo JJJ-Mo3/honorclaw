@@ -8,7 +8,7 @@ HonorClaw is a fully open-source platform for deploying, managing, and securing 
 
 | Problem (typical agent platforms) | HonorClaw Solution |
 |:--|:--|
-| No authentication — anyone on the network can use the agent | OAuth 2.0 / SAML SSO, JWT sessions, TOTP MFA |
+| No authentication — anyone on the network can use the agent | Email/password auth, JWT sessions, TOTP MFA, API key auth |
 | No authorization — agents can do anything tools permit | Capability manifests with per-agent, per-tool, per-parameter constraints |
 | Behavioral security — prompt injection bypasses all controls | Architectural enforcement — agent runtime is sandwiched between trusted layers |
 | No audit logging | Immutable append-only audit trail with compliance-grade event schema |
@@ -54,7 +54,7 @@ Even a fully injected agent cannot call tools outside its manifest, reach unauth
 
 ### Authentication & Authorization
 - Email/password with TOTP MFA (no external service required)
-- Enterprise SSO: SAML 2.0 / OIDC federation
+- SSO integration points: SAML 2.0 / OIDC support planned
 - RBAC roles: Deployment Admin, Workspace Admin, Agent User, Auditor, API Service
 - API key auth for machine-to-machine integrations
 - Workspace-scoped permissions — users can belong to multiple workspaces with different roles
@@ -142,18 +142,35 @@ honorclaw doctor                      # Verify installation health
 honorclaw status                      # Platform status overview
 
 honorclaw agents list                 # List all agents
-honorclaw agents create --manifest agent.yaml  # Deploy an agent
-honorclaw agents rollback <id> --to <version>  # Rollback to previous manifest
+honorclaw agents create -n <name>     # Create an agent
+honorclaw agents deploy <path>        # Deploy agent from manifest
+honorclaw agents rollback <id> --to <version>  # Rollback manifest
+
+honorclaw chat <agent-name-or-id>     # Start interactive chat session
 
 honorclaw skills search <query>       # Search available skills
 honorclaw skills install <name>       # Install a skill
 
-honorclaw secrets set <key> <value>   # Store a secret
-honorclaw secrets rotate <key>        # Rotate a secret
+honorclaw secrets set <path> <value>  # Store a secret
+honorclaw secrets list                # List secrets
+honorclaw secrets rotate <path>       # Rotate a secret
 
-honorclaw eval run eval.yaml          # Run prompt regression tests
+honorclaw users list                  # List users
+honorclaw users create -e <email> -p <pass> -r <role>  # Create user
+
+honorclaw workspaces list             # List workspaces
+honorclaw workspaces create -n <name> # Create workspace
+
+honorclaw sessions list               # List sessions
+honorclaw sessions messages <id>      # View session messages
+
 honorclaw audit query --since 7d      # Query audit log
+honorclaw audit export -o audit.json  # Export audit log
+
+honorclaw memory stats                # Memory statistics
+honorclaw eval run eval.yaml          # Run prompt regression tests
 honorclaw backup create               # Create a backup
+honorclaw migrate export -o data.json # Export workspace data
 ```
 
 ## Deployment Tiers
@@ -202,8 +219,10 @@ pnpm --filter @honorclaw/control-plane dev
 - [Quickstart Guide](docs/quickstart.md)
 - [Security Policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
-- [Architecture](docs/security-architecture.md)
-- [Deployment Guides](docs/deployment/)
+- [Security Architecture](docs/security/security-model.md)
+- [Deployment Guides](docs/install/)
+- [Administration Guide](docs/administration.md)
+- [API Reference](docs/api-reference.md)
 - [License](LICENSE) (Apache 2.0)
 
 ## License

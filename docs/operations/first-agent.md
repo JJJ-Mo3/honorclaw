@@ -201,7 +201,7 @@ budget:
 ### Validate the Manifest
 
 ```bash
-honorclaw agent validate my-agent.yaml
+honorclaw agents deploy my-agent.yaml
 ```
 
 This checks:
@@ -213,13 +213,13 @@ This checks:
 ### Deploy
 
 ```bash
-honorclaw agent deploy my-agent.yaml
+honorclaw agents deploy my-agent.yaml
 ```
 
 ### Verify
 
 ```bash
-honorclaw agent status customer-support
+honorclaw agents status customer-support
 ```
 
 ---
