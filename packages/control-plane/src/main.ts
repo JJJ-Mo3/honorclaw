@@ -179,7 +179,10 @@ async function main() {
   }
   const allowHttpWebhooks = process.env['ALLOW_HTTP_WEBHOOKS'] === 'true';
   const webhookDispatcher = new WebhookDispatcher(db, encryption, allowHttpWebhooks);
-  registerWebhookRoutes(app, db, encryption, webhookDispatcher);
+  await app.register(
+    async (scope) => registerWebhookRoutes(scope, db, encryption, webhookDispatcher),
+    { prefix: '/api' },
+  );
 
   // WebSocket chat endpoint
   const rawJwtSecret = process.env.JWT_SECRET;

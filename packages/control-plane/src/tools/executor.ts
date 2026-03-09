@@ -180,7 +180,15 @@ export class ToolExecutor {
 
     const row = result.rows[0] as { manifest: unknown } | undefined;
     if (!row) {
-      throw new Error(`No capability manifest found for agent ${agentId}`);
+      // Return a safe default manifest that allows no tools (agents without
+      // an explicit manifest get no tool access by default).
+      logger.warn({ agentId, sessionId }, 'No capability manifest found — using empty default');
+      return CapabilityManifestSchema.parse({
+        agentId,
+        workspaceId: context.workspaceId ?? 'unknown',
+        version: 0,
+        tools: [],
+      });
     }
 
     return CapabilityManifestSchema.parse(row.manifest);

@@ -16,8 +16,8 @@ export async function healthRoutes(app: FastifyInstance) {
       await db.query('SELECT 1');
       await redis.ping();
       return { status: 'ready', timestamp: new Date().toISOString() };
-    } catch (err) {
-      return { status: 'not_ready', error: err instanceof Error ? err.message : 'Unknown' };
+    } catch {
+      return { status: 'not_ready' };
     }
   });
 
@@ -27,8 +27,8 @@ export async function healthRoutes(app: FastifyInstance) {
     const redis = (app as any).redis;
 
     const checks: {
-      database: { status: string; latencyMs?: number; error?: string };
-      redis: { status: string; latencyMs?: number; error?: string };
+      database: { status: string; latencyMs?: number };
+      redis: { status: string; latencyMs?: number };
     } = {
       database: { status: 'error' },
       redis: { status: 'error' },
@@ -40,8 +40,8 @@ export async function healthRoutes(app: FastifyInstance) {
       await db.query('SELECT 1');
       const dbLatency = Date.now() - dbStart;
       checks.database = { status: 'ok', latencyMs: dbLatency };
-    } catch (err) {
-      checks.database = { status: 'error', error: err instanceof Error ? err.message : 'Unknown' };
+    } catch {
+      checks.database = { status: 'error' };
     }
 
     // Redis check with round-trip latency
@@ -50,8 +50,8 @@ export async function healthRoutes(app: FastifyInstance) {
       await redis.ping();
       const redisLatency = Date.now() - redisStart;
       checks.redis = { status: 'ok', latencyMs: redisLatency };
-    } catch (err) {
-      checks.redis = { status: 'error', error: err instanceof Error ? err.message : 'Unknown' };
+    } catch {
+      checks.redis = { status: 'error' };
     }
 
     const allHealthy = checks.database.status === 'ok' && checks.redis.status === 'ok';

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useParams, useNavigate, Link } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from './auth/useAuth.js';
 import { LoginPage } from './auth/LoginPage.js';
 import { RegisterPage } from './auth/RegisterPage.js';
@@ -98,6 +98,9 @@ export function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* 404 catch-all */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
@@ -115,6 +118,18 @@ function AgentEditorPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <AgentEditorPageInner agentId={id!} onDone={() => navigate('/admin')} />
+    </div>
+  );
+}
+
+function NotFoundPage() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">404</h1>
+        <p className="text-gray-600 mb-4">Page not found</p>
+        <Link to="/" className="text-blue-600 hover:text-blue-800 underline">Go home</Link>
+      </div>
     </div>
   );
 }

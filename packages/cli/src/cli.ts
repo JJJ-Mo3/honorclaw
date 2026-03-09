@@ -290,6 +290,49 @@ agents
   });
 
 agents
+  .command('update <id>')
+  .description('Update an agent')
+  .option('-n, --name <name>', 'New name')
+  .option('-m, --model <model>', 'New model')
+  .option('-p, --prompt <prompt>', 'New system prompt')
+  .option('-s, --status <status>', 'New status (active, inactive, archived)')
+  .action(async (id: string, opts: { name?: string; model?: string; prompt?: string; status?: string }) => {
+    const spinner = ora(`Updating agent ${chalk.bold(id)}...`).start();
+    try {
+      const body: Record<string, string> = {};
+      if (opts.name) body.name = opts.name;
+      if (opts.model) body.model = opts.model;
+      if (opts.prompt) body.systemPrompt = opts.prompt;
+      if (opts.status) body.status = opts.status;
+
+      if (Object.keys(body).length === 0) {
+        spinner.fail('No fields to update. Use --name, --model, --prompt, or --status.');
+        return;
+      }
+
+      const { agent } = await cliApi.put<{ agent: { id: string; name: string; status: string } }>(`/agents/${id}`, body);
+      spinner.succeed(`Updated agent ${chalk.bold(agent.name)} (${agent.id})`);
+    } catch (err) {
+      spinner.fail('Failed to update agent');
+      printError(err);
+    }
+  });
+
+agents
+  .command('delete <id>')
+  .description('Archive (soft-delete) an agent')
+  .action(async (id: string) => {
+    const spinner = ora(`Deleting agent ${chalk.bold(id)}...`).start();
+    try {
+      const result = await cliApi.delete<{ agent: { id: string; name: string }; archived: boolean }>(`/agents/${id}`);
+      spinner.succeed(`Archived agent ${chalk.bold(result.agent.name)} (${result.agent.id})`);
+    } catch (err) {
+      spinner.fail('Failed to delete agent');
+      printError(err);
+    }
+  });
+
+agents
   .command('rollback <agent-id>')
   .description('Roll back an agent to a previous manifest version')
   .requiredOption('--to <version>', 'Target manifest version to roll back to')

@@ -7,8 +7,8 @@ import { encryptSecret } from '../auth/crypto.js';
 export async function secretRoutes(app: FastifyInstance) {
   app.addHook('onRequest', requireWorkspace());
 
-  // List secret paths (names only, not values)
-  app.get('/', async (request) => {
+  // List secret paths (names only, not values) — admin-only
+  app.get('/', { preHandler: [requireRoles('workspace_admin')] }, async (request) => {
     const db = (app as any).db;
     const { prefix } = request.query as { prefix?: string };
 
@@ -16,8 +16,10 @@ export async function secretRoutes(app: FastifyInstance) {
     const params: unknown[] = [request.workspaceId];
 
     if (prefix) {
-      query += ' AND path LIKE $2';
-      params.push(`${prefix}%`);
+      // Escape LIKE wildcards to prevent injection
+      const escapedPrefix = prefix.replace(/[%_\\]/g, '\\$&');
+      query += " AND path LIKE $2 ESCAPE '\\'";
+      params.push(`${escapedPrefix}%`);
     }
 
     query += ' ORDER BY path';

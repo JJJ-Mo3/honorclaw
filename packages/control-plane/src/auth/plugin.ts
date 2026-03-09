@@ -68,6 +68,12 @@ async function authPluginImpl(app: FastifyInstance) {
     if (!checkRateLimit(request, reply)) return;
 
     const { email, password } = request.body as { email: string; password: string };
+
+    if (!email || !password || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      reply.code(400).send({ error: 'Valid email and password are required' });
+      return;
+    }
+
     const db = (app as any).db;
 
     const result = await db.query('SELECT id, email, password_hash, is_deployment_admin, totp_enabled, failed_login_count, locked_until FROM users WHERE email = $1', [email]);
@@ -150,8 +156,8 @@ async function authPluginImpl(app: FastifyInstance) {
     const { email, password, displayName } = request.body as { email: string; password: string; displayName?: string };
     const db = (app as any).db;
 
-    if (!email || !password || password.length < 8) {
-      reply.code(400).send({ error: 'Email and password (min 8 chars) are required' });
+    if (!email || !password || password.length < 8 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      reply.code(400).send({ error: 'Valid email and password (min 8 chars) are required' });
       return;
     }
 
