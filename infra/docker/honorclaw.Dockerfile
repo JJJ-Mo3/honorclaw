@@ -79,4 +79,5 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
 
 # s6-overlay starts as root and drops privileges per-service via su-exec.
 # The control-plane runs as the unprivileged 'node' user (see s6 run scripts).
+# nosemgrep: dockerfile.security.missing-user-entrypoint.missing-user-entrypoint
 ENTRYPOINT ["/entrypoint.sh"]

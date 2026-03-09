@@ -58,37 +58,14 @@ jobs:
           retention-days: 30
 
   # -----------------------------------------------------------------------
-  # Trivy — container image vulnerability scanning
+  # Trivy — Dockerfile and IaC configuration scanning
+  # (Image vulnerability scanning runs in the release pipeline)
   # -----------------------------------------------------------------------
   trivy-scan:
-    name: Trivy Image Scan
+    name: Trivy Config Scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: |
-          docker build \
-            -f infra/docker/honorclaw.Dockerfile \
-            -t honorclaw/honorclaw:scan \
-            .
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: honorclaw/honorclaw:scan
-          format: sarif
-          output: trivy-honorclaw.sarif
-          severity: CRITICAL,HIGH
-          exit-code: 1
-          ignore-unfixed: true
-
-      - name: Upload Trivy SARIF to GitHub Security
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-honorclaw.sarif
-          category: trivy-honorclaw
 
       - name: Run Trivy config scanner (Dockerfile best practices)
         uses: aquasecurity/trivy-action@0.28.0
@@ -98,6 +75,23 @@ jobs:
           format: table
           exit-code: 1
           severity: CRITICAL,HIGH
+
+      - name: Run Trivy filesystem scanner (IaC misconfigurations)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: infra/
+          format: sarif
+          output: trivy-config.sarif
+          severity: CRITICAL,HIGH
+          exit-code: 0
+
+      - name: Upload Trivy SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config
 
   # -----------------------------------------------------------------------
   # Semgrep — static analysis for security patterns

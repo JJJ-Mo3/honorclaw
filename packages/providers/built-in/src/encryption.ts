@@ -23,7 +23,7 @@ export class BuiltInEncryptionProvider implements EncryptionProvider {
     const iv = ciphertext.subarray(0, 12);
     const tag = ciphertext.subarray(12, 28);
     const encrypted = ciphertext.subarray(28);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', this.masterKey, iv);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', this.masterKey, iv, { authTagLength: 16 });
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(encrypted), decipher.final()]);
   }

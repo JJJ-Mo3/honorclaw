@@ -76,7 +76,7 @@ export class BuiltInSecretsProvider implements SecretsProvider {
     const iv = data.subarray(0, 12);
     const tag = data.subarray(12, 28);
     const encrypted = data.subarray(28);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', this.masterKey, iv);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', this.masterKey, iv, { authTagLength: 16 });
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
   }
