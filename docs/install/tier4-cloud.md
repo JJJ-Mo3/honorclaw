@@ -191,7 +191,7 @@ kubectl apply -f infra/kubernetes/falco-rules.yaml
 ### 5. Deploy
 
 ```bash
-honorclaw init --tier 4
+honorclaw init
 kubectl apply -f k8s/
 ```
 

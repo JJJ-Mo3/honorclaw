@@ -29,7 +29,10 @@ Tier 1 is the simplest deployment option. All HonorClaw components run in a sing
 ### 1. Install the CLI
 
 ```bash
-git clone https://github.com/JJJ-Mo3/honorclaw.git && cd honorclaw && pnpm install && pnpm build && npm link packages/cli
+git clone https://github.com/JJJ-Mo3/honorclaw.git
+cd honorclaw
+pnpm install && pnpm build
+cd packages/cli && pnpm link --global
 ```
 
 ### 2. Initialize

@@ -219,7 +219,7 @@ honorclaw agents deploy my-agent.yaml
 ### Verify
 
 ```bash
-honorclaw agents status customer-support
+honorclaw agents get customer-support
 ```
 
 ---

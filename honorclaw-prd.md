@@ -318,7 +318,7 @@ HonorClaw has no centrally maintained marketplace. Distribution is decentralized
 - `honorclaw skills install github:user/repo` — clone and register a skill from any GitHub repo
 - `honorclaw skills install ./my-skill/` — install from local directory (for custom/private skills)
 - `honorclaw skills install https://example.com/skills/jira-assistant.yaml` — install from URL
-- `honorclaw skill init --name jira-assistant` — scaffold a new skill
+- `honorclaw skills init jira-assistant` — scaffold a new skill
 - HonorClaw ships with a starter skill library: **IT Helpdesk** (Jira + Slack), **Code Reviewer** (GitHub + file-ops), **Software Engineer** (Claude Code + GitHub + file-ops), **Incident Responder** (PagerDuty + Slack), **Data Analyst** (Snowflake/BigQuery + file-ops), **Meeting Scheduler** (Google/M365 Calendar), **Document Drafter** (Drive/OneDrive + Notion), **Customer Support** (Jira + Salesforce + email), **Sales Assistant** (Salesforce + email + calendar) — bundled YAML configurations, not a hosted service
 - Discovery: `honorclaw skills search <term>` queries GitHub topics (`honorclaw-skill`); organizations maintain their own internal skill registries as a Git repo
 

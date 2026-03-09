@@ -51,13 +51,13 @@ helm install falco falcosecurity/falco -n falco --create-namespace
 git clone https://github.com/JJJ-Mo3/honorclaw.git
 cd honorclaw
 pnpm install && pnpm build
-npm link packages/cli
+cd packages/cli && pnpm link --global
 ```
 
 ### 3. Initialize
 
 ```bash
-honorclaw init --tier 3
+honorclaw init
 ```
 
 ### 4. Apply OPA Policies
@@ -271,7 +271,7 @@ For manual control:
 ```bash
 # Update image tags
 kubectl set image deployment/honorclaw-control-plane \
-  control-plane=ghcr.io/jjj-mo3/honorclaw:0.2.0 \
+  control-plane=ghcr.io/jjj-mo3/honorclaw:0.1.0 \
   -n honorclaw
 
 # Watch rollout

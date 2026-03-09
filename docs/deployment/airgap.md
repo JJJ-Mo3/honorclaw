@@ -159,7 +159,7 @@ updates:
 ### Initialize and Start
 
 ```bash
-honorclaw init --tier 1
+honorclaw init
 honorclaw doctor
 ```
 

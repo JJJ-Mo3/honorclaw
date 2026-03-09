@@ -39,13 +39,13 @@ sudo k3s kubectl get nodes
 git clone https://github.com/JJJ-Mo3/honorclaw.git
 cd honorclaw
 pnpm install && pnpm build
-npm link packages/cli
+cd packages/cli && pnpm link --global
 ```
 
 ### 3. Initialize HonorClaw
 
 ```bash
-honorclaw init --tier 2
+honorclaw init
 ```
 
 This generates Kubernetes manifests in `./k8s/`:

@@ -158,7 +158,7 @@ cd honorclaw
 make init
 
 # 2. Initialize new deployment
-honorclaw init --tier 3
+honorclaw init
 
 # 3. Restore from off-site backup (S3, GCS, etc.)
 # Download backup first

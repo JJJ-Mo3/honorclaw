@@ -59,24 +59,23 @@ honorclaw users create -e admin@example.com -p <password> -r workspace_admin
 
 ### Disable a User
 
-```bash
-honorclaw users disable <user-id>
-```
+> **Note:** User disabling is available via the Web UI or API (`PATCH /api/users/:id/role`).
 
 ### Reset User Password
 
-```bash
-honorclaw users reset-password <user-id>
-```
+> **Note:** Password resets are available via the Web UI.
 
-### Rotate API Keys
+### Rotate Keys
 
 ```bash
-# Rotate a specific API key
-honorclaw auth rotate-key <key-id>
+# Rotate master key
+honorclaw key-rotation rotate-master
 
-# Rotate all API keys (emergency use only)
-honorclaw auth rotate-keys --all
+# Rotate JWT signing keys
+honorclaw key-rotation rotate-jwt
+
+# Rotate tool signing keys
+honorclaw key-rotation rotate-tool-signing
 ```
 
 ---
@@ -93,7 +92,7 @@ honorclaw agents deploy agent.yaml
 honorclaw agents deploy agent.yaml
 
 # Check agent status
-honorclaw agents status <agent-id>
+honorclaw agents get <agent-id>
 ```
 
 ### Disable an Agent
@@ -102,21 +101,21 @@ honorclaw agents status <agent-id>
 # Disable (prevents new sessions, existing sessions continue)
 honorclaw agents update <agent-id> -s inactive
 
-# Force disable (kills active sessions)
-honorclaw agents update <agent-id> -s inactive --force
+# Note: active sessions will continue until they end naturally
+honorclaw agents update <agent-id> -s inactive
 ```
 
 ### Update Agent Manifest
 
 ```bash
-# Update with new manifest (creates new version)
-honorclaw agents update <agent-id> --manifest updated-agent.yaml
+# Deploy updated manifest (creates new version)
+honorclaw agents deploy updated-agent.yaml
 
-# View manifest history
-honorclaw agents history <agent-id>
+# View manifest version history
+honorclaw agents versions <agent-id>
 
 # Rollback to previous version
-honorclaw agents rollback <agent-id> --version 2
+honorclaw agents rollback <agent-id> --to 2
 ```
 
 ---

@@ -52,10 +52,10 @@ This playbook defines the incident response procedures for HonorClaw deployments
 2. **Gather initial context**
    ```bash
    # Check recent audit events for the affected workspace
-   honorclaw audit query --workspace-id <ws-id> --since 1h --severity high
+   honorclaw audit query -t policy.violation --start $(date -u -v-1H +%Y-%m-%dT%H:%M:%S) -l 100
 
-   # Check agent session details
-   honorclaw sessions inspect <session-id>
+   # Check agent session messages
+   honorclaw sessions messages <session-id>
 
    # Check Falco alerts
    kubectl logs -n falco -l app=falco --since=1h | grep honorclaw
@@ -76,17 +76,17 @@ This playbook defines the incident response procedures for HonorClaw deployments
 #### For Compromised Agent Session
 
 ```bash
-# Kill the agent session immediately
-honorclaw sessions kill <session-id>
+# End the agent session immediately
+curl -X DELETE http://localhost:3000/api/sessions/<session-id> -H 'Authorization: Bearer $TOKEN'
 
 # Disable the agent to prevent new sessions
-honorclaw agents disable <agent-id>
+honorclaw agents update <agent-id> -s inactive
 
 # If the agent-runtime pod is compromised, kill it
 kubectl delete pod <pod-name> -n honorclaw-agents --grace-period=0
 
-# Block the user if credential compromise is suspected
-honorclaw users disable <user-id>
+# Block the user if credential compromise is suspected (demote to read-only auditor role)
+curl -X PATCH http://localhost:3000/api/users/<user-id>/role -H 'Authorization: Bearer $TOKEN' -H 'Content-Type: application/json' -d '{"role": "auditor"}'
 ```
 
 #### For Network-Level Incident
@@ -119,8 +119,10 @@ honorclaw backup create --audit-only --since <start-time> --output incident-$(da
 # Preserve evidence: snapshot the database
 pg_dump -h localhost -U honorclaw honorclaw > incident-db-snapshot.sql
 
-# Rotate all API keys and tokens
-honorclaw auth rotate-keys --all
+# Rotate all keys and tokens
+honorclaw key-rotation rotate-master
+honorclaw key-rotation rotate-jwt
+honorclaw key-rotation rotate-tool-signing
 ```
 
 ### Phase 3: Investigation (1-4 hours)
@@ -199,7 +201,7 @@ kubectl run test-egress --rm -it --image=busybox -n honorclaw-agents -- wget -qO
 
 1. **Re-enable affected components**
    ```bash
-   honorclaw agents enable <agent-id>
+   honorclaw agents update <agent-id> -s active
    # Remove emergency NetworkPolicy if applied
    kubectl delete networkpolicy emergency-isolate-agents -n honorclaw-agents
    ```
@@ -304,7 +306,7 @@ Consult legal counsel before external notification.
 |----------|--------|
 | Falco: unexpected process in agent | `kubectl delete pod <pod> -n honorclaw-agents --grace-period=0` |
 | Falco: identity file write | Pod auto-killed by Falco response. Investigate immediately. |
-| Repeated prompt injection from single user | `honorclaw users disable <user-id>` |
+| Repeated prompt injection from single user | Disable user via API: `curl -X PATCH .../api/users/<user-id>/role -d '{"role":"auditor"}'` |
 | Agent calling tool not in manifest | Check for manifest tampering. `honorclaw audit query --type tool_not_allowed` |
 | SSRF attempt detected | Review sanitizer logs. No action needed if blocked (verify). |
 | Dependency CVE (CVSS >= 9) | Emergency patch: `pnpm update <package>`, rebuild, redeploy |

@@ -75,10 +75,8 @@ The control plane will start on `http://localhost:3000` with hot-reload.
 
 ```bash
 # Build the main image
-docker build -f infra/docker/honorclaw.Dockerfile -t honorclaw/honorclaw:dev .
+docker build -f infra/docker/honorclaw.Dockerfile -t honorclaw:dev .
 
-# Build with a specific target
-docker build -f infra/docker/honorclaw.Dockerfile --target agent-runtime -t honorclaw/agent-runtime:dev .
 ```
 
 ## Build CLI Binary
