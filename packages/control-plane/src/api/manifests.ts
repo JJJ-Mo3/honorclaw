@@ -17,8 +17,13 @@ export async function manifestRoutes(app: FastifyInstance) {
 
   app.post('/:agentId', { preHandler: [requireRoles('workspace_admin')] }, async (request, reply) => {
     const { agentId } = request.params as { agentId: string };
-    const { manifest } = request.body as any;
+    const { manifest } = request.body as { manifest?: unknown };
     const db = (app as any).db;
+
+    if (!manifest || typeof manifest !== 'object') {
+      reply.code(400).send({ error: 'A valid manifest object is required' });
+      return;
+    }
 
     // Get next version
     const versionResult = await db.query(

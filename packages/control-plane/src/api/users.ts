@@ -19,9 +19,16 @@ export async function userRoutes(app: FastifyInstance) {
     return { users: mapRows(result.rows) };
   });
 
-  app.post('/', { preHandler: [requireRoles('workspace_admin')] }, async (request, reply) => {
-    const { email, password, role, workspaceId } = request.body as any;
+  app.post('/', { preHandler: [requireWorkspace(), requireRoles('workspace_admin')] }, async (request, reply) => {
+    const { email, password, role, workspaceId } = request.body as {
+      email?: string; password?: string; role?: string; workspaceId?: string;
+    };
     const db = (app as any).db;
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      reply.code(400).send({ error: 'Valid email is required' });
+      return;
+    }
 
     // Generate a random temp password if none provided (admin invite flow)
     const userPassword = password ?? crypto.randomBytes(16).toString('base64url');
@@ -35,7 +42,7 @@ export async function userRoutes(app: FastifyInstance) {
     const user = userResult.rows[0] ?? (await db.query('SELECT * FROM users WHERE email = $1', [email])).rows[0];
 
     const targetWorkspace = workspaceId ?? request.workspaceId;
-    const validRole = VALID_ROLES.includes(role) ? role : 'agent_user';
+    const validRole = role && (VALID_ROLES as readonly string[]).includes(role) ? role : 'agent_user';
     await db.query(
       'INSERT INTO user_workspace_roles (user_id, workspace_id, role) VALUES ($1, $2, $3) ON CONFLICT (user_id, workspace_id) DO UPDATE SET role = $3',
       [user.id, targetWorkspace, validRole]

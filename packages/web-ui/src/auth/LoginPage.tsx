@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from './useAuth.js';
@@ -34,8 +34,15 @@ export function LoginPage() {
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
 
   const showMfaStep = mfaToken !== null;
+
+  useEffect(() => {
+    api.get<{ selfRegistrationEnabled: boolean }>('/auth/config')
+      .then((cfg) => setRegistrationEnabled(cfg.selfRegistrationEnabled))
+      .catch(() => {});
+  }, []);
 
   // ── Handlers ────────────────────────────────────────────────────────
   async function handleLogin(e: FormEvent) {
@@ -181,12 +188,14 @@ export function LoginPage() {
           </form>
         )}
 
-        <p className="mt-4 text-center text-sm text-gray-500">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
-            Create account
-          </Link>
-        </p>
+        {registrationEnabled && (
+          <p className="mt-4 text-center text-sm text-gray-500">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+              Create account
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

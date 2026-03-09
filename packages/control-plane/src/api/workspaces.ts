@@ -19,8 +19,14 @@ export async function workspaceRoutes(app: FastifyInstance) {
   });
 
   app.post('/', { preHandler: [requireRoles('deployment_admin')] }, async (request, reply) => {
-    const { name, displayName } = request.body as any;
+    const { name, displayName } = request.body as { name?: string; displayName?: string };
     const db = (app as any).db;
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      reply.code(400).send({ error: 'Workspace name is required' });
+      return;
+    }
+
     const result = await db.query(
       'INSERT INTO workspaces (name, display_name) VALUES ($1, $2) RETURNING *',
       [name, displayName ?? name]

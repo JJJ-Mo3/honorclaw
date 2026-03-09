@@ -25,6 +25,13 @@ async function authPluginImpl(app: FastifyInstance) {
     rawSecret ?? (process.env.NODE_ENV === 'development' ? 'honorclaw-dev-secret-change-in-production' : '')
   );
 
+  // Read auth config for token TTLs
+  const authConfig = (app as any).config?.auth as { accessTokenTtlMinutes?: number; refreshTokenTtlDays?: number; mfaRequired?: boolean } | undefined;
+  const tokenTtl = {
+    accessMinutes: authConfig?.accessTokenTtlMinutes ?? 60,
+    refreshDays: authConfig?.refreshTokenTtlDays ?? 7,
+  };
+
   app.decorateRequest('userId', undefined);
   app.decorateRequest('workspaceId', undefined);
   app.decorateRequest('roles', undefined);
@@ -33,7 +40,7 @@ async function authPluginImpl(app: FastifyInstance) {
   // Auth middleware — skip for health + login
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const path = request.url;
-    if (path.startsWith('/health') || path === '/api/auth/login' || path === '/api/auth/register' || path === '/api/auth/totp/verify') {
+    if (path.startsWith('/health') || path === '/api/auth/login' || path === '/api/auth/register' || path === '/api/auth/totp/verify' || path === '/api/auth/config') {
       return;
     }
 
@@ -121,7 +128,7 @@ async function authPluginImpl(app: FastifyInstance) {
     const workspaceId = firstWorkspace?.workspace_id;
     const roles = rolesResult.rows.filter((r: any) => r.workspace_id === workspaceId).map((r: any) => r.role);
 
-    const tokens = await issueTokens(user.id, workspaceId, roles, user.is_deployment_admin, jwtSecret);
+    const tokens = await issueTokens(user.id, workspaceId, roles, user.is_deployment_admin, jwtSecret, tokenTtl);
 
     reply
       .setCookie('token', tokens.accessToken, {
@@ -129,14 +136,14 @@ async function authPluginImpl(app: FastifyInstance) {
         secure: process.env.NODE_ENV !== 'development',
         sameSite: 'strict',
         path: '/',
-        maxAge: 3600,
+        maxAge: tokenTtl.accessMinutes * 60,
       })
       .setCookie('refresh_token', tokens.refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV !== 'development',
         sameSite: 'strict',
         path: '/api/auth/refresh',
-        maxAge: 7 * 86400,
+        maxAge: tokenTtl.refreshDays * 86400,
       })
       .send({
         user: { id: user.id, email: user.email, isDeploymentAdmin: user.is_deployment_admin },
@@ -199,7 +206,7 @@ async function authPluginImpl(app: FastifyInstance) {
       }
 
       // Auto-login: issue tokens so the user is immediately authenticated
-      const tokens = await issueTokens(user.id, workspaceId, roles, user.is_deployment_admin, jwtSecret);
+      const tokens = await issueTokens(user.id, workspaceId, roles, user.is_deployment_admin, jwtSecret, tokenTtl);
 
       reply
         .code(201)
@@ -208,14 +215,14 @@ async function authPluginImpl(app: FastifyInstance) {
           secure: process.env.NODE_ENV !== 'development',
           sameSite: 'strict',
           path: '/',
-          maxAge: 3600,
+          maxAge: tokenTtl.accessMinutes * 60,
         })
         .setCookie('refresh_token', tokens.refreshToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV !== 'development',
           sameSite: 'strict',
           path: '/api/auth/refresh',
-          maxAge: 7 * 86400,
+          maxAge: tokenTtl.refreshDays * 86400,
         })
         .send({
           user: { id: user.id, email: user.email, isDeploymentAdmin: user.is_deployment_admin },
@@ -282,6 +289,7 @@ async function authPluginImpl(app: FastifyInstance) {
         roles,
         isDeploymentAdmin,
         jwtSecret,
+        tokenTtl,
       );
 
       reply
@@ -316,6 +324,25 @@ async function authPluginImpl(app: FastifyInstance) {
       .clearCookie('refresh_token', { path: '/api/auth/refresh' })
       .send({ success: true });
   });
+
+  // Public auth config — exposes non-secret settings the UI needs
+  app.get('/api/auth/config', async () => {
+    const db = (app as any).db;
+    let selfRegistrationEnabled = process.env.ALLOW_SELF_REGISTRATION === 'true';
+    // Also enable registration if no users exist yet (first-user flow)
+    if (!selfRegistrationEnabled) {
+      try {
+        const { rows } = await db.query('SELECT count(*) AS cnt FROM users');
+        if (parseInt(rows[0].cnt, 10) === 0) selfRegistrationEnabled = true;
+      } catch {
+        // Non-fatal
+      }
+    }
+    return {
+      selfRegistrationEnabled,
+      mfaRequired: authConfig?.mfaRequired ?? false,
+    };
+  });
 }
 
 function extractToken(request: FastifyRequest): string | null {
@@ -336,7 +363,11 @@ async function issueTokens(
   roles: string[],
   isDeploymentAdmin: boolean,
   secret: Uint8Array,
+  ttl?: { accessMinutes?: number; refreshDays?: number },
 ): Promise<{ accessToken: string; refreshToken: string }> {
+  const accessTtl = `${ttl?.accessMinutes ?? 60}m`;
+  const refreshTtl = `${ttl?.refreshDays ?? 7}d`;
+
   const accessToken = await new jose.SignJWT({
     workspace_id: workspaceId,
     roles,
@@ -346,7 +377,7 @@ async function issueTokens(
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(userId)
     .setIssuer('honorclaw')
-    .setExpirationTime('1h')
+    .setExpirationTime(accessTtl)
     .setIssuedAt()
     .sign(secret);
 
@@ -359,7 +390,7 @@ async function issueTokens(
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(userId)
     .setIssuer('honorclaw')
-    .setExpirationTime('7d')
+    .setExpirationTime(refreshTtl)
     .setIssuedAt()
     .sign(secret);
 

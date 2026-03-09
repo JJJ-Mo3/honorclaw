@@ -959,6 +959,79 @@ memory
   });
 
 // ═══════════════════════════════════════════════════════════════════════
+//  Sessions
+// ═══════════════════════════════════════════════════════════════════════
+
+const sessions = program.command('sessions').description('Manage chat sessions');
+
+sessions
+  .command('list')
+  .description('List sessions')
+  .option('-s, --status <status>', 'Filter by status (active, ended)')
+  .option('-a, --agent <id>', 'Filter by agent ID')
+  .option('-l, --limit <n>', 'Max results', '25')
+  .action(async (opts: { status?: string; agent?: string; limit: string }) => {
+    const spinner = ora('Loading sessions...').start();
+    try {
+      const params: Record<string, string> = { limit: opts.limit };
+      if (opts.status) params['status'] = opts.status;
+      if (opts.agent) params['agentId'] = opts.agent;
+
+      const { sessions: list } = await cliApi.get<{ sessions: Array<{
+        id: string;
+        agentId: string;
+        userId: string;
+        channel: string;
+        status: string;
+        createdAt: string;
+      }> }>('/sessions', params);
+      spinner.stop();
+
+      if (list.length === 0) {
+        console.log(chalk.dim('No sessions found.'));
+        return;
+      }
+
+      console.log(chalk.bold(`\nSessions (${list.length})\n`));
+      for (const s of list) {
+        const status = s.status === 'active' ? chalk.green(s.status) : chalk.dim(s.status);
+        const ts = new Date(s.createdAt).toLocaleString();
+        console.log(`  ${chalk.dim(s.id.slice(0, 8))} [${status}] agent:${s.agentId.slice(0, 8)} ${chalk.dim(ts)}`);
+      }
+      console.log('');
+    } catch (err) {
+      spinner.fail('Failed to list sessions');
+      printError(err);
+    }
+  });
+
+sessions
+  .command('messages <session-id>')
+  .description('Show messages for a session')
+  .action(async (sessionId: string) => {
+    try {
+      const { messages } = await cliApi.get<{ messages: Array<{
+        role: string; content: string; createdAt: string;
+      }> }>(`/sessions/${sessionId}/messages`);
+
+      if (messages.length === 0) {
+        console.log(chalk.dim('No messages.'));
+        return;
+      }
+
+      console.log(chalk.bold(`\nMessages for ${sessionId}\n`));
+      for (const m of messages) {
+        const ts = new Date(m.createdAt).toLocaleString();
+        const role = m.role === 'user' ? chalk.bold('you') : chalk.cyan('agent');
+        console.log(`  ${chalk.dim(ts)} ${role}> ${m.content.slice(0, 200)}${m.content.length > 200 ? '...' : ''}`);
+      }
+      console.log('');
+    } catch (err) {
+      printError(err);
+    }
+  });
+
+// ═══════════════════════════════════════════════════════════════════════
 //  Migrate
 // ═══════════════════════════════════════════════════════════════════════
 

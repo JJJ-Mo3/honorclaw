@@ -36,8 +36,15 @@ export async function agentRoutes(app: FastifyInstance) {
   });
 
   app.post('/', { preHandler: [requireRoles('workspace_admin')] }, async (request, reply) => {
-    const { name, displayName, model, systemPrompt, manifest } = request.body as any;
+    const { name, displayName, model, systemPrompt, manifest } = request.body as {
+      name?: string; displayName?: string; model?: string; systemPrompt?: string; manifest?: unknown;
+    };
     const db = (app as any).db;
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      reply.code(400).send({ error: 'Agent name is required' });
+      return;
+    }
 
     const result = await db.query(
       'INSERT INTO agents (workspace_id, name, display_name, model, system_prompt) VALUES ($1, $2, $3, $4, $5) RETURNING *',
@@ -57,10 +64,19 @@ export async function agentRoutes(app: FastifyInstance) {
     reply.code(201).send({ agent: toCamelCase(agent) });
   });
 
-  app.put('/:id', { preHandler: [requireRoles('workspace_admin')] }, async (request) => {
+  app.put('/:id', { preHandler: [requireRoles('workspace_admin')] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const { name, displayName, model, systemPrompt, status } = request.body as any;
+    const { name, displayName, model, systemPrompt, status } = request.body as {
+      name?: string; displayName?: string; model?: string; systemPrompt?: string; status?: string;
+    };
     const db = (app as any).db;
+
+    // Validate status against allowlist
+    const VALID_STATUSES = ['active', 'inactive', 'archived'];
+    if (status && !VALID_STATUSES.includes(status)) {
+      reply.code(400).send({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` });
+      return;
+    }
 
     const result = await db.query(
       `UPDATE agents SET
@@ -73,6 +89,11 @@ export async function agentRoutes(app: FastifyInstance) {
       WHERE id = $6 AND workspace_id = $7 RETURNING *`,
       [name, displayName, model, systemPrompt, status, id, request.workspaceId]
     );
+
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: 'Agent not found' });
+      return;
+    }
 
     return { agent: toCamelCase(result.rows[0]) };
   });

@@ -154,6 +154,24 @@ function AgentList({ workspaceId }: { workspaceId: string | null }) {
                   >
                     Manifest
                   </button>
+                  {agent.status !== 'archived' && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Archive agent "${agent.name}"?`)) return;
+                        try {
+                          await api.delete(`/agents/${agent.id}`);
+                          setAgents((prev) => prev.map((a) =>
+                            a.id === agent.id ? { ...a, status: 'archived' as const } : a
+                          ));
+                        } catch {
+                          // handled by global error
+                        }
+                      }}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      Archive
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

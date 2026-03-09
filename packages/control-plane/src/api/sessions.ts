@@ -7,6 +7,32 @@ import { mapRows, toCamelCase } from './row-mapper.js';
 export async function sessionRoutes(app: FastifyInstance) {
   app.addHook('onRequest', requireWorkspace());
 
+  // List sessions for the current workspace
+  app.get('/', async (request) => {
+    const db = (app as any).db;
+    const { status, agentId, limit } = request.query as { status?: string; agentId?: string; limit?: string };
+
+    let query = 'SELECT id, workspace_id, agent_id, user_id, channel, status, created_at, updated_at FROM sessions WHERE workspace_id = $1';
+    const params: unknown[] = [request.workspaceId];
+    let idx = 2;
+
+    if (status) {
+      query += ` AND status = $${idx++}`;
+      params.push(status);
+    }
+    if (agentId) {
+      query += ` AND agent_id = $${idx++}`;
+      params.push(agentId);
+    }
+
+    query += ' ORDER BY created_at DESC';
+    query += ` LIMIT $${idx}`;
+    params.push(parseInt(limit ?? '50', 10));
+
+    const result = await db.query(query, params);
+    return { sessions: mapRows(result.rows) };
+  });
+
   app.post('/', async (request, reply) => {
     const { agentId, channel, message } = request.body as { agentId: string; channel?: string; message?: string };
     const sessionManager = (app as any).sessionManager;
