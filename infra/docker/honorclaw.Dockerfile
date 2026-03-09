@@ -9,7 +9,7 @@ RUN pnpm build
 RUN pnpm prune --prod
 
 # Stage 2: Runtime
-FROM node:22-alpine AS runtime
+FROM node:22-alpine AS honorclaw
 
 # Map Docker TARGETARCH (amd64/arm64) to s6-overlay arch names (x86_64/aarch64)
 ARG TARGETARCH
