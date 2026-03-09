@@ -60,6 +60,20 @@ export const manifestDenialsTotal = new Counter({
   registers: [register],
 });
 
+export const guardrailViolationsTotal = new Counter({
+  name: 'honorclaw_guardrail_violations_total',
+  help: 'Total guardrail violations by type',
+  labelNames: ['workspace_id', 'agent_id', 'violation_type'] as const,
+  registers: [register],
+});
+
+export const securityAlertsTotal = new Counter({
+  name: 'honorclaw_security_alerts_total',
+  help: 'Total security alerts dispatched',
+  labelNames: ['workspace_id', 'alert_type'] as const,
+  registers: [register],
+});
+
 // ── Gauges ──────────────────────────────────────────────────────────────
 
 export const sessionsActive = new Gauge({

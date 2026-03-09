@@ -1,4 +1,5 @@
 import type { Redis } from 'ioredis';
+import type { Pool } from 'pg';
 import type { LLMRequest, LLMResponse, OutputFilterProvider } from '@honorclaw/core';
 import { LLMRequestSchema } from '@honorclaw/core';
 import type { AuditEmitter } from '../audit/emitter.js';
@@ -18,11 +19,13 @@ const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 export class LLMRouter {
   private adapters = new Map<string, LLMAdapter>();
   private redis: Redis;
+  private db: Pool;
   private auditEmitter: AuditEmitter;
   private outputFilter: OutputFilterProvider;
 
-  constructor(config: LlmConfig, redis: Redis, auditEmitter: AuditEmitter) {
+  constructor(config: LlmConfig, redis: Redis, auditEmitter: AuditEmitter, db: Pool) {
     this.redis = redis;
+    this.db = db;
     this.auditEmitter = auditEmitter;
     this.outputFilter = new RegexOutputFilterProvider();
 
@@ -236,7 +239,33 @@ export class LLMRouter {
       // Non-fatal: use defaults
     }
 
-    const filterContext = { workspaceId, agentId };
+    // Load output filter settings from the agent's latest capability manifest
+    let blockedOutputPatterns: string[] | undefined;
+    let maxResponseTokens: number | undefined;
+    try {
+      const manifestResult = await this.db.query(
+        `SELECT manifest FROM capability_manifests
+         WHERE agent_id = (SELECT id FROM agents WHERE id::text = $1 LIMIT 1)
+         ORDER BY version DESC LIMIT 1`,
+        [agentId],
+      );
+      if (manifestResult.rows.length > 0) {
+        const manifest = manifestResult.rows[0].manifest as Record<string, unknown>;
+        const outputFilters = manifest.outputFilters as Record<string, unknown> | undefined;
+        if (outputFilters) {
+          if (Array.isArray(outputFilters.blockedOutputPatterns)) {
+            blockedOutputPatterns = outputFilters.blockedOutputPatterns as string[];
+          }
+          if (typeof outputFilters.maxResponseTokens === 'number') {
+            maxResponseTokens = outputFilters.maxResponseTokens;
+          }
+        }
+      }
+    } catch {
+      // Non-fatal: continue with default filter context
+    }
+
+    const filterContext = { workspaceId, agentId, blockedOutputPatterns, maxResponseTokens };
 
     if (typeof response.content === 'string') {
       const { filtered, findings } = await this.outputFilter.filter(response.content, filterContext);

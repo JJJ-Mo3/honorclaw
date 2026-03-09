@@ -21,8 +21,9 @@ function makeManifest(overrides: Partial<CapabilityManifest['inputGuardrails']> 
       ...overrides,
     },
     outputFilters: { piiDetection: true, blockedOutputPatterns: [], maxResponseTokens: 4096 },
-    session: { maxDurationMinutes: 120, maxTokensPerSession: 100000, maxToolCallsPerSession: 500 },
+    session: { maxDurationMinutes: 120, maxTokensPerSession: 100000, maxToolCallsPerSession: 500, isolateMemory: false },
     approvalRules: [],
+    allowedSecretPaths: [],
   };
 }
 

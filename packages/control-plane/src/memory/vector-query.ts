@@ -8,6 +8,8 @@ import type { Pool } from 'pg';
 export interface VectorScope {
   workspaceId: string;
   agentId: string;
+  /** When set, also filter by session_id (session-specific + global memories). */
+  sessionId?: string;
 }
 
 export interface VectorSearchResult {
@@ -34,15 +36,27 @@ export async function query(
 
   const vectorStr = `[${queryEmbedding.join(',')}]`;
 
-  // SECURITY: workspace_id AND agent_id filters ALWAYS applied
-  const result = await pool.query(
-    `SELECT id, content, metadata, 1 - (embedding <=> $1::vector) AS score
-     FROM ${indexName}
-     WHERE workspace_id = $2 AND agent_id = $3
-     ORDER BY embedding <=> $1::vector
-     LIMIT $4`,
-    [vectorStr, scope.workspaceId, scope.agentId, topK],
-  );
+  // SECURITY: workspace_id AND agent_id filters ALWAYS applied.
+  // When sessionId is provided, include session-specific + global memories.
+  const hasSession = !!scope.sessionId;
+  const sql = hasSession
+    ? `SELECT id, content, metadata, 1 - (embedding <=> $1::vector) AS score
+       FROM ${indexName}
+       WHERE workspace_id = $2 AND agent_id = $3
+         AND (session_id = $5 OR session_id IS NULL)
+       ORDER BY embedding <=> $1::vector
+       LIMIT $4`
+    : `SELECT id, content, metadata, 1 - (embedding <=> $1::vector) AS score
+       FROM ${indexName}
+       WHERE workspace_id = $2 AND agent_id = $3
+       ORDER BY embedding <=> $1::vector
+       LIMIT $4`;
+
+  const params = hasSession
+    ? [vectorStr, scope.workspaceId, scope.agentId, topK, scope.sessionId]
+    : [vectorStr, scope.workspaceId, scope.agentId, topK];
+
+  const result = await pool.query(sql, params);
 
   return result.rows.map((r: any) => ({
     id: r.id as string,

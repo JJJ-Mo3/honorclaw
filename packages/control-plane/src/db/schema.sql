@@ -192,9 +192,21 @@ CREATE TABLE IF NOT EXISTS memories (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Optional session-scoped memory isolation
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'memories' AND column_name = 'session_id'
+  ) THEN
+    ALTER TABLE memories ADD COLUMN session_id UUID REFERENCES sessions(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_memories_hnsw ON memories
   USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS idx_memories_ws_agent ON memories (workspace_id, agent_id);
+CREATE INDEX IF NOT EXISTS idx_memories_session ON memories (session_id)
+  WHERE session_id IS NOT NULL;
 
 -- Webhook subscriptions
 CREATE TABLE IF NOT EXISTS webhook_subscriptions (

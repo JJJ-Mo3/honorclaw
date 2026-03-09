@@ -6,6 +6,7 @@ import type { Database } from '../db/index.js';
 import { validateToolCall } from '../policy/enforcer.js';
 import { sanitizeParameters } from '../policy/sanitizer.js';
 import { RateLimiter } from '../policy/rate-limiter.js';
+import { resolveAgentSecrets, secretPathToEnvVar } from './secret-resolver.js';
 import pino from 'pino';
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
@@ -97,7 +98,18 @@ export class ToolExecutor {
         return;
       }
 
-      // 5. Execute the tool
+      // 5. Resolve agent-scoped secrets and build secret env vars
+      const resolvedSecrets = await resolveAgentSecrets(
+        this.db,
+        manifest.workspaceId,
+        manifest.allowedSecretPaths,
+      );
+      const secretEnv: Record<string, string> = {};
+      for (const secret of resolvedSecrets) {
+        secretEnv[secretPathToEnvVar(secret.path)] = secret.value;
+      }
+
+      // 6. Execute the tool
       let toolResult: unknown;
 
       if (this.computeProvider && toolDef?.source) {
@@ -105,6 +117,7 @@ export class ToolExecutor {
         const handle = await this.computeProvider.spawnContainer({
           image: toolDef.source,
           env: {
+            ...secretEnv,
             TOOL_NAME: toolName,
             TOOL_PARAMS: JSON.stringify(sanitizedParams),
           },
@@ -128,7 +141,7 @@ export class ToolExecutor {
         toolResult = { message: `Tool ${toolName} executed`, parameters: sanitizedParams };
       }
 
-      // 6. Return the real result
+      // 7. Return the real result
       const duration = Date.now() - startTime;
       await this.pushResult(sessionId, callId, {
         status: 'success',

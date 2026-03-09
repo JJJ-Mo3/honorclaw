@@ -4,6 +4,8 @@ import type { HonorClawConfig, LLMRequest } from '@honorclaw/core';
 import type { z } from 'zod';
 import { RedisChannels, CapabilityManifestSchema } from '@honorclaw/core';
 import { checkInput } from './guardrails/input-guardrail.js';
+import { checkMultiTurnInjection } from './guardrails/multi-turn-detector.js';
+import type { AuditEmitter } from './audit/emitter.js';
 import crypto from 'node:crypto';
 import pino from 'pino';
 
@@ -50,11 +52,13 @@ export class AgentLoop {
   private db: Database;
   private redis: Redis;
   private config: HonorClawConfig;
+  private auditEmitter?: AuditEmitter;
 
-  constructor(db: Database, redis: Redis, config: HonorClawConfig) {
+  constructor(db: Database, redis: Redis, config: HonorClawConfig, auditEmitter?: AuditEmitter) {
     this.db = db;
     this.redis = redis;
     this.config = config;
+    this.auditEmitter = auditEmitter;
   }
 
   async start(): Promise<void> {
@@ -131,6 +135,38 @@ export class AgentLoop {
     // Use sanitized message if PII was redacted
     if (guardrailResult.sanitizedMessage) {
       content = guardrailResult.sanitizedMessage;
+    }
+
+    // 2b. Multi-turn injection detection: score the full conversation history
+    const priorHistory = await this.db.query(
+      `SELECT role, content FROM session_messages WHERE session_id = $1 ORDER BY created_at`,
+      [sessionId],
+    );
+    const conversationForCheck = [
+      ...priorHistory.rows.map((r: { role: string; content: string }) => ({ role: r.role, content: r.content })),
+      { role: 'user', content },
+    ];
+    const multiTurnResult = checkMultiTurnInjection(conversationForCheck);
+    if (multiTurnResult.blocked) {
+      logger.warn(
+        { sessionId, score: multiTurnResult.score, indicators: multiTurnResult.indicators },
+        'AgentLoop: multi-turn injection detected',
+      );
+      this.auditEmitter?.emit({
+        workspaceId: context.workspaceId,
+        eventType: 'security.violation',
+        actorType: 'agent',
+        actorId: context.agentId,
+        sessionId,
+        payload: { type: 'multi_turn_injection', score: multiTurnResult.score, indicators: multiTurnResult.indicators },
+      });
+      const blockMsg = 'This conversation has been flagged for security review. Please start a new session.';
+      await this.db.query(
+        'INSERT INTO session_messages (session_id, role, content) VALUES ($1, $2, $3)',
+        [sessionId, 'assistant', blockMsg],
+      );
+      await this.publishOutput(sessionId, blockMsg, context.model);
+      return;
     }
 
     // 3. Load conversation history (bounded to prevent token explosion)
@@ -345,6 +381,22 @@ export class AgentLoop {
       );
 
       await this.publishOutput(sessionId, replyContent, llmResponse.model);
+
+      // Emit LLM response audit event
+      this.auditEmitter?.emit({
+        workspaceId: context.workspaceId,
+        eventType: 'llm.response',
+        actorType: 'agent',
+        actorId: context.agentId,
+        sessionId,
+        payload: {
+          model: llmResponse.model,
+          tokensUsed: llmResponse.tokensUsed,
+          contentHash: crypto.createHash('sha256').update(replyContent).digest('hex'),
+          toolCallCount: 0,
+          finishReason: llmResponse.finishReason,
+        },
+      });
 
       logger.info(
         { sessionId, model: llmResponse.model, tokens: totalTokens, iterations: iteration + 1 },

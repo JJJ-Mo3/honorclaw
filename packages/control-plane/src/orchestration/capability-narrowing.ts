@@ -51,6 +51,7 @@ export function narrowCapabilities(
       parentManifest.session.maxToolCallsPerSession,
       childManifest.session.maxToolCallsPerSession,
     ),
+    isolateMemory: parentManifest.session.isolateMemory || childManifest.session.isolateMemory,
   };
 
   // Budget: use the stricter limits (if set)
@@ -122,6 +123,9 @@ export function narrowCapabilities(
         cr => !parentManifest.approvalRules.some(pr => pr.tool === cr.tool),
       ),
     ],
+    allowedSecretPaths: parentManifest.allowedSecretPaths.filter(
+      p => childManifest.allowedSecretPaths.includes(p),
+    ),
   };
 }
 

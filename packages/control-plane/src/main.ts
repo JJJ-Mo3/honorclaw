@@ -43,6 +43,9 @@ import { ToolExecutor } from './tools/executor.js';
 import { AuditEmitter } from './audit/emitter.js';
 import { AgentScheduler } from './scheduler/index.js';
 import { AgentLoop } from './agent-loop.js';
+import { SessionReaper } from './sessions/reaper.js';
+import { SecurityMonitor } from './security/monitor.js';
+import { NotificationDispatcher } from './notifications/dispatcher.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -118,7 +121,7 @@ async function main() {
 
   const redis = createRedis(config.redis);
   const auditEmitter = new AuditEmitter(db);
-  const llmRouter = new LLMRouter(config.llm, redis, auditEmitter);
+  const llmRouter = new LLMRouter(config.llm, redis, auditEmitter, db);
   const toolExecutor = new ToolExecutor(redis, db, auditEmitter);
   const sessionManager = new SessionManager(redis, db, llmRouter, toolExecutor, auditEmitter, config);
 
@@ -127,7 +130,7 @@ async function main() {
   await toolExecutor.start();
 
   // Start the AgentLoop — bridges user input to LLM requests and delivers responses
-  const agentLoop = new AgentLoop(db, redis, config);
+  const agentLoop = new AgentLoop(db, redis, config, auditEmitter);
   await agentLoop.start();
 
   // Decorate Fastify
@@ -419,9 +422,30 @@ async function main() {
   await scheduler.start();
   logger.info('Agent scheduler started');
 
+  // Session Reaper — auto-expire sessions that exceed their max duration
+  const sessionReaper = new SessionReaper(redis, db);
+  sessionReaper.start();
+
+  // Security Monitor — violation tracking, tool-call anomaly detection, approval timeouts
+  const notificationDispatcher = new NotificationDispatcher({
+    redis,
+    db,
+    slackWebhookUrl: process.env['SLACK_WEBHOOK_URL'],
+    teamsWebhookUrl: process.env['TEAMS_WEBHOOK_URL'],
+  });
+  const securityMonitor = new SecurityMonitor({
+    redis,
+    db,
+    notifications: notificationDispatcher,
+    auditEmitter,
+  });
+  securityMonitor.start();
+
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutting down');
+    securityMonitor.stop();
+    sessionReaper.stop();
     await scheduler.stop();
     await sessionManager.drainAll();
     await auditEmitter.flush();

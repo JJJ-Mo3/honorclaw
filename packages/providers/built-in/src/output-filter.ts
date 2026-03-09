@@ -21,7 +21,7 @@ const CREDENTIAL_PATTERNS: Array<{ name: string; regex: RegExp; replacement: str
 ];
 
 export class RegexOutputFilterProvider implements OutputFilterProvider {
-  async filter(text: string, _context: FilterContext): Promise<{ filtered: string; findings: FilterFinding[] }> {
+  async filter(text: string, context: FilterContext): Promise<{ filtered: string; findings: FilterFinding[] }> {
     let filtered = text;
     const findings: FilterFinding[] = [];
 
@@ -53,6 +53,43 @@ export class RegexOutputFilterProvider implements OutputFilterProvider {
         });
       }
       filtered = filtered.replace(new RegExp(pattern.regex.source, pattern.regex.flags), pattern.replacement);
+    }
+
+    // Check blocked output patterns from manifest config
+    if (context.blockedOutputPatterns && context.blockedOutputPatterns.length > 0) {
+      for (const patternStr of context.blockedOutputPatterns) {
+        try {
+          const regex = new RegExp(patternStr, 'gi');
+          let match: RegExpExecArray | null;
+          const detectRegex = new RegExp(patternStr, 'gi');
+          while ((match = detectRegex.exec(filtered)) !== null) {
+            findings.push({
+              type: 'blocked_pattern',
+              pattern: patternStr,
+              start: match.index,
+              end: match.index + match[0].length,
+            });
+          }
+          filtered = filtered.replace(regex, '[BLOCKED]');
+        } catch {
+          // Skip invalid regex patterns gracefully
+        }
+      }
+    }
+
+    // Enforce maxResponseTokens limit (approximate: 1 token ≈ 4 characters)
+    if (context.maxResponseTokens != null) {
+      const estimatedTokens = filtered.length / 4;
+      if (estimatedTokens > context.maxResponseTokens) {
+        const maxChars = context.maxResponseTokens * 4;
+        findings.push({
+          type: 'token_limit_exceeded',
+          pattern: `maxResponseTokens:${context.maxResponseTokens}`,
+          start: maxChars,
+          end: filtered.length,
+        });
+        filtered = filtered.slice(0, maxChars) + '\n[Response truncated: exceeded token limit]';
+      }
     }
 
     return { filtered, findings };

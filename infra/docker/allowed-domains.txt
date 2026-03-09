@@ -1,0 +1,13 @@
+# HonorClaw egress-proxy domain allowlist
+# -----------------------------------------
+# Add allowed outbound domains below, one per line.
+# Agent containers can only reach external services whose domains
+# appear in this list. All other outbound traffic is denied.
+#
+# Examples:
+#   .api.openai.com
+#   .api.anthropic.com
+#   .huggingface.co
+#
+# A leading dot (.) matches the domain and all subdomains.
+# Lines starting with # are comments and are ignored by Squid.

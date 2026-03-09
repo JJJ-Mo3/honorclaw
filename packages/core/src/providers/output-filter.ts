@@ -8,6 +8,8 @@ export interface FilterFinding {
 export interface FilterContext {
   workspaceId: string;
   agentId: string;
+  blockedOutputPatterns?: string[];
+  maxResponseTokens?: number;
 }
 
 export interface OutputFilterProvider {

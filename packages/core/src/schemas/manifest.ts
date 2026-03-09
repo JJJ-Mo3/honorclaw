@@ -53,6 +53,7 @@ export const SessionConfigSchema = z.object({
   maxDurationMinutes: z.number().default(120),
   maxTokensPerSession: z.number().default(100_000),
   maxToolCallsPerSession: z.number().default(500),
+  isolateMemory: z.boolean().default(false),
 });
 
 export const BudgetConfigSchema = z.object({
@@ -94,6 +95,7 @@ export const CapabilityManifestSchema = z.object({
   budget: BudgetConfigSchema.optional(),
   llmRateLimits: LlmRateLimitsSchema.optional(),
   approvalRules: z.array(ApprovalRuleSchema).default([]),
+  allowedSecretPaths: z.array(z.string()).default([]),
 });
 
 export type ParameterConstraint = z.infer<typeof ParameterConstraintSchema>;

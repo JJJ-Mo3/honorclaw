@@ -21,6 +21,8 @@ export const AuditEventTypeSchema = z.enum([
   'admin.action',
   'webhook.delivered',
   'webhook.failed',
+  'llm.response',
+  'security.violation',
 ]);
 
 export type AuditEventType = z.infer<typeof AuditEventTypeSchema>;

@@ -60,7 +60,30 @@ describe('CapabilityManifestSchema', () => {
     expect(result.outputFilters.piiDetection).toBe(true);
     expect(result.session.maxDurationMinutes).toBe(120);
     expect(result.session.maxToolCallsPerSession).toBe(500);
+    expect(result.session.isolateMemory).toBe(false);
     expect(result.approvalRules).toEqual([]);
+    expect(result.allowedSecretPaths).toEqual([]);
+  });
+
+  it('validates allowedSecretPaths', () => {
+    const manifest = {
+      ...validManifest,
+      allowedSecretPaths: ['integrations/slack/*', 'integrations/github/token'],
+    };
+    const result = CapabilityManifestSchema.parse(manifest);
+    expect(result.allowedSecretPaths).toEqual([
+      'integrations/slack/*',
+      'integrations/github/token',
+    ]);
+  });
+
+  it('validates session isolateMemory', () => {
+    const manifest = {
+      ...validManifest,
+      session: { ...validManifest.session, isolateMemory: true },
+    };
+    const result = CapabilityManifestSchema.parse(manifest);
+    expect(result.session.isolateMemory).toBe(true);
   });
 
   it('validates approval rules', () => {
@@ -201,6 +224,12 @@ describe('SessionConfigSchema', () => {
     expect(result.maxDurationMinutes).toBe(120);
     expect(result.maxTokensPerSession).toBe(100_000);
     expect(result.maxToolCallsPerSession).toBe(500);
+    expect(result.isolateMemory).toBe(false);
+  });
+
+  it('accepts isolateMemory flag', () => {
+    const result = SessionConfigSchema.parse({ isolateMemory: true });
+    expect(result.isolateMemory).toBe(true);
   });
 });
 

@@ -12,6 +12,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U honorclaw"]
       interval: 5s
       retries: 5
+    networks:
+      - control-net
 
   redis:
     image: redis:7-alpine
@@ -23,6 +25,9 @@ services:
       test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env} ping | grep PONG"]
       interval: 5s
       retries: 5
+    networks:
+      - control-net
+      - agent-net
 
   ollama:
     image: ollama/ollama:latest
@@ -34,6 +39,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - control-net
 
   honorclaw:
     build:
@@ -62,9 +69,30 @@ services:
         condition: service_healthy
       ollama:
         condition: service_healthy
+    networks:
+      - control-net
+
+  egress-proxy:
+    image: ubuntu/squid:latest
+    restart: unless-stopped
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro
+      - ./allowed-domains.txt:/etc/squid/allowed-domains.txt:ro
+    networks:
+      - agent-net
+      - egress-net
 
 volumes:
   postgres-data: {}
   redis-data: {}
   ollama-data: {}
   honorclaw-data: {}
+
+networks:
+  control-net:
+    driver: bridge
+  agent-net:
+    driver: bridge
+    internal: true
+  egress-net:
+    driver: bridge

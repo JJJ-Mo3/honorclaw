@@ -10,6 +10,9 @@ export type NotificationTrigger =
   | 'budget_alert'
   | 'long_running_tool'
   | 'session_error'
+  | 'security_violation'
+  | 'anomaly_detected'
+  | 'approval_timeout'
   | 'custom';
 
 export type NotificationChannel = 'in_app' | 'slack' | 'teams' | 'email';
