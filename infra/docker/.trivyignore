@@ -1,0 +1,3 @@
+# DS-0002: Missing USER command — s6-overlay requires root at startup,
+# then drops privileges per-service via su-exec (see s6 run scripts).
+DS-0002
