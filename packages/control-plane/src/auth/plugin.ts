@@ -40,7 +40,7 @@ async function authPluginImpl(app: FastifyInstance) {
   // Auth middleware — skip for health + login
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const path = request.url;
-    if (path.startsWith('/health') || path === '/api/auth/login' || path === '/api/auth/register' || path === '/api/auth/totp/verify' || path === '/api/auth/config') {
+    if (path.startsWith('/health') || path === '/api/auth/login' || path === '/api/auth/register' || path === '/api/auth/totp/verify' || path === '/api/auth/config' || path === '/api/admin/bootstrap') {
       return;
     }
 
