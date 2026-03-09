@@ -26,7 +26,7 @@ This document provides a STRIDE-based threat analysis of the HonorClaw platform.
 
 **S1: User Identity Spoofing**
 - **Threat:** Attacker forges authentication tokens to impersonate another user.
-- **Mitigation:** JWT tokens signed with RS256, short expiration (15 min), refresh token rotation. TOTP-based MFA for admin accounts.
+- **Mitigation:** JWT tokens signed with HS256 (HMAC-SHA256) using a server-side secret, configurable expiration (default 60 min), refresh token rotation. TOTP-based MFA for admin accounts.
 - **Residual Risk:** Low. Token theft via XSS if admin console is compromised.
 
 **S2: Agent Identity Spoofing**

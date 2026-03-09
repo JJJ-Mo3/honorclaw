@@ -47,7 +47,7 @@
    ```bash
    honorclaw agents list
    # If exists, update instead:
-   honorclaw agents update <agent-id> --manifest agent.yaml
+   honorclaw agents deploy agent.yaml
    ```
 
 ---
@@ -60,10 +60,10 @@
 
 ```bash
 # Check audit log for the agent
-honorclaw audit query --agent <agent-id> --type tool_call --limit 10
+honorclaw audit query -a <agent-id> --type tool_call --limit 10
 
 # Look for enforcement violations
-honorclaw audit query --agent <agent-id> --type guardrail_violation
+honorclaw audit query -a <agent-id> --type guardrail_violation
 ```
 
 **Common causes:**

@@ -7,7 +7,7 @@ Thank you for your interest in contributing. HonorClaw is an enterprise-grade AI
 ```bash
 # Prerequisites
 # - Node.js >= 22
-# - pnpm >= 9
+# - pnpm >= 10
 # - Docker Engine >= 24
 
 # Clone and install

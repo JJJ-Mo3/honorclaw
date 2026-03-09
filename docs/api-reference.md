@@ -140,12 +140,13 @@ Initialize TOTP two-factor authentication.
 ```json
 // Response
 {
-  "secret": "base32-encoded-secret",
   "otpauthUri": "otpauth://totp/HonorClaw:user@example.com?secret=..."
 }
 ```
 
-**Status Codes:** 201, 409 (TOTP already enabled)
+The `otpauthUri` can be rendered as a QR code for the user to scan with their authenticator app. The raw TOTP secret is never exposed in the API response.
+
+**Status Codes:** 200, 409 (TOTP already enabled)
 
 ### POST /auth/totp/verify
 

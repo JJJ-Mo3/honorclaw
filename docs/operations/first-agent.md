@@ -260,13 +260,13 @@ Try these to verify security controls:
 ### View Audit Logs
 
 ```bash
-honorclaw audit query --agent customer-support --limit 20
+honorclaw audit query -a <agent-id> --limit 20
 ```
 
 ### View Guardrail Violations
 
 ```bash
-honorclaw audit query --agent customer-support --type guardrail_violation
+honorclaw audit query -a <agent-id> --type guardrail_violation
 ```
 
 ---

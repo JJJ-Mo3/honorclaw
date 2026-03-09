@@ -29,6 +29,7 @@ session: SessionConfig
 budget: BudgetConfig
 llmRateLimits: LlmRateLimits
 approvalRules: ApprovalRule[]
+allowedSecretPaths: string[]      # Secret paths accessible to this agent (default: [])
 ```
 
 ---
@@ -241,6 +242,7 @@ session:
   maxDurationMinutes: number        # Max session length (default: 120)
   maxTokensPerSession: number       # Total token budget per session (default: 100000)
   maxToolCallsPerSession: number    # Max tool calls per session (default: 500)
+  isolateMemory: boolean            # Partition memory per-session (default: false)
 ```
 
 ### Example: Short Support Session
@@ -373,6 +375,27 @@ Note: Skill manifests use `snake_case` field names while agent manifests use `ca
 
 ---
 
+## allowedSecretPaths
+
+Controls which workspace secrets the agent can access. Secrets are injected by the Tool Execution Layer at runtime — agents never see the values directly.
+
+```yaml
+allowedSecretPaths:
+  - "integrations/slack/*"          # All Slack secrets
+  - "integrations/github/token"     # Specific GitHub token
+  - "providers/openai/api-key"      # OpenAI API key
+```
+
+### Pattern Matching
+
+- Exact match: `integrations/github/token`
+- Wildcard: `integrations/slack/*` (matches any secret under that prefix)
+- Empty list (default): agent has no access to any secrets
+
+When agents are delegated to child agents via multi-agent orchestration, `allowedSecretPaths` is **narrowed** (intersected) — a child agent can never access more secrets than its parent.
+
+---
+
 ## Defaults Summary
 
 | Field | Default | Notes |
@@ -391,6 +414,8 @@ Note: Skill manifests use `snake_case` field names while agent manifests use `ca
 | `session.maxDurationMinutes` | `120` | 2 hours |
 | `session.maxTokensPerSession` | `100000` | |
 | `session.maxToolCallsPerSession` | `500` | |
+| `session.isolateMemory` | `false` | Partition memory per-session |
+| `allowedSecretPaths` | `[]` | Empty = no secret access |
 | `budget.hardStopOnBudgetExceeded` | `false` | Warn only |
 | `approvalRules[].condition` | `"always"` | |
 | `approvalRules[].timeoutMinutes` | `30` | |

@@ -77,11 +77,11 @@ Deployment admins see all workspaces. Regular users see only workspaces they bel
 
 ## Registration Control
 
-By default, self-registration is enabled for the first user (who becomes deployment admin). After the first user is created, registration behavior depends on the `auth.allowRegistration` setting in `honorclaw.yaml`:
+By default, self-registration is enabled for the first user (who becomes deployment admin). After the first user is created, self-registration is disabled unless the `ALLOW_SELF_REGISTRATION=true` environment variable is set:
 
-```yaml
-auth:
-  allowRegistration: false  # Disable self-registration (default after first user)
+```bash
+# In .env or docker-compose environment
+ALLOW_SELF_REGISTRATION=true   # Enable open registration (default: disabled after first user)
 ```
 
 When registration is disabled:
@@ -105,7 +105,7 @@ HonorClaw supports TOTP-based two-factor authentication (compatible with Google 
 1. **Web UI**: Go to **Settings > Security** and click **Enable Two-Factor Authentication**
 2. **API**: Call `POST /api/auth/totp/setup` (requires authentication)
 
-The setup endpoint returns a `secret` and an `otpauthUri` for generating a QR code.
+The setup endpoint returns an `otpauthUri` for generating a QR code. The raw TOTP secret is never exposed in the API response.
 
 ### MFA Login Flow
 

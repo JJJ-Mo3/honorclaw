@@ -52,7 +52,8 @@ This playbook defines the incident response procedures for HonorClaw deployments
 2. **Gather initial context**
    ```bash
    # Check recent audit events for the affected workspace
-   honorclaw audit query -t policy.violation --start $(date -u -v-1H +%Y-%m-%dT%H:%M:%S) -l 100
+   # Note: -v-1H is macOS syntax. On Linux, use: date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ
+   honorclaw audit query -t policy.violation --start $(date -u -v-1H +%Y-%m-%dT%H:%M:%SZ) -l 100
 
    # Check agent session messages
    honorclaw sessions messages <session-id>
@@ -141,16 +142,17 @@ honorclaw key-rotation rotate-tool-signing
 
 ```bash
 # All tool calls for the suspect session
-honorclaw audit query --session-id <session-id> --type tool_call
+honorclaw audit query -s <session-id> --type tool_call
 
 # All failed validation events (blocked attacks)
-honorclaw audit query --workspace-id <ws-id> --type guardrail_violation --since 24h
+# Note: --workspace-id is not a valid flag; filter by agent or session instead
+honorclaw audit query -a <agent-id> --type guardrail_violation --start $(date -u -v-24H +%Y-%m-%dT%H:%M:%SZ)
 
 # Cross-workspace access attempts
-honorclaw audit query --type authorization_denied --since 24h
+honorclaw audit query --type authorization_denied --start $(date -u -v-24H +%Y-%m-%dT%H:%M:%SZ)
 
 # Unusual egress patterns
-honorclaw audit query --type egress_blocked --since 24h
+honorclaw audit query --type egress_blocked --start $(date -u -v-24H +%Y-%m-%dT%H:%M:%SZ)
 ```
 
 #### Evidence Preservation

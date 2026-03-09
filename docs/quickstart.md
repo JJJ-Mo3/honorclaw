@@ -17,7 +17,7 @@ cd honorclaw
 make init
 ```
 
-During `make init`, you will be prompted to create an admin email and password. These are your first login credentials.
+`make init` generates secrets (JWT, encryption key, database passwords) and builds the Docker image. After starting with `make up`, register the first user via the Web UI — the first account automatically becomes the deployment admin.
 
 ## Step 2: Start HonorClaw
 
@@ -29,7 +29,7 @@ This starts the HonorClaw container with PostgreSQL (pgvector), Redis, and the c
 
 ## Step 3: Open the Web UI
 
-Navigate to [http://localhost:3000](http://localhost:3000) and log in with the admin credentials you created during `make init`.
+Navigate to [http://localhost:3000](http://localhost:3000). Click **Register** to create your admin account — the first user automatically becomes deployment admin with `workspace_admin` role.
 
 ## Step 4: Create Your First Agent
 

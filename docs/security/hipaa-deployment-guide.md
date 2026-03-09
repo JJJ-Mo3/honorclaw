@@ -38,11 +38,12 @@ This guide provides a checklist and configuration guidance for deploying HonorCl
 #### Unique User Identification (164.312(a)(2)(i))
 
 ```yaml
-# honorclaw.yaml — Ensure unique user IDs
+# honorclaw.yaml — Ensure unique user IDs and short sessions
 auth:
-  provider: local          # or oidc for enterprise SSO
-  requireUniqueEmail: true
-  sessionTimeout: 15m      # Short sessions for PHI environments
+  jwtIssuer: honorclaw          # JWT issuer identifier
+  accessTokenTtlMinutes: 15     # Short-lived tokens for PHI environments
+  refreshTokenTtlDays: 1        # Limit refresh token lifespan
+  mfaRequired: true             # MFA required for HIPAA
 ```
 
 - [ ] Each user has a unique account (no shared accounts)
@@ -60,11 +61,11 @@ auth:
 ```yaml
 # honorclaw.yaml
 auth:
-  sessionTimeout: 15m       # 15-minute idle timeout
-  absoluteTimeout: 60m      # 1-hour absolute timeout
+  accessTokenTtlMinutes: 15   # 15-minute access token lifetime
+  refreshTokenTtlDays: 1      # 1-day refresh token lifetime
 
 session:
-  maxDurationMinutes: 60     # Agent sessions expire after 1 hour
+  maxDurationMinutes: 60       # Agent sessions expire after 1 hour
 ```
 
 - [ ] Session timeout configured to 15 minutes or less
@@ -111,14 +112,8 @@ audit:
 # honorclaw.yaml — MFA required for HIPAA
 auth:
   mfaRequired: true
-  mfaMethod: totp           # Time-based OTP
-  passwordPolicy:
-    minLength: 12
-    requireUppercase: true
-    requireLowercase: true
-    requireNumbers: true
-    requireSpecial: true
-    maxAge: 90               # days
+  # Note: Password complexity (min 8 chars, mixed case, numbers, special chars)
+  # is enforced at the application level, not via honorclaw.yaml configuration.
 ```
 
 - [ ] MFA enabled and required for all users
@@ -132,12 +127,9 @@ auth:
 - [ ] No PHI transmitted over unencrypted channels
 
 ```yaml
-# honorclaw.yaml
-tls:
-  enabled: true
-  minVersion: "1.2"
-  certFile: /etc/honorclaw/tls/tls.crt
-  keyFile: /etc/honorclaw/tls/tls.key
+# Note: TLS is handled at the infrastructure layer (reverse proxy / ingress
+# controller), not in honorclaw.yaml. Configure TLS termination on your
+# ingress controller or load balancer with TLS 1.2+ minimum version.
 ```
 
 ---

@@ -192,7 +192,7 @@ kubectl apply -f infra/kubernetes/falco-rules.yaml
 
 ```bash
 honorclaw init
-kubectl apply -f k8s/
+kubectl apply -f infra/kubernetes/
 ```
 
 ### 6. Configure Ingress

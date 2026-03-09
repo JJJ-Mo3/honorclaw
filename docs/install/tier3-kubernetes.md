@@ -75,7 +75,7 @@ kubectl apply -f infra/kubernetes/falco-rules.yaml
 ### 6. Deploy HonorClaw
 
 ```bash
-kubectl apply -f k8s/
+kubectl apply -f infra/kubernetes/
 ```
 
 ### 7. Verify
@@ -181,7 +181,7 @@ For inter-service encryption, deploy a service mesh:
 ```bash
 # Linkerd (lightweight)
 linkerd install | kubectl apply -f -
-linkerd inject k8s/control-plane.yaml | kubectl apply -f -
+linkerd inject infra/kubernetes/control-plane.yaml | kubectl apply -f -
 ```
 
 ---
@@ -214,7 +214,7 @@ Use CloudNativePG or Patroni for HA PostgreSQL:
 kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/main/releases/cnpg-1.24.0.yaml
 
 # Deploy HA PostgreSQL cluster
-kubectl apply -f k8s/postgres-ha.yaml
+kubectl apply -f infra/kubernetes/postgres-ha.yaml
 ```
 
 ### Redis

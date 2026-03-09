@@ -139,21 +139,18 @@ sudo vi /etc/honorclaw/honorclaw.yaml
 Key settings for air-gapped environments:
 
 ```yaml
+# LLM configuration — use local Ollama for air-gapped environments
 llm:
-  provider: ollama           # Use local models only
+  provider: ollama
   model: llama3.2
   endpoint: http://localhost:11434
 
-# No external egress needed
-egress:
-  allowedDomains: []
-
-# Disable any features that require internet
-telemetry:
-  enabled: false
-
-updates:
-  checkForUpdates: false
+# Note: Egress control (allowedDomains) is configured per-agent in each
+# agent's capability manifest, not in global honorclaw.yaml config.
+# Set allowedDomains: [] in each agent manifest to block all external access.
+#
+# The telemetry and updates config keys do not exist in honorclaw.yaml.
+# HonorClaw does not phone home or auto-update, so no configuration is needed.
 ```
 
 ### Initialize and Start
