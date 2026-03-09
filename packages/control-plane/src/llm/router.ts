@@ -7,6 +7,8 @@ import { OllamaAdapter } from './adapters/ollama.js';
 import { AnthropicAdapter } from './adapters/anthropic.js';
 import { OpenAIAdapter } from './adapters/openai.js';
 import { GeminiAdapter } from './adapters/gemini.js';
+import { BedrockAdapter } from './adapters/bedrock.js';
+import { VertexAdapter } from './adapters/vertex.js';
 import type { LLMAdapter } from './adapters/base.js';
 import { RegexOutputFilterProvider } from '@honorclaw/providers-built-in';
 import pino from 'pino';
@@ -33,19 +35,41 @@ export class LLMRouter {
       config.providers?.ollama?.baseUrl ?? process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434',
     ));
 
-    // Anthropic (supports API key or OAuth access token)
-    const anthropicConfig = config.providers?.anthropic;
+    // Anthropic (direct API key)
     const anthropicKey =
-      anthropicConfig?.apiKeySecret ?? process.env.ANTHROPIC_API_KEY;
-    const anthropicAccessToken =
-      anthropicConfig?.accessTokenSecret ?? process.env.CLAUDE_ACCESS_TOKEN;
-    if ((anthropicKey || anthropicAccessToken) && anthropicConfig?.enabled !== false) {
+      config.providers?.anthropic?.apiKeySecret ?? process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey && config.providers?.anthropic?.enabled !== false) {
       this.adapters.set('anthropic', new AnthropicAdapter({
         apiKey: anthropicKey,
-        accessToken: anthropicAccessToken,
-        baseUrl: anthropicConfig?.baseUrl,
+        baseUrl: config.providers?.anthropic?.baseUrl,
       }));
-      logger.info({ authMode: anthropicAccessToken ? 'oauth' : 'api_key' }, 'Registered LLM adapter: anthropic');
+      logger.info('Registered LLM adapter: anthropic');
+    }
+
+    // AWS Bedrock (Claude via IAM credentials — no Anthropic API key needed)
+    const bedrockAccessKeyId =
+      config.providers?.bedrock?.apiKeySecret ?? process.env.AWS_ACCESS_KEY_ID;
+    const bedrockSecretKey =
+      config.providers?.bedrock?.accessTokenSecret ?? process.env.AWS_SECRET_ACCESS_KEY;
+    if (bedrockAccessKeyId && bedrockSecretKey && config.providers?.bedrock?.enabled !== false) {
+      this.adapters.set('bedrock', new BedrockAdapter({
+        accessKeyId: bedrockAccessKeyId,
+        secretAccessKey: bedrockSecretKey,
+        sessionToken: process.env.AWS_SESSION_TOKEN,
+        region: config.providers?.bedrock?.baseUrl ?? process.env.AWS_REGION ?? 'us-east-1',
+      }));
+      logger.info('Registered LLM adapter: bedrock');
+    }
+
+    // Google Vertex AI (Claude via GCP service account — no Anthropic API key needed)
+    const vertexServiceAccountJson =
+      config.providers?.vertex?.apiKeySecret ?? process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+    if (vertexServiceAccountJson && config.providers?.vertex?.enabled !== false) {
+      this.adapters.set('vertex', new VertexAdapter({
+        serviceAccountJson: vertexServiceAccountJson,
+        region: config.providers?.vertex?.baseUrl ?? process.env.GOOGLE_CLOUD_REGION ?? 'us-central1',
+      }));
+      logger.info('Registered LLM adapter: vertex');
     }
 
     // OpenAI
