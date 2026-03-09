@@ -4,7 +4,7 @@
 # executing code in a sandboxed environment, and managing project files.
 #
 # Deploy:
-#   honorclaw agent deploy examples/code-assistant/agent.yaml
+#   honorclaw agents deploy examples/code-assistant/agent.yaml
 
 name: code-assistant
 description: Software development assistant with file operations and sandboxed code execution

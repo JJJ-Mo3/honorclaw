@@ -5,7 +5,7 @@
 # knowledge bases, or uploaded files.
 #
 # Deploy:
-#   honorclaw agent deploy examples/rag-assistant/agent.yaml
+#   honorclaw agents deploy examples/rag-assistant/agent.yaml
 #
 # Prepare your data:
 #   1. Place documents in /workspace/documents/

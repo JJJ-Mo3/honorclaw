@@ -4,7 +4,7 @@
 # Good starting point for a general-purpose assistant.
 #
 # Deploy:
-#   honorclaw agent deploy examples/general-assistant/agent.yaml
+#   honorclaw agents deploy examples/general-assistant/agent.yaml
 
 name: general-assistant
 description: General-purpose assistant with web search and file management

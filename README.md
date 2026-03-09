@@ -217,12 +217,16 @@ pnpm --filter @honorclaw/control-plane dev
 
 - [Documentation](docs/)
 - [Quickstart Guide](docs/quickstart.md)
-- [Security Policy](SECURITY.md)
-- [Contributing](CONTRIBUTING.md)
-- [Security Architecture](docs/security/security-model.md)
-- [Deployment Guides](docs/install/)
+- [Creating Custom Agents](docs/guides/creating-agents.md)
+- [Creating Custom Skills](docs/guides/creating-skills.md)
+- [Creating Custom Tools](docs/guides/creating-tools.md)
+- [Manifest Reference](docs/guides/manifest-reference.md)
 - [Administration Guide](docs/administration.md)
 - [API Reference](docs/api-reference.md)
+- [Security Architecture](docs/security/security-model.md)
+- [Deployment Guides](docs/install/)
+- [Security Policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
 - [License](LICENSE) (Apache 2.0)
 
 ## License
