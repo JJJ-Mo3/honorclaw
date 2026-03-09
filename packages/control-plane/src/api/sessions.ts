@@ -27,7 +27,7 @@ export async function sessionRoutes(app: FastifyInstance) {
 
     query += ' ORDER BY created_at DESC';
     query += ` LIMIT $${idx}`;
-    params.push(parseInt(limit ?? '50', 10));
+    params.push(Math.min(parseInt(limit ?? '50', 10) || 50, 200));
 
     const result = await db.query(query, params);
     return { sessions: mapRows(result.rows) };
@@ -134,13 +134,17 @@ export async function sessionRoutes(app: FastifyInstance) {
     return { sent: true };
   });
 
-  app.get('/:id', async (request) => {
+  app.get('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const db = (app as any).db;
     const result = await db.query(
       'SELECT * FROM sessions WHERE id = $1 AND workspace_id = $2',
       [id, request.workspaceId]
     );
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: 'Session not found' });
+      return;
+    }
     return { session: toCamelCase(result.rows[0]) };
   });
 

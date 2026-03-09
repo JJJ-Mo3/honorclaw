@@ -20,8 +20,8 @@ export async function userRoutes(app: FastifyInstance) {
   });
 
   app.post('/', { preHandler: [requireWorkspace(), requireRoles('workspace_admin')] }, async (request, reply) => {
-    const { email, password, role, workspaceId } = request.body as {
-      email?: string; password?: string; role?: string; workspaceId?: string;
+    const { email, password, role } = request.body as {
+      email?: string; password?: string; role?: string;
     };
     const db = (app as any).db;
 
@@ -41,7 +41,8 @@ export async function userRoutes(app: FastifyInstance) {
 
     const user = userResult.rows[0] ?? (await db.query('SELECT * FROM users WHERE email = $1', [email])).rows[0];
 
-    const targetWorkspace = workspaceId ?? request.workspaceId;
+    // Always assign to the caller's workspace — cross-workspace assignment requires deployment_admin
+    const targetWorkspace = request.workspaceId;
     const validRole = role && (VALID_ROLES as readonly string[]).includes(role) ? role : 'agent_user';
     await db.query(
       'INSERT INTO user_workspace_roles (user_id, workspace_id, role) VALUES ($1, $2, $3) ON CONFLICT (user_id, workspace_id) DO UPDATE SET role = $3',

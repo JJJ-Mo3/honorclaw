@@ -222,6 +222,13 @@ async function main() {
 
     // Verify token asynchronously then set up message handling
     jose.jwtVerify(token, jwtSecret, { issuer: 'honorclaw' }).then(({ payload }) => {
+      // Reject non-access tokens (e.g. mfa_pending, refresh) to prevent auth bypass
+      if (payload.type && payload.type !== 'access') {
+        socket.send(JSON.stringify({ type: 'error', message: 'Invalid token type' }));
+        socket.close(4401, 'Invalid token type');
+        return;
+      }
+
       userId = payload.sub;
       workspaceId = payload.workspace_id as string | undefined;
 

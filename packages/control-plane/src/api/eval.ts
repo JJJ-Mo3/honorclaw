@@ -26,7 +26,23 @@ export async function evalRoutes(app: FastifyInstance) {
       sessionType?: string;
     };
 
+    if (!agentId || typeof agentId !== 'string') {
+      reply.code(400).send({ error: 'agentId is required' });
+      return;
+    }
+
     const db = (app as any).db;
+
+    // Verify agent belongs to the requester's workspace
+    const agentCheck = await db.query(
+      'SELECT id FROM agents WHERE id = $1 AND workspace_id = $2',
+      [agentId, request.workspaceId]
+    );
+    if (agentCheck.rows.length === 0) {
+      reply.code(404).send({ error: 'Agent not found in this workspace' });
+      return;
+    }
+
     const sessionId = crypto.randomUUID();
 
     await db.query(
@@ -50,8 +66,20 @@ export async function evalRoutes(app: FastifyInstance) {
    * Register mock tool handlers for an eval session.
    * Mocks override real tool execution with deterministic responses.
    */
-  app.post('/sessions/:id/mocks', async (request) => {
+  app.post('/sessions/:id/mocks', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const db = (app as any).db;
+
+    // Verify session belongs to the requester's workspace
+    const ownerCheck = await db.query(
+      'SELECT id FROM sessions WHERE id = $1 AND workspace_id = $2',
+      [id, request.workspaceId]
+    );
+    if (ownerCheck.rows.length === 0) {
+      reply.code(404).send({ error: 'Session not found' });
+      return;
+    }
+
     const { mocks } = request.body as {
       mocks: Array<{
         toolName: string;
@@ -148,7 +176,18 @@ export async function evalRoutes(app: FastifyInstance) {
    */
   app.get('/sessions/:id/events', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const db = (app as any).db;
     const redis = (app as any).redis;
+
+    // Verify session belongs to the requester's workspace
+    const ownerCheck = await db.query(
+      'SELECT id FROM sessions WHERE id = $1 AND workspace_id = $2',
+      [id, request.workspaceId]
+    );
+    if (ownerCheck.rows.length === 0) {
+      reply.code(404).send({ error: 'Session not found' });
+      return;
+    }
 
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',

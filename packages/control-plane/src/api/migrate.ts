@@ -69,9 +69,16 @@ export async function migrateRoutes(app: FastifyInstance) {
     let importedAgents = 0;
     let importedSkills = 0;
 
+    const VALID_STATUSES = ['active', 'inactive', 'archived'];
+
     // Import agents
     if (data.agents && Array.isArray(data.agents)) {
       for (const agent of data.agents) {
+        // Validate required fields and enforce length/type constraints
+        if (typeof agent.name !== 'string' || agent.name.length === 0 || agent.name.length > 255) continue;
+        const status = typeof agent.status === 'string' && VALID_STATUSES.includes(agent.status) ? agent.status : 'active';
+        const systemPrompt = typeof agent.system_prompt === 'string' ? agent.system_prompt.slice(0, 100_000) : '';
+
         try {
           await db.query(
             `INSERT INTO agents (workspace_id, name, display_name, model, system_prompt, status, settings)
@@ -81,10 +88,10 @@ export async function migrateRoutes(app: FastifyInstance) {
             [
               workspaceId,
               agent.name,
-              agent.display_name ?? null,
-              agent.model ?? 'ollama/llama3.2',
-              agent.system_prompt ?? '',
-              agent.status ?? 'active',
+              typeof agent.display_name === 'string' ? agent.display_name.slice(0, 255) : null,
+              typeof agent.model === 'string' ? agent.model.slice(0, 255) : 'ollama/llama3.2',
+              systemPrompt,
+              status,
               JSON.stringify(agent.settings ?? {}),
             ]
           );
@@ -98,6 +105,9 @@ export async function migrateRoutes(app: FastifyInstance) {
     // Import skills
     if (data.skills && Array.isArray(data.skills)) {
       for (const skill of data.skills) {
+        // Validate required fields and enforce length constraints
+        if (typeof skill.name !== 'string' || skill.name.length === 0 || skill.name.length > 255) continue;
+
         try {
           await db.query(
             `INSERT INTO skills (workspace_id, name, version, manifest_yaml)
@@ -107,8 +117,8 @@ export async function migrateRoutes(app: FastifyInstance) {
             [
               workspaceId,
               skill.name,
-              skill.version ?? 'latest',
-              skill.manifest_yaml ?? '{}',
+              typeof skill.version === 'string' ? skill.version.slice(0, 50) : 'latest',
+              typeof skill.manifest_yaml === 'string' ? skill.manifest_yaml.slice(0, 100_000) : '{}',
             ]
           );
           importedSkills++;

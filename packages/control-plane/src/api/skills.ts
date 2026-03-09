@@ -176,6 +176,13 @@ export async function skillRoutes(app: FastifyInstance) {
   // Get skill details by name
   app.get('/:name', async (request, reply) => {
     const { name } = request.params as { name: string };
+
+    // Sanitize name to prevent path traversal
+    if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+      reply.code(400).send({ error: 'Invalid skill name' });
+      return;
+    }
+
     const db = (app as any).db;
 
     const result = await db.query(
@@ -215,6 +222,12 @@ export async function skillRoutes(app: FastifyInstance) {
 
     if (!name) {
       reply.code(400).send({ error: 'Skill name is required' });
+      return;
+    }
+
+    // Sanitize name to prevent path traversal
+    if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+      reply.code(400).send({ error: 'Invalid skill name' });
       return;
     }
 
