@@ -65,5 +65,8 @@ jobs:
       - name: Audit dependencies
         run: pnpm audit --audit-level=high
 
+      - name: Build packages
+        run: pnpm build
+
       - name: Run security tests
-        run: pnpm test --filter security
+        run: pnpm vitest run tests/security/ --reporter=verbose
