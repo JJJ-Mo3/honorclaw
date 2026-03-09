@@ -3,6 +3,7 @@ import * as jose from 'jose';
 import { authenticator } from 'otplib';
 import { encryptSecret, decryptSecret } from './crypto.js';
 import { checkRateLimit, recordFailedAttempt, clearRateLimit } from './rate-limiter.js';
+import { issueTokens } from './plugin.js';
 
 export async function totpRoutes(app: FastifyInstance) {
   const rawSecret = process.env.JWT_SECRET;
@@ -16,6 +17,13 @@ export async function totpRoutes(app: FastifyInstance) {
   const jwtSecret = new TextEncoder().encode(
     rawSecret ?? 'honorclaw-dev-secret-change-in-production'
   );
+
+  // Read auth config for token TTLs
+  const authConfig = (app as any).config?.auth as { accessTokenTtlMinutes?: number; refreshTokenTtlDays?: number } | undefined;
+  const tokenTtl = {
+    accessMinutes: authConfig?.accessTokenTtlMinutes ?? 60,
+    refreshDays: authConfig?.refreshTokenTtlDays ?? 7,
+  };
 
   // Set up TOTP for the authenticated user
   app.post('/api/auth/totp/setup', async (request, reply) => {
@@ -156,47 +164,23 @@ export async function totpRoutes(app: FastifyInstance) {
       .filter((r: any) => r.workspace_id === workspaceId)
       .map((r: any) => r.role) as string[];
 
-    // Issue real session tokens
-    const accessToken = await new jose.SignJWT({
-      workspace_id: workspaceId,
-      roles,
-      is_deployment_admin: user.is_deployment_admin,
-      type: 'access',
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setSubject(userId)
-      .setIssuer('honorclaw')
-      .setExpirationTime('1h')
-      .setIssuedAt()
-      .sign(jwtSecret);
-
-    const refreshToken = await new jose.SignJWT({
-      workspace_id: workspaceId,
-      roles,
-      is_deployment_admin: user.is_deployment_admin,
-      type: 'refresh',
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setSubject(userId)
-      .setIssuer('honorclaw')
-      .setExpirationTime('7d')
-      .setIssuedAt()
-      .sign(jwtSecret);
+    // Issue real session tokens using the shared helper
+    const tokens = await issueTokens(userId, workspaceId, roles, user.is_deployment_admin, jwtSecret, tokenTtl);
 
     reply
-      .setCookie('token', accessToken, {
+      .setCookie('token', tokens.accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV !== 'development',
         sameSite: 'strict',
         path: '/',
-        maxAge: 3600,
+        maxAge: tokenTtl.accessMinutes * 60,
       })
-      .setCookie('refresh_token', refreshToken, {
+      .setCookie('refresh_token', tokens.refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV !== 'development',
         sameSite: 'strict',
         path: '/api/auth/refresh',
-        maxAge: 7 * 86400,
+        maxAge: tokenTtl.refreshDays * 86400,
       })
       .send({
         user: { id: userId, email: user.email, isDeploymentAdmin: user.is_deployment_admin },

@@ -34,7 +34,13 @@ export async function sessionRoutes(app: FastifyInstance) {
   });
 
   app.post('/', async (request, reply) => {
-    const { agentId, channel, message } = request.body as { agentId: string; channel?: string; message?: string };
+    const { agentId, channel, message } = request.body as { agentId?: string; channel?: string; message?: string };
+
+    if (!agentId || typeof agentId !== 'string') {
+      reply.code(400).send({ error: 'agentId is required' });
+      return;
+    }
+
     const sessionManager = (app as any).sessionManager;
 
     const session = await sessionManager.create({
@@ -53,7 +59,13 @@ export async function sessionRoutes(app: FastifyInstance) {
 
   app.post('/:id/messages', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const { content, sync } = request.body as { content: string; sync?: boolean };
+    const { content, sync } = request.body as { content?: string; sync?: boolean };
+
+    if (!content || typeof content !== 'string') {
+      reply.code(400).send({ error: 'Message content is required' });
+      return;
+    }
+
     const sessionManager = (app as any).sessionManager;
     const redis = (app as any).redis as Redis;
     const db = (app as any).db;

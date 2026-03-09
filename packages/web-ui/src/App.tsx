@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useParams, useNavigate, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useParams, useNavigate, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from './auth/useAuth.js';
 import { LoginPage } from './auth/LoginPage.js';
 import { RegisterPage } from './auth/RegisterPage.js';
@@ -21,7 +21,7 @@ export function App() {
         <Routes>
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/register" element={<GatedRegisterPage />} />
 
           {/* Protected: any authenticated user */}
           <Route
@@ -105,6 +105,24 @@ export function App() {
       </AuthProvider>
     </BrowserRouter>
   );
+}
+
+/**
+ * Gates the registration page — redirects to /login when self-registration
+ * is disabled on the server, preventing direct URL access.
+ */
+function GatedRegisterPage() {
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    api.get<{ selfRegistrationEnabled: boolean }>('/auth/config')
+      .then((cfg) => setAllowed(cfg.selfRegistrationEnabled))
+      .catch(() => setAllowed(false));
+  }, []);
+
+  if (allowed === null) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-sm text-gray-500">Loading...</p></div>;
+  if (!allowed) return <Navigate to="/login" replace />;
+  return <RegisterPage />;
 }
 
 /**

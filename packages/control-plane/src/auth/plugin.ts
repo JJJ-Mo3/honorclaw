@@ -152,7 +152,7 @@ async function authPluginImpl(app: FastifyInstance) {
         // Include tokens in response body so CLI and headless clients can capture them
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
-        expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+        expiresAt: new Date(Date.now() + tokenTtl.accessMinutes * 60 * 1000).toISOString(),
       });
   });
 
@@ -230,7 +230,7 @@ async function authPluginImpl(app: FastifyInstance) {
           roles,
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
-          expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+          expiresAt: new Date(Date.now() + tokenTtl.accessMinutes * 60 * 1000).toISOString(),
         });
     } catch (err: unknown) {
       const pgErr = err as { code?: string };
@@ -298,7 +298,7 @@ async function authPluginImpl(app: FastifyInstance) {
           secure: process.env.NODE_ENV !== 'development',
           sameSite: 'strict',
           path: '/',
-          maxAge: 3600,
+          maxAge: tokenTtl.accessMinutes * 60,
         })
         .send({ success: true });
     } catch {
@@ -357,7 +357,7 @@ function extractToken(request: FastifyRequest): string | null {
   return null;
 }
 
-async function issueTokens(
+export async function issueTokens(
   userId: string,
   workspaceId: string | undefined,
   roles: string[],
