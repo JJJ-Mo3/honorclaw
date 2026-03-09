@@ -325,6 +325,64 @@ async function authPluginImpl(app: FastifyInstance) {
       .send({ success: true });
   });
 
+  // Bootstrap endpoint — creates the first workspace + admin user in one call.
+  // Only works when no users exist (same gate as self-registration).
+  app.post('/api/admin/bootstrap', async (request, reply) => {
+    if (!checkRateLimit(request, reply)) return;
+
+    const { workspaceName, adminEmail, adminPassword } = request.body as {
+      workspaceName?: string;
+      adminEmail: string;
+      adminPassword: string;
+    };
+    const db = (app as any).db;
+
+    if (!adminEmail || !adminPassword || adminPassword.length < 8 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+      reply.code(400).send({ error: 'Valid email and password (min 8 chars) are required' });
+      return;
+    }
+
+    // Only allowed when no users exist
+    const countResult = await db.query('SELECT count(*) AS cnt FROM users');
+    if (parseInt(countResult.rows[0].cnt, 10) > 0) {
+      reply.code(409).send({ error: 'Bootstrap already completed. Use /api/auth/login.' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
+
+    // Create workspace
+    const wsName = workspaceName?.trim() || 'default';
+    const wsResult = await db.query(
+      `INSERT INTO workspaces (name) VALUES ($1)
+       ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+       RETURNING id`,
+      [wsName],
+    );
+    const workspaceId = wsResult.rows[0].id;
+
+    // Create admin user
+    const userResult = await db.query(
+      `INSERT INTO users (email, password_hash, is_deployment_admin)
+       VALUES ($1, $2, true)
+       RETURNING id, email`,
+      [adminEmail, passwordHash],
+    );
+    const user = userResult.rows[0];
+
+    // Assign workspace_admin role
+    await db.query(
+      'INSERT INTO user_workspace_roles (user_id, workspace_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+      [user.id, workspaceId, 'workspace_admin'],
+    );
+
+    reply.code(201).send({
+      user: { id: user.id, email: user.email, isDeploymentAdmin: true },
+      workspaceId,
+      roles: ['workspace_admin'],
+    });
+  });
+
   // Public auth config — exposes non-secret settings the UI needs
   app.get('/api/auth/config', async () => {
     const db = (app as any).db;

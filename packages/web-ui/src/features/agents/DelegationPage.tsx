@@ -7,20 +7,21 @@ import { api } from '../../api/client.js';
 
 interface AuditEvent {
   id: string;
-  event_type: string;
-  actor_id: string;
-  target_id: string;
-  metadata: Record<string, string>;
-  created_at: string;
+  eventType: string;
+  actorId: string;
+  agentId: string;
+  sessionId: string;
+  payload: Record<string, string>;
+  createdAt: string;
 }
 
 interface Session {
   id: string;
-  agent_id: string;
-  parent_session_id: string | null;
+  agentId: string;
+  parentSessionId: string | null;
   status: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Agent {
@@ -111,12 +112,12 @@ export function DelegationPage() {
       /* Map audit events into delegation rows */
       const rows: DelegationRow[] = eventsRes.events.map((e) => ({
         id: e.id,
-        parentAgent: agentMap.get(e.actor_id) ?? e.actor_id.slice(0, 12),
-        childAgent: agentMap.get(e.target_id) ?? e.target_id.slice(0, 12),
-        task: e.metadata['task'] ?? '-',
-        status: e.metadata['status'] ?? 'unknown',
-        started: e.created_at,
-        duration: formatDuration(e.created_at, e.metadata['completed_at'] ?? null),
+        parentAgent: agentMap.get(e.actorId) ?? e.actorId.slice(0, 12),
+        childAgent: agentMap.get(e.agentId) ?? e.agentId.slice(0, 12),
+        task: e.payload['task'] ?? '-',
+        status: e.payload['status'] ?? 'unknown',
+        started: e.createdAt,
+        duration: formatDuration(e.createdAt, e.payload['completed_at'] ?? null),
       }));
 
       setDelegations(rows);
@@ -235,16 +236,16 @@ export function DelegationPage() {
                   {childSessions.map((s) => (
                     <tr key={s.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono text-xs">{s.id.slice(0, 12)}...</td>
-                      <td className="px-4 py-3 font-mono text-xs">{s.agent_id.slice(0, 12)}...</td>
+                      <td className="px-4 py-3 font-mono text-xs">{s.agentId.slice(0, 12)}...</td>
                       <td className="px-4 py-3 font-mono text-xs">
-                        {s.parent_session_id ? `${s.parent_session_id.slice(0, 12)}...` : '-'}
+                        {s.parentSessionId ? `${s.parentSessionId.slice(0, 12)}...` : '-'}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor(s.status)}`}>
                           {s.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-500">{new Date(s.created_at).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-gray-500">{new Date(s.createdAt).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -1,20 +1,27 @@
 import type { FastifyInstance } from 'fastify';
 import type { Redis } from 'ioredis';
 import { RedisChannels } from '@honorclaw/core';
-import { requireWorkspace } from '../middleware/rbac.js';
+import { requireWorkspace, requireRoles } from '../middleware/rbac.js';
 import { mapRows, toCamelCase } from './row-mapper.js';
 
 export async function sessionRoutes(app: FastifyInstance) {
   app.addHook('onRequest', requireWorkspace());
 
   // List sessions for the current workspace
-  app.get('/', async (request) => {
+  app.get('/', { preHandler: [requireRoles('workspace_admin', 'auditor', 'agent_user')] }, async (request) => {
     const db = (app as any).db;
     const { status, agentId, limit } = request.query as { status?: string; agentId?: string; limit?: string };
 
     let query = 'SELECT id, workspace_id, agent_id, user_id, channel, status, created_at, updated_at FROM sessions WHERE workspace_id = $1';
     const params: unknown[] = [request.workspaceId];
     let idx = 2;
+
+    // agent_user role can only see their own sessions
+    const userRoles = request.roles ?? [];
+    if (!request.isDeploymentAdmin && !userRoles.includes('workspace_admin') && !userRoles.includes('auditor')) {
+      query += ` AND user_id = $${idx++}`;
+      params.push(request.userId);
+    }
 
     if (status) {
       query += ` AND status = $${idx++}`;

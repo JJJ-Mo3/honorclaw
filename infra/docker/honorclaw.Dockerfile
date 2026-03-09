@@ -77,7 +77,6 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD curl -sf http://localhost:3000/health/ready || exit 1
 
-# Drop root privileges — application runs as unprivileged node user
-USER node
-
+# s6-overlay starts as root and drops privileges per-service via su-exec.
+# The control-plane runs as the unprivileged 'node' user (see s6 run scripts).
 ENTRYPOINT ["/entrypoint.sh"]

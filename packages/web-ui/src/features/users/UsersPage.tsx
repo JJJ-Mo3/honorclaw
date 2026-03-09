@@ -4,12 +4,12 @@ import { api } from '../../api/client.js';
 interface User {
   id: string;
   email: string;
-  display_name: string;
-  is_deployment_admin: boolean;
-  totp_enabled: boolean;
+  displayName: string;
+  isDeploymentAdmin: boolean;
+  totpEnabled: boolean;
   role: string;
-  created_at: string;
-  last_login_at: string | null;
+  createdAt: string;
+  lastLoginAt: string | null;
 }
 
 export function UsersPage() {
@@ -100,7 +100,7 @@ export function UsersPage() {
               <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50">
                 <td className="px-4 py-3">
                   {u.email}
-                  {u.is_deployment_admin && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Admin</span>}
+                  {u.isDeploymentAdmin && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Admin</span>}
                 </td>
                 <td className="px-4 py-3">
                   <select value={u.role} onChange={(e) => { void handleRoleChange(u.id, e.target.value); }} className="border rounded px-2 py-1 text-xs">
@@ -110,9 +110,9 @@ export function UsersPage() {
                     <option value="api_service">api_service</option>
                   </select>
                 </td>
-                <td className="px-4 py-3">{u.totp_enabled ? <span className="text-green-600">Enabled</span> : <span className="text-gray-400">Off</span>}</td>
-                <td className="px-4 py-3 text-gray-500">{new Date(u.created_at).toLocaleDateString()}</td>
-                <td className="px-4 py-3 text-gray-500">{u.last_login_at ? new Date(u.last_login_at).toLocaleString() : 'Never'}</td>
+                <td className="px-4 py-3">{u.totpEnabled ? <span className="text-green-600">Enabled</span> : <span className="text-gray-400">Off</span>}</td>
+                <td className="px-4 py-3 text-gray-500">{new Date(u.createdAt).toLocaleDateString()}</td>
+                <td className="px-4 py-3 text-gray-500">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : 'Never'}</td>
               </tr>
             ))}
           </tbody>

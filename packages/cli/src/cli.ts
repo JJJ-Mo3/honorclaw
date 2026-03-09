@@ -1040,11 +1040,13 @@ const migrate = program.command('migrate').description('Import/export platform d
 migrate
   .command('export')
   .description('Export all configuration and data')
-  .option('-o, --output <file>', 'Output file', 'honorclaw-export.tar.gz')
+  .option('-o, --output <file>', 'Output file', 'honorclaw-export.json')
   .action(async (opts: { output: string }) => {
     const spinner = ora('Exporting...').start();
     try {
-      await cliApi.post('/migrate/export', { outputPath: opts.output });
+      const fs = await import('node:fs');
+      const data = await cliApi.post<Record<string, unknown>>('/migrate/export');
+      fs.writeFileSync(opts.output, JSON.stringify(data, null, 2), 'utf-8');
       spinner.succeed(`Exported to ${chalk.bold(opts.output)}`);
     } catch (err) {
       spinner.fail('Export failed');
@@ -1059,7 +1061,10 @@ migrate
   .action(async (opts: { file: string }) => {
     const spinner = ora('Importing...').start();
     try {
-      await cliApi.post('/migrate/import', { inputPath: opts.file });
+      const fs = await import('node:fs');
+      const raw = fs.readFileSync(opts.file, 'utf-8');
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      await cliApi.post('/migrate/import', { data: parsed });
       spinner.succeed('Import complete');
     } catch (err) {
       spinner.fail('Import failed');

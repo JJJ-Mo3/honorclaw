@@ -4,15 +4,15 @@ import { api } from '../../api/client.js';
 interface Notification {
   id: string;
   trigger: string;
-  workspace_id: string;
-  user_id: string | null;
-  agent_id: string;
-  session_id: string;
+  workspaceId: string;
+  userId: string | null;
+  agentId: string;
+  sessionId: string;
   title: string;
   body: string;
   severity: string;
   read: boolean;
-  created_at: string;
+  createdAt: string;
 }
 
 export function NotificationsPage() {
@@ -105,8 +105,8 @@ export function NotificationsPage() {
                   <h3 className={`font-semibold mt-1 ${n.read ? 'text-gray-500' : 'text-gray-900'}`}>{n.title}</h3>
                   <p className="text-sm text-gray-600 mt-1">{n.body}</p>
                   <p className="text-xs text-gray-400 mt-2">
-                    {new Date(n.created_at).toLocaleString()}
-                    {n.agent_id && <> | Agent: <span className="font-mono">{n.agent_id.slice(0, 8)}</span></>}
+                    {new Date(n.createdAt).toLocaleString()}
+                    {n.agentId && <> | Agent: <span className="font-mono">{n.agentId.slice(0, 8)}</span></>}
                   </p>
                 </div>
                 {!n.read && (

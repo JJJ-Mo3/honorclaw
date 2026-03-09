@@ -187,7 +187,7 @@ export async function runInit(): Promise<void> {
       '\nCould not create admin user (server not running?).',
     ));
     console.log(chalk.dim(
-      'Start the server and run `honorclaw init --admin-only` to create the admin user.',
+      'Start the server, then register via the Web UI at http://localhost:3000 — the first user becomes admin.',
     ));
   }
 

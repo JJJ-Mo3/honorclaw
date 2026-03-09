@@ -17,6 +17,7 @@ su-exec postgres psql -h /var/run/postgresql -c "SELECT 1 FROM pg_database WHERE
 # Install required extensions
 su-exec postgres psql -h /var/run/postgresql -d honorclaw -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" 2>/dev/null || true
 su-exec postgres psql -h /var/run/postgresql -d honorclaw -c "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";" 2>/dev/null || true
+su-exec postgres psql -h /var/run/postgresql -d honorclaw -c "CREATE EXTENSION IF NOT EXISTS \"vector\";" 2>/dev/null || true
 su-exec postgres pg_ctl -D "$PGDATA" -w stop
 
 exec su-exec postgres postgres -D "$PGDATA" \

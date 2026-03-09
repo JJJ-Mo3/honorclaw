@@ -3,13 +3,13 @@ import { api } from '../../api/client.js';
 
 interface Session {
   id: string;
-  workspace_id: string;
-  agent_id: string;
-  user_id: string;
+  workspaceId: string;
+  agentId: string;
+  userId: string;
   channel: string;
   status: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export function SessionsPage() {
@@ -98,15 +98,15 @@ export function SessionsPage() {
               {sessions.map((s) => (
                 <tr key={s.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono text-xs">{s.id.slice(0, 12)}...</td>
-                  <td className="px-4 py-3 font-mono text-xs">{s.agent_id.slice(0, 12)}...</td>
+                  <td className="px-4 py-3 font-mono text-xs">{s.agentId.slice(0, 12)}...</td>
                   <td className="px-4 py-3">{s.channel || 'web'}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor(s.status)}`}>
                       {s.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(s.created_at).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(s.updated_at).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-gray-500">{new Date(s.createdAt).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-gray-500">{new Date(s.updatedAt).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     {s.status === 'active' && (
                       <button

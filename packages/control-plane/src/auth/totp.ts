@@ -65,7 +65,7 @@ export async function totpRoutes(app: FastifyInstance) {
     // Generate provisioning URI for QR code scanning
     const otpauthUri = authenticator.keyuri(user.email, 'HonorClaw', secret);
 
-    return { secret, otpauthUri };
+    return { otpauthUri };
   });
 
   // Verify a TOTP code and issue session tokens

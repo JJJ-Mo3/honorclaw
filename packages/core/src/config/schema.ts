@@ -5,6 +5,7 @@ export const ServerConfigSchema = z.object({
   host: z.string().default('0.0.0.0'),
   corsOrigins: z.array(z.string()).default(['http://localhost:3000']),
   sessionCookieSecret: z.string().optional(),
+  trustProxy: z.union([z.boolean(), z.string(), z.number()]).default(false),
 });
 
 export const DatabaseConfigSchema = z.object({

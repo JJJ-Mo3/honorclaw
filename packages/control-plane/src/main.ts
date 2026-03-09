@@ -65,7 +65,7 @@ async function main() {
 
   const app = Fastify({
     logger,
-    trustProxy: true,
+    trustProxy: config.server.trustProxy ?? false,
   });
 
   await app.register(cors, { origin: config.server.corsOrigins, credentials: true });
@@ -74,7 +74,7 @@ async function main() {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'"],
         imgSrc: ["'self'", "data:"],
         fontSrc: ["'self'"],
       },
@@ -400,7 +400,7 @@ async function main() {
 
   // Serve Web UI static files
   const webUiPath = process.env.HONORCLAW_WEB_UI_PATH
-    ?? path.resolve(__dirname, '..', '..', '..', 'web-ui', 'dist');
+    ?? path.resolve(__dirname, '..', '..', 'web-ui', 'dist');
 
   await app.register(fastifyStatic, {
     root: webUiPath,

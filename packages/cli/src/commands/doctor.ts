@@ -206,25 +206,25 @@ function checkDockerSocket(): CheckResult {
 async function checkHealthEndpoint(): Promise<CheckResult> {
   const baseUrl = cliApi.getBaseUrl();
   try {
-    const response = await fetch(`${baseUrl}/api/health`, { signal: AbortSignal.timeout(5000) });
+    const response = await fetch(`${baseUrl}/health/ready`, { signal: AbortSignal.timeout(5000) });
     if (response.ok) {
       return {
         name: 'Health endpoint',
         status: 'pass',
-        message: `${baseUrl}/api/health responded OK`,
+        message: `${baseUrl}/health/ready responded OK`,
       };
     }
 
     return {
       name: 'Health endpoint',
       status: 'warn',
-      message: `${baseUrl}/api/health returned HTTP ${response.status}`,
+      message: `${baseUrl}/health/ready returned HTTP ${response.status}`,
     };
   } catch {
     return {
       name: 'Health endpoint',
       status: 'warn',
-      message: `Could not reach ${baseUrl}/api/health. Is the server running?`,
+      message: `Could not reach ${baseUrl}/health/ready. Is the server running?`,
     };
   }
 }

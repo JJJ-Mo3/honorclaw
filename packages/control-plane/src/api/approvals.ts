@@ -5,7 +5,7 @@ export async function approvalRoutes(app: FastifyInstance) {
   app.addHook('onRequest', requireWorkspace());
 
   // List pending approval requests for the current workspace
-  app.get('/', async (request) => {
+  app.get('/', { preHandler: [requireRoles('workspace_admin', 'auditor')] }, async (request) => {
     const db = (app as any).db;
     const result = await db.query(
       `SELECT id, session_id, agent_id, tool_name, parameters_redacted, status, timeout_at, created_at
@@ -18,7 +18,7 @@ export async function approvalRoutes(app: FastifyInstance) {
   });
 
   // Get a single approval request
-  app.get('/:id', async (request, reply) => {
+  app.get('/:id', { preHandler: [requireRoles('workspace_admin', 'auditor')] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const db = (app as any).db;
     const result = await db.query(
