@@ -3,7 +3,7 @@
 # HonorClaw CLI Installer
 #
 # Usage:
-#   curl -fsSL https://honorclaw.dev/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/honorclaw/main/scripts/install.sh | sh
 #
 # Environment variables:
 #   HONORCLAW_VERSION   - Version to install (default: latest)
@@ -17,7 +17,7 @@ set -euo pipefail
 # Configuration
 # ---------------------------------------------------------------------------
 
-REPO="honorclaw/honorclaw"
+REPO="JJJ-Mo3/honorclaw"
 INSTALL_DIR="${HONORCLAW_INSTALL_DIR:-/usr/local/bin}"
 BINARY_NAME="honorclaw"
 TMP_DIR=""
@@ -225,7 +225,7 @@ main() {
   echo "    honorclaw init"
   echo "    honorclaw doctor"
   echo ""
-  echo "  Documentation: https://honorclaw.dev/docs"
+  echo "  Documentation: https://github.com/JJJ-Mo3/honorclaw"
   echo ""
 }
 

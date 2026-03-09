@@ -9,7 +9,7 @@ import rego.v1
 
 # Approved registries — only these prefixes are allowed
 approved_registries := [
-  "ghcr.io/honorclaw/",
+  "ghcr.io/jjj-mo3/",
   "docker.io/library/",
   "registry.k8s.io/",
 ]

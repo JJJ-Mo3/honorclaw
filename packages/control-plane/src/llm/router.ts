@@ -146,6 +146,18 @@ export class LLMRouter {
     }
 
     try {
+      // Resolve workspaceId from session context stored in Redis
+      let workspaceId = '00000000-0000-0000-0000-000000000000';
+      try {
+        const contextRaw = await this.redis.get(`session:${request.sessionId}:context`);
+        if (contextRaw) {
+          const ctx = JSON.parse(contextRaw) as { workspaceId?: string };
+          workspaceId = ctx.workspaceId ?? workspaceId;
+        }
+      } catch {
+        // Non-fatal: use default
+      }
+
       let response: LLMResponse;
 
       if (request.stream && adapter.completeStream) {
@@ -173,7 +185,7 @@ export class LLMRouter {
 
       // Audit
       this.auditEmitter.emit({
-        workspaceId: '00000000-0000-0000-0000-000000000000', // TODO: resolve from session
+        workspaceId,
         eventType: 'llm.interaction',
         actorType: 'agent',
         sessionId: request.sessionId,

@@ -26,11 +26,11 @@ import { createHash } from 'node:crypto';
 // ---------------------------------------------------------------------------
 
 const HONORCLAW_IMAGES = [
-  'ghcr.io/honorclaw/honorclaw:latest',
-  'ghcr.io/honorclaw/agent-runtime:latest',
-  'ghcr.io/honorclaw/tool-web-search:latest',
-  'ghcr.io/honorclaw/tool-file-ops:latest',
-  'ghcr.io/honorclaw/tool-code-execution:latest',
+  'ghcr.io/jjj-mo3/honorclaw:latest',
+  'ghcr.io/jjj-mo3/agent-runtime:latest',
+  'ghcr.io/jjj-mo3/tool-web-search:latest',
+  'ghcr.io/jjj-mo3/tool-file-ops:latest',
+  'ghcr.io/jjj-mo3/tool-code-execution:latest',
 ];
 
 const SUPPORTING_IMAGES = [

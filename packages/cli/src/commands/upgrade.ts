@@ -37,7 +37,7 @@ function getUpgradeConfig(): UpgradeConfig {
     kubeNamespace: process.env.HONORCLAW_NAMESPACE ?? 'honorclaw',
     healthEndpoint: process.env.HONORCLAW_HEALTH_URL ?? 'http://localhost:3000/health',
     healthTimeout: parseInt(process.env.HONORCLAW_HEALTH_TIMEOUT ?? '120', 10),
-    migrationImage: process.env.HONORCLAW_MIGRATION_IMAGE ?? 'ghcr.io/honorclaw/honorclaw:latest',
+    migrationImage: process.env.HONORCLAW_MIGRATION_IMAGE ?? 'ghcr.io/jjj-mo3/honorclaw:latest',
   };
 }
 

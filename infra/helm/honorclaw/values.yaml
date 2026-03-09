@@ -1,13 +1,13 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/honorclaw/honorclaw
+  repository: ghcr.io/jjj-mo3/honorclaw
   pullPolicy: IfNotPresent
   tag: ""
 
 agentRuntime:
   image:
-    repository: ghcr.io/honorclaw/agent-runtime
+    repository: ghcr.io/jjj-mo3/agent-runtime
     pullPolicy: IfNotPresent
     tag: ""
   securityContext:

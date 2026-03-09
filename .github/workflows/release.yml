@@ -325,7 +325,7 @@ jobs:
           ### Quick Install
 
           ```bash
-          curl -fsSL https://honorclaw.dev/install.sh | sh
+          curl -fsSL https://raw.githubusercontent.com/JJJ-Mo3/honorclaw/main/scripts/install.sh | sh
           ```
 
           ### Changes
