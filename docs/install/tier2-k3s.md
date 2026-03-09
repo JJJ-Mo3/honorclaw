@@ -48,19 +48,38 @@ cd packages/cli && pnpm link --global
 honorclaw init
 ```
 
-This generates Kubernetes manifests in `./k8s/`:
-- `namespace.yaml`
-- `postgres.yaml`
-- `redis.yaml`
-- `ollama.yaml`
-- `control-plane.yaml`
-- `agent-runtime.yaml`
-- `network-policies.yaml`
+This generates `honorclaw.yaml` (the main configuration) and `.env` (environment variables). It does **not** generate Kubernetes manifests directly.
+
+To deploy on K3s, use one of the following approaches:
+
+#### Option A: Helm Chart (Recommended)
+
+The project ships a Helm chart at `infra/helm/honorclaw/` with templates for Deployment, Service, NetworkPolicy, and PVC resources.
+
+```bash
+# From the repo root
+helm install honorclaw ./infra/helm/honorclaw \
+  -n honorclaw --create-namespace \
+  -f honorclaw.yaml
+```
+
+Review and customise `infra/helm/honorclaw/values.yaml` before installing.
+
+#### Option B: Adapt Docker Compose
+
+If you prefer plain manifests, use `infra/docker/docker-compose.yml` as a reference and translate each service into Kubernetes Deployment + Service resources. Tools such as [kompose](https://kompose.io/) can automate much of this:
+
+```bash
+cd infra/docker
+kompose convert -f docker-compose.yml -o ../k8s-generated/
+```
 
 ### 4. Apply Manifests
 
 ```bash
-sudo k3s kubectl apply -f k8s/
+# If using Helm (Option A), the install command above handles this.
+# If you generated plain manifests (Option B):
+sudo k3s kubectl apply -f infra/k8s-generated/
 ```
 
 ### 5. Wait for Pods

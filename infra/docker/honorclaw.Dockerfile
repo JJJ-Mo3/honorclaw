@@ -77,4 +77,7 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD curl -sf http://localhost:3000/health/ready || exit 1
 
+# Drop root privileges — application runs as unprivileged node user
+USER node
+
 ENTRYPOINT ["/entrypoint.sh"]

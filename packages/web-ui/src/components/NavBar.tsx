@@ -15,11 +15,14 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Users', to: '/users', roles: ['workspace_admin'] },
   { label: 'Approvals', to: '/approvals', roles: ['workspace_admin'] },
   { label: 'Sessions', to: '/sessions', roles: ['workspace_admin'] },
+  { label: 'Delegation', to: '/delegation', roles: ['workspace_admin'] },
   { label: 'Webhooks', to: '/webhooks', roles: ['workspace_admin'] },
   { label: 'Memory', to: '/memory', roles: ['workspace_admin'] },
   { label: 'Notifications', to: '/notifications' },
+  { label: 'Secrets', to: '/secrets', roles: ['workspace_admin'] },
   { label: 'Audit', to: '/audit', roles: ['auditor', 'workspace_admin'] },
   { label: 'Integrations', to: '/integrations', roles: ['workspace_admin'] },
+  { label: 'Settings', to: '/settings' },
 ];
 
 export function NavBar() {

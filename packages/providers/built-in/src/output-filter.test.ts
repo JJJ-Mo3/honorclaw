@@ -147,4 +147,175 @@ describe('RegexOutputFilterProvider', () => {
       expect(truncationFindings).toHaveLength(1);
     });
   });
+
+  // ── PII Pattern Detection ────────────────────────────────────────────
+
+  describe('PII pattern detection', () => {
+    it('detects and redacts SSN patterns', async () => {
+      const context = makeContext();
+      const text = 'SSN: 123-45-6789 and another 987-65-4321.';
+      const { filtered, findings } = await provider.filter(text, context);
+
+      expect(filtered).not.toContain('123-45-6789');
+      expect(filtered).not.toContain('987-65-4321');
+      expect(filtered).toContain('[REDACTED-SSN]');
+      const ssnFindings = findings.filter(f => f.type === 'pii:ssn');
+      expect(ssnFindings).toHaveLength(2);
+    });
+
+    it('detects and redacts credit card numbers', async () => {
+      const context = makeContext();
+      const text = 'Card: 4111 1111 1111 1111 is on file.';
+      const { filtered, findings } = await provider.filter(text, context);
+
+      expect(filtered).not.toContain('4111 1111 1111 1111');
+      expect(filtered).toContain('[REDACTED-CC]');
+      const ccFindings = findings.filter(f => f.type === 'pii:credit_card');
+      expect(ccFindings.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('detects and redacts email addresses', async () => {
+      const context = makeContext();
+      const text = 'Reach out to alice@company.io or bob.smith@example.com for details.';
+      const { filtered, findings } = await provider.filter(text, context);
+
+      expect(filtered).not.toContain('alice@company.io');
+      expect(filtered).not.toContain('bob.smith@example.com');
+      expect(filtered).toContain('[REDACTED-EMAIL]');
+      const emailFindings = findings.filter(f => f.type === 'pii:email');
+      expect(emailFindings).toHaveLength(2);
+    });
+
+    it('detects and redacts US phone numbers', async () => {
+      const context = makeContext();
+      const text = 'Call us at 555-123-4567 or +1-800-555-0199.';
+      const { filtered, findings } = await provider.filter(text, context);
+
+      expect(filtered).not.toContain('555-123-4567');
+      expect(filtered).not.toContain('+1-800-555-0199');
+      expect(filtered).toContain('[REDACTED-PHONE]');
+      const phoneFindings = findings.filter(f => f.type === 'pii:us_phone');
+      expect(phoneFindings.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('detects and redacts IPv4 addresses', async () => {
+      const context = makeContext();
+      const text = 'Server is at 192.168.1.100 and backup at 10.0.0.1.';
+      const { filtered, findings } = await provider.filter(text, context);
+
+      expect(filtered).not.toContain('192.168.1.100');
+      expect(filtered).not.toContain('10.0.0.1');
+      expect(filtered).toContain('[REDACTED-IP]');
+      const ipFindings = findings.filter(f => f.type === 'pii:ipv4');
+      expect(ipFindings).toHaveLength(2);
+    });
+  });
+
+  // ── Credential Pattern Detection ──────────────────────────────────────
+
+  describe('credential pattern detection', () => {
+    it('detects and redacts AWS access keys', async () => {
+      const context = makeContext();
+      const text = 'AWS key: AKIAIOSFODNN7EXAMPLE is exposed.';
+      const { filtered, findings } = await provider.filter(text, context);
+
+      expect(filtered).not.toContain('AKIAIOSFODNN7EXAMPLE');
+      expect(filtered).toContain('[REDACTED-AWS-ACCESS-KEY]');
+      const awsFindings = findings.filter(f => f.type === 'credential:aws_access_key');
+      expect(awsFindings).toHaveLength(1);
+    });
+
+    it('detects and redacts OpenAI API keys', async () => {
+      const context = makeContext();
+      const fakeKey = 'sk-' + 'a'.repeat(48);
+      const text = `Use this key: ${fakeKey} for access.`;
+      const { filtered, findings } = await provider.filter(text, context);
+
+      expect(filtered).not.toContain(fakeKey);
+      expect(filtered).toContain('[REDACTED-OPENAI-KEY]');
+      const openaiFindings = findings.filter(f => f.type === 'credential:openai_key');
+      expect(openaiFindings).toHaveLength(1);
+    });
+
+    it('detects and redacts bearer tokens', async () => {
+      const context = makeContext();
+      const token = 'Bearer ' + 'x'.repeat(50);
+      const text = `Authorization: ${token}`;
+      const { filtered, findings } = await provider.filter(text, context);
+
+      expect(filtered).not.toContain(token);
+      expect(filtered).toContain('[REDACTED-BEARER-TOKEN]');
+      const bearerFindings = findings.filter(f => f.type === 'credential:bearer_token');
+      expect(bearerFindings).toHaveLength(1);
+    });
+
+    it('detects and redacts private keys', async () => {
+      const context = makeContext();
+      const text = [
+        'Here is the key:',
+        '-----BEGIN RSA PRIVATE KEY-----',
+        'MIIEowIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF3PBBMKb',
+        '-----END RSA PRIVATE KEY-----',
+        'Do not share it.',
+      ].join('\n');
+      const { filtered, findings } = await provider.filter(text, context);
+
+      expect(filtered).not.toContain('-----BEGIN RSA PRIVATE KEY-----');
+      expect(filtered).not.toContain('-----END RSA PRIVATE KEY-----');
+      expect(filtered).toContain('[REDACTED-PRIVATE-KEY]');
+      const pkFindings = findings.filter(f => f.type === 'credential:private_key');
+      expect(pkFindings).toHaveLength(1);
+    });
+
+    it('detects and redacts generic API keys', async () => {
+      const context = makeContext();
+      const text = 'api_key=abcdefghijklmnopqrstuvwxyz1234567890 is set.';
+      const { filtered, findings } = await provider.filter(text, context);
+
+      expect(filtered).not.toContain('abcdefghijklmnopqrstuvwxyz1234567890');
+      expect(filtered).toContain('[REDACTED-API-KEY]');
+      const apiKeyFindings = findings.filter(f => f.type === 'credential:generic_api_key');
+      expect(apiKeyFindings).toHaveLength(1);
+    });
+  });
+
+  // ── Combined: PII + Blocked Patterns + Token Limit ─────────────────────
+
+  describe('combined PII + blocked patterns + token limit', () => {
+    it('applies all three filter layers together', async () => {
+      const context = makeContext({
+        blockedOutputPatterns: ['PROJECT-ALPHA'],
+        maxResponseTokens: 50,
+      });
+      // 50 tokens * 4 = 200 chars max
+      const text =
+        'Contact admin@corp.com about PROJECT-ALPHA. ' +
+        'SSN is 111-22-3333. ' +
+        'A'.repeat(300);
+
+      const { filtered, findings } = await provider.filter(text, context);
+
+      // PII redacted
+      expect(filtered).not.toContain('admin@corp.com');
+      expect(filtered).not.toContain('111-22-3333');
+      expect(filtered).toContain('[REDACTED-EMAIL]');
+      expect(filtered).toContain('[REDACTED-SSN]');
+
+      // Blocked pattern redacted
+      expect(filtered).not.toContain('PROJECT-ALPHA');
+      expect(filtered).toContain('[BLOCKED]');
+
+      // Token limit enforced
+      expect(filtered).toContain('[Response truncated: exceeded token limit]');
+
+      // All three finding types present
+      const piiFindings = findings.filter(f => f.type.startsWith('pii:'));
+      const blockedFindings = findings.filter(f => f.type === 'blocked_pattern');
+      const truncFindings = findings.filter(f => f.type === 'token_limit_exceeded');
+
+      expect(piiFindings.length).toBeGreaterThanOrEqual(2);
+      expect(blockedFindings.length).toBeGreaterThanOrEqual(1);
+      expect(truncFindings).toHaveLength(1);
+    });
+  });
 });

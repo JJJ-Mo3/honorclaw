@@ -14,9 +14,12 @@ import { ApprovalsPage } from './features/approvals/ApprovalsPage.js';
 import { UsersPage } from './features/users/UsersPage.js';
 import { DashboardPage } from './features/dashboard/DashboardPage.js';
 import { SessionsPage } from './features/sessions/SessionsPage.js';
+import { DelegationPage } from './features/agents/DelegationPage.js';
 import { NotificationsPage } from './features/notifications/NotificationsPage.js';
 import { WebhooksPage } from './features/webhooks/WebhooksPage.js';
 import { MemoryPage } from './features/memory/MemoryPage.js';
+import { SecretsPage } from './features/secrets/SecretsPage.js';
+import { SettingsPage } from './features/settings/SettingsPage.js';
 import { NavBar } from './components/NavBar.js';
 import { api } from './api/client.js';
 
@@ -143,6 +146,15 @@ export function App() {
           />
 
           <Route
+            path="/delegation"
+            element={
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
+                <DelegationPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/notifications"
             element={
               <ProtectedRoute>
@@ -165,6 +177,24 @@ export function App() {
             element={
               <ProtectedRoute allowedRoles={['workspace_admin']}>
                 <MemoryPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/secrets"
+            element={
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
+                <SecretsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
               </ProtectedRoute>
             }
           />
