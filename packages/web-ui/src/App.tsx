@@ -10,6 +10,13 @@ import { VisualManifestEditor } from './features/admin/VisualManifestEditor.js';
 import { AuditViewer } from './features/audit/AuditViewer.js';
 import { IntegrationsPage } from './pages/integrations/IntegrationsPage.js';
 import { SkillsPage } from './features/skills/SkillsPage.js';
+import { ApprovalsPage } from './features/approvals/ApprovalsPage.js';
+import { UsersPage } from './features/users/UsersPage.js';
+import { DashboardPage } from './features/dashboard/DashboardPage.js';
+import { SessionsPage } from './features/sessions/SessionsPage.js';
+import { NotificationsPage } from './features/notifications/NotificationsPage.js';
+import { WebhooksPage } from './features/webhooks/WebhooksPage.js';
+import { MemoryPage } from './features/memory/MemoryPage.js';
 import { NavBar } from './components/NavBar.js';
 import { api } from './api/client.js';
 
@@ -95,6 +102,69 @@ export function App() {
             element={
               <ProtectedRoute allowedRoles={['workspace_admin']}>
                 <IntegrationsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/approvals"
+            element={
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
+                <ApprovalsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
+                <UsersPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/sessions"
+            element={
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
+                <SessionsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/webhooks"
+            element={
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
+                <WebhooksPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/memory"
+            element={
+              <ProtectedRoute allowedRoles={['workspace_admin']}>
+                <MemoryPage />
               </ProtectedRoute>
             }
           />

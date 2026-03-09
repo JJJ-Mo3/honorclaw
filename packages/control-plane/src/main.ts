@@ -245,8 +245,24 @@ async function main() {
       const subscribedChannels = new Set<string>();
       let currentSessionId: string | null = null;
 
+      // Per-connection rate limiting: max 30 messages per 60-second window
+      const messageTimes: number[] = [];
+      const RATE_LIMIT_WINDOW_MS = 60_000;
+      const RATE_LIMIT_MAX = 30;
+
       socket.on('message', (raw) => {
         try {
+          // Rate limiting: clean up timestamps older than the window
+          const now = Date.now();
+          while (messageTimes.length > 0 && messageTimes[0]! < now - RATE_LIMIT_WINDOW_MS) {
+            messageTimes.shift();
+          }
+          if (messageTimes.length >= RATE_LIMIT_MAX) {
+            socket.send(JSON.stringify({ type: 'error', message: 'Rate limit exceeded: max 30 messages per minute' }));
+            return;
+          }
+          messageTimes.push(now);
+
           const parsed = JSON.parse(raw.toString()) as Record<string, unknown>;
 
           // Handle legacy format: { agentId, sessionId, content, action }
@@ -259,9 +275,8 @@ async function main() {
 
           if (action === 'subscribe' && msgSessionId) {
             // Verify session belongs to the user's workspace before subscribing
-            const db = (app as any).db;
             db.query('SELECT id FROM sessions WHERE id = $1 AND workspace_id = $2', [msgSessionId, workspaceId])
-              .then((result: any) => {
+              .then((result: { rows: { id: string }[] }) => {
                 if (result.rows.length === 0) {
                   socket.send(JSON.stringify({ type: 'error', message: 'Session not found' }));
                   return;
@@ -330,9 +345,8 @@ async function main() {
               });
             } else {
               // Verify session ownership then send message
-              const db = (app as any).db;
               db.query('SELECT id FROM sessions WHERE id = $1 AND workspace_id = $2', [msgSessionId, workspaceId])
-                .then((result: any) => {
+                .then((result: { rows: { id: string }[] }) => {
                   if (result.rows.length === 0) {
                     socket.send(JSON.stringify({ type: 'error', message: 'Session not found' }));
                     return;

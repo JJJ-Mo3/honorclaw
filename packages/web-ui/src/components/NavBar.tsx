@@ -9,8 +9,15 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Chat', to: '/' },
+  { label: 'Dashboard', to: '/dashboard', roles: ['workspace_admin'] },
   { label: 'Skills', to: '/skills' },
   { label: 'Admin', to: '/admin', roles: ['workspace_admin'] },
+  { label: 'Users', to: '/users', roles: ['workspace_admin'] },
+  { label: 'Approvals', to: '/approvals', roles: ['workspace_admin'] },
+  { label: 'Sessions', to: '/sessions', roles: ['workspace_admin'] },
+  { label: 'Webhooks', to: '/webhooks', roles: ['workspace_admin'] },
+  { label: 'Memory', to: '/memory', roles: ['workspace_admin'] },
+  { label: 'Notifications', to: '/notifications' },
   { label: 'Audit', to: '/audit', roles: ['auditor', 'workspace_admin'] },
   { label: 'Integrations', to: '/integrations', roles: ['workspace_admin'] },
 ];

@@ -228,9 +228,80 @@ export class AgentLoop {
           }));
         }
 
-        // Execute each tool call and collect results
+        // Execute each tool call (with approval gate if required)
         for (const tc of llmResponse.toolCalls) {
-          const toolResult = await this.executeToolCall(sessionId, tc, context.toolTimeoutSeconds);
+          const toolConfig = effectiveManifest.tools.find(t => t.name === tc.tool_name);
+          const needsApproval = toolConfig?.requiresApproval === true;
+
+          let toolResult: unknown;
+
+          if (needsApproval) {
+            // Create approval request
+            const approvalId = crypto.randomUUID();
+            const timeoutMinutes = 30;
+            const timeoutAt = new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString();
+
+            // Redact sensitive parameter values for display
+            const redactedParams = JSON.stringify(tc.parameters, (_key, value) =>
+              typeof value === 'string' && value.length > 100 ? value.slice(0, 100) + '...' : value
+            );
+
+            await this.db.query(
+              `INSERT INTO approval_requests (id, workspace_id, session_id, agent_id, tool_name, parameters_redacted, status, timeout_at)
+               VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7)`,
+              [approvalId, context.workspaceId, sessionId, context.agentId, tc.tool_name, redactedParams, timeoutAt]
+            );
+
+            // Notify client about pending approval
+            const outputChannel = RedisChannels.agentOutput(sessionId);
+            await this.redis.publish(outputChannel, JSON.stringify({
+              sessionId,
+              type: 'tool_approval',
+              toolCallId: tc.id,
+              toolName: tc.tool_name,
+              toolParams: tc.parameters,
+              approvalId,
+              toolStatus: 'pending_approval',
+              timestamp: new Date().toISOString(),
+            }));
+
+            // Poll for approval resolution
+            const POLL_INTERVAL = 1000;
+            const POLL_TIMEOUT = timeoutMinutes * 60 * 1000;
+            const startTime = Date.now();
+            let approved = false;
+
+            while (Date.now() - startTime < POLL_TIMEOUT) {
+              await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+              const checkResult = await this.db.query(
+                'SELECT status FROM approval_requests WHERE id = $1',
+                [approvalId]
+              );
+              const row = checkResult.rows[0] as { status: string } | undefined;
+              if (row?.status === 'approved') {
+                approved = true;
+                break;
+              }
+              if (row?.status === 'rejected') {
+                break;
+              }
+            }
+
+            if (!approved) {
+              // Timed out or rejected — mark as timed out if still pending
+              await this.db.query(
+                `UPDATE approval_requests SET status = 'rejected', resolved_at = now()
+                 WHERE id = $1 AND status = 'pending'`,
+                [approvalId]
+              );
+              toolResult = { error: `Tool call '${tc.tool_name}' was not approved` };
+            } else {
+              toolResult = await this.executeToolCall(sessionId, tc, context.toolTimeoutSeconds);
+            }
+          } else {
+            toolResult = await this.executeToolCall(sessionId, tc, context.toolTimeoutSeconds);
+          }
+
           const toolResultStr = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
 
           // Store tool result in DB
@@ -248,7 +319,7 @@ export class AgentLoop {
             toolCallId: tc.id,
             toolName: tc.tool_name,
             toolResult,
-            toolStatus: 'success',
+            toolStatus: needsApproval ? 'approved_and_executed' : 'success',
             timestamp: new Date().toISOString(),
           }));
         }
