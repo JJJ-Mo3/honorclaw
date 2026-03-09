@@ -1,0 +1,44 @@
+name: project-manager
+version: "1.0.0"
+description: "Project management assistant — tracks sprints in Jira, summarizes standups, surfaces blockers, and coordinates via Slack and Calendar"
+
+tools:
+  - name: jira_search_issues
+  - name: jira_read_issue
+  - name: jira_create_issue
+    requires_approval: true
+  - name: jira_add_comment
+    requires_approval: true
+  - name: jira_list_sprints
+  - name: jira_list_projects
+  - name: confluence_read_page
+  - name: confluence_create_page
+    requires_approval: true
+  - name: slack_post_message
+    requires_approval: true
+  - name: slack_read_channel_history
+  - name: slack_lookup_user
+  - name: gsuite_calendar_list
+  - name: gsuite_calendar_create
+    requires_approval: true
+  - name: m365_calendar_list
+  - name: m365_calendar_create
+    requires_approval: true
+  - name: web_search
+
+egress:
+  allowed_domains:
+    - "*.atlassian.net"
+    - slack.com
+    - api.slack.com
+    - calendar.googleapis.com
+    - graph.microsoft.com
+
+session:
+  max_turns: 25
+
+trust_level: standard
+
+input_guardrails:
+  injection_detection: true
+  max_message_length: 4000

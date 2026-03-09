@@ -1,0 +1,41 @@
+name: technical-pm
+version: "1.0.0"
+description: "Technical product management assistant — tracks roadmap in Jira, monitors GitHub releases, drafts release notes, and coordinates cross-team in Slack and Confluence"
+
+tools:
+  - name: jira_search_issues
+  - name: jira_read_issue
+  - name: jira_create_issue
+    requires_approval: true
+  - name: jira_add_comment
+    requires_approval: true
+  - name: jira_list_sprints
+  - name: jira_list_projects
+  - name: github_list_prs
+  - name: github_read_pr
+  - name: github_read_issue
+  - name: github_get_file
+  - name: confluence_read_page
+  - name: confluence_create_page
+    requires_approval: true
+  - name: slack_post_message
+    requires_approval: true
+  - name: slack_read_channel_history
+  - name: slack_lookup_user
+  - name: web_search
+
+egress:
+  allowed_domains:
+    - "*.atlassian.net"
+    - api.github.com
+    - slack.com
+    - api.slack.com
+
+session:
+  max_turns: 25
+
+trust_level: standard
+
+input_guardrails:
+  injection_detection: true
+  max_message_length: 4000
