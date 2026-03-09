@@ -24,6 +24,8 @@ export const LlmProviderConfigSchema = z.object({
   baseUrl: z.string().optional(),
   enabled: z.boolean().default(true),
   apiKeySecret: z.string().optional(),
+  accessTokenSecret: z.string().optional(),
+  authMode: z.enum(['api_key', 'oauth']).optional(),
 });
 
 export const LlmConfigSchema = z.object({

@@ -33,15 +33,19 @@ export class LLMRouter {
       config.providers?.ollama?.baseUrl ?? process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434',
     ));
 
-    // Anthropic
+    // Anthropic (supports API key or OAuth access token)
+    const anthropicConfig = config.providers?.anthropic;
     const anthropicKey =
-      config.providers?.anthropic?.apiKeySecret ?? process.env.ANTHROPIC_API_KEY;
-    if (anthropicKey && config.providers?.anthropic?.enabled !== false) {
-      this.adapters.set('anthropic', new AnthropicAdapter(
-        anthropicKey,
-        config.providers?.anthropic?.baseUrl,
-      ));
-      logger.info('Registered LLM adapter: anthropic');
+      anthropicConfig?.apiKeySecret ?? process.env.ANTHROPIC_API_KEY;
+    const anthropicAccessToken =
+      anthropicConfig?.accessTokenSecret ?? process.env.CLAUDE_ACCESS_TOKEN;
+    if ((anthropicKey || anthropicAccessToken) && anthropicConfig?.enabled !== false) {
+      this.adapters.set('anthropic', new AnthropicAdapter({
+        apiKey: anthropicKey,
+        accessToken: anthropicAccessToken,
+        baseUrl: anthropicConfig?.baseUrl,
+      }));
+      logger.info({ authMode: anthropicAccessToken ? 'oauth' : 'api_key' }, 'Registered LLM adapter: anthropic');
     }
 
     // OpenAI

@@ -29,7 +29,9 @@ const InputSchema = z.object({
 type Input = z.infer<typeof InputSchema>;
 
 interface ClaudeCodeCreds {
-  api_key: string;
+  api_key?: string;
+  access_token?: string;
+  refresh_token?: string;
   model?: string;
   max_tokens?: number;
 }
@@ -37,7 +39,11 @@ interface ClaudeCodeCreds {
 function getCredentials(): ClaudeCodeCreds {
   const raw = process.env.CLAUDE_CODE_CREDENTIALS;
   if (!raw) throw new Error('CLAUDE_CODE_CREDENTIALS env var is required');
-  return JSON.parse(raw) as ClaudeCodeCreds;
+  const creds = JSON.parse(raw) as ClaudeCodeCreds;
+  if (!creds.api_key && !creds.access_token) {
+    throw new Error('CLAUDE_CODE_CREDENTIALS must contain api_key or access_token');
+  }
+  return creds;
 }
 
 const MAX_OUTPUT_BYTES = 200 * 1024; // 200KB
@@ -67,7 +73,8 @@ async function runClaudeCode(
       timeout: 120_000,
       env: {
         ...process.env,
-        ANTHROPIC_API_KEY: creds.api_key,
+        ...(creds.api_key ? { ANTHROPIC_API_KEY: creds.api_key } : {}),
+        ...(creds.access_token ? { CLAUDE_ACCESS_TOKEN: creds.access_token } : {}),
         ...(creds.model ? { CLAUDE_MODEL: creds.model } : {}),
       },
     });

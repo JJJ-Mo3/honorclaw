@@ -9,13 +9,18 @@ import type { LLMRequest, LLMResponse, ToolCallRequest } from '@honorclaw/core';
  */
 export class AnthropicAdapter implements LLMAdapter {
   name = 'anthropic';
-  private apiKey: string;
+  private apiKey?: string;
+  private accessToken?: string;
   private baseUrl: string;
   private anthropicVersion: string;
 
-  constructor(apiKey: string, baseUrl?: string) {
-    this.apiKey = apiKey;
-    this.baseUrl = baseUrl ?? 'https://api.anthropic.com';
+  constructor(options: { apiKey?: string; accessToken?: string; baseUrl?: string }) {
+    if (!options.apiKey && !options.accessToken) {
+      throw new Error('AnthropicAdapter requires either apiKey or accessToken');
+    }
+    this.apiKey = options.apiKey;
+    this.accessToken = options.accessToken;
+    this.baseUrl = options.baseUrl ?? 'https://api.anthropic.com';
     this.anthropicVersion = '2023-06-01';
   }
 
@@ -106,13 +111,19 @@ export class AnthropicAdapter implements LLMAdapter {
       }));
     }
 
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      'anthropic-version': this.anthropicVersion,
+    };
+    if (this.accessToken) {
+      headers['authorization'] = `Bearer ${this.accessToken}`;
+    } else if (this.apiKey) {
+      headers['x-api-key'] = this.apiKey;
+    }
+
     const response = await fetch(`${this.baseUrl}/v1/messages`, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': this.apiKey,
-        'anthropic-version': this.anthropicVersion,
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
@@ -124,7 +135,7 @@ export class AnthropicAdapter implements LLMAdapter {
         throw new Error(`Anthropic rate limit exceeded: ${errorBody}`);
       }
       if (status === 401) {
-        throw new Error(`Anthropic authentication failed: invalid API key`);
+        throw new Error(`Anthropic authentication failed: invalid credentials (API key or OAuth token)`);
       }
       if (status === 400) {
         throw new Error(`Anthropic bad request: ${errorBody}`);
