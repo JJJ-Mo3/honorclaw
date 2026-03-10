@@ -41,10 +41,11 @@ function getBaseUrl(): string {
   return 'http://localhost:3000';
 }
 
-async function handleResponse<T>(response: Response): Promise<T> {
+async function handleResponse<T>(response: Response, url?: string): Promise<T> {
   if (response.status === 401) {
-    // Redirect to login — session has expired or user is not authenticated
-    if (typeof window !== 'undefined') {
+    // Skip hard redirect for auth-check endpoints (AuthProvider handles these gracefully)
+    const isAuthCheck = url && (url.includes('/auth/me') || url.includes('/auth/config'));
+    if (!isAuthCheck && typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
       window.location.href = '/login';
     }
     throw new ApiError(401, 'Authentication required');
@@ -90,7 +91,7 @@ export const api = {
       headers: { 'Accept': 'application/json' },
     });
 
-    return handleResponse<T>(response);
+    return handleResponse<T>(response, url.toString());
   },
 
   async post<T>(path: string, body?: unknown): Promise<T> {
@@ -106,7 +107,7 @@ export const api = {
       body: body != null ? JSON.stringify(body) : undefined,
     });
 
-    return handleResponse<T>(response);
+    return handleResponse<T>(response, url.toString());
   },
 
   async put<T>(path: string, body?: unknown): Promise<T> {
@@ -122,7 +123,7 @@ export const api = {
       body: body != null ? JSON.stringify(body) : undefined,
     });
 
-    return handleResponse<T>(response);
+    return handleResponse<T>(response, url.toString());
   },
 
   async patch<T>(path: string, body?: unknown): Promise<T> {
@@ -138,7 +139,7 @@ export const api = {
       body: body != null ? JSON.stringify(body) : undefined,
     });
 
-    return handleResponse<T>(response);
+    return handleResponse<T>(response, url.toString());
   },
 
   async delete<T>(path: string): Promise<T> {
@@ -150,7 +151,7 @@ export const api = {
       headers: { 'Accept': 'application/json' },
     });
 
-    return handleResponse<T>(response);
+    return handleResponse<T>(response, url.toString());
   },
 
   /**
