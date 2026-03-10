@@ -36,17 +36,20 @@ export function NavBar() {
   );
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
-      <div className="flex items-center gap-1">
-        <Link to="/" className="flex items-center gap-2 mr-6">
-          <img src="/logo.png" alt="HonorClaw" className="h-7 w-7" />
+    <aside className="fixed inset-y-0 left-0 w-56 bg-white border-r border-gray-200 flex flex-col">
+      <div className="px-4 py-4 border-b border-gray-200">
+        <Link to="/" className="flex items-center gap-2">
+          <img src="/logo.png" alt="HonorClaw" style={{ width: '28px', height: '28px' }} />
           <span className="font-bold text-lg text-gray-900">HonorClaw</span>
         </Link>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto px-2 py-2">
         {visibleItems.map((item) => (
           <Link
             key={item.to}
             to={item.to}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+            className={`block px-3 py-2 rounded text-sm font-medium transition-colors ${
               location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to))
                 ? 'bg-blue-100 text-blue-700'
                 : 'text-gray-600 hover:bg-gray-100'
@@ -55,16 +58,17 @@ export function NavBar() {
             {item.label}
           </Link>
         ))}
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-gray-500">{user.email}</span>
+      </nav>
+
+      <div className="border-t border-gray-200 px-4 py-3">
+        <p className="text-xs text-gray-500 truncate">{user.email}</p>
         <button
           onClick={() => { void logout(); }}
-          className="text-sm text-gray-500 hover:text-red-600 transition-colors"
+          className="mt-1 text-xs text-gray-500 hover:text-red-600 transition-colors"
         >
           Logout
         </button>
       </div>
-    </nav>
+    </aside>
   );
 }

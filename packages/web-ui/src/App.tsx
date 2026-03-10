@@ -21,187 +21,202 @@ import { MemoryPage } from './features/memory/MemoryPage.js';
 import { SecretsPage } from './features/secrets/SecretsPage.js';
 import { SettingsPage } from './features/settings/SettingsPage.js';
 import { NavBar } from './components/NavBar.js';
+import { useAuth } from './auth/useAuth.js';
 import { api } from './api/client.js';
 
-export function App() {
+function AppLayout() {
+  const { user } = useAuth();
+  // Only offset content when sidebar is visible (authenticated user)
+  const mainStyle = user ? { marginLeft: '14rem' } : undefined;
+
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <NavBar />
+    <>
+      <NavBar />
+      <main style={mainStyle} className="min-h-screen bg-gray-50">
         <Routes>
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<GatedRegisterPage />} />
 
-          {/* Protected: any authenticated user */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <ChatPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected: any authenticated user */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <ChatPage />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Protected: admin only */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <AdminPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected: admin only */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/admin/agents/:id"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <AgentEditorPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/admin/agents/:id"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <AgentEditorPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/admin/agents/:id/manifest"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <ManifestEditor />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/admin/agents/:id/manifest"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <ManifestEditor />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/admin/agents/:id/manifest/visual"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <VisualManifestEditor />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/admin/agents/:id/manifest/visual"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <VisualManifestEditor />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Protected: auditor + admin */}
-          <Route
-            path="/audit"
-            element={
-              <ProtectedRoute allowedRoles={['auditor', 'workspace_admin']}>
-                <AuditViewer />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected: auditor + admin */}
+            <Route
+              path="/audit"
+              element={
+                <ProtectedRoute allowedRoles={['auditor', 'workspace_admin']}>
+                  <AuditViewer />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Protected: admin only */}
-          <Route
-            path="/skills"
-            element={
-              <ProtectedRoute>
-                <SkillsPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected: admin only */}
+            <Route
+              path="/skills"
+              element={
+                <ProtectedRoute>
+                  <SkillsPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/integrations"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <IntegrationsPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/integrations"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <IntegrationsPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/approvals"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <ApprovalsPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/approvals"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <ApprovalsPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/users"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <UsersPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/users"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <UsersPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/sessions"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <SessionsPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/sessions"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <SessionsPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/delegation"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <DelegationPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/delegation"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <DelegationPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/notifications"
-            element={
-              <ProtectedRoute>
-                <NotificationsPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <NotificationsPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/webhooks"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <WebhooksPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/webhooks"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <WebhooksPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/memory"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <MemoryPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/memory"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <MemoryPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/secrets"
-            element={
-              <ProtectedRoute allowedRoles={['workspace_admin']}>
-                <SecretsPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/secrets"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <SecretsPage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <SettingsPage />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* 404 catch-all */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
+            {/* 404 catch-all */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </main>
+      </>
+  );
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppLayout />
       </AuthProvider>
     </BrowserRouter>
   );
