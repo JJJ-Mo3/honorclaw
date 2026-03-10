@@ -1,9 +1,8 @@
 <p align="center">
   <img src="assets/logo.png" alt="HonorClaw" width="200" />
 </p>
-<p align="center">
-  <strong>Enterprise-grade, self-hosted AI agent platform where security is architectural, not behavioral.</strong>
-</p>
+
+## Enterprise-grade, self-hosted AI agent platform where security is architectural, not behavioral
 
 HonorClaw is a fully open-source platform for deploying, managing, and securing AI agents in enterprise environments. It matches the feature set of platforms like OpenClaw (agents, memory, tool calling, multi-agent orchestration) while adding enterprise-grade security controls baked into every layer. A fully prompt-injected agent is still contained, because the architecture physically prevents it from exceeding its authorized capabilities.
 
