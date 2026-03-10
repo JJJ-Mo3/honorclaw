@@ -378,9 +378,10 @@ async function authPluginImpl(app: FastifyInstance) {
   });
 
   app.post('/api/auth/logout', async (_request, reply) => {
+    const secure = process.env.NODE_ENV !== 'development';
     reply
-      .clearCookie('token', { path: '/' })
-      .clearCookie('refresh_token', { path: '/api/auth/refresh' })
+      .clearCookie('token', { path: '/', httpOnly: true, secure, sameSite: 'strict' })
+      .clearCookie('refresh_token', { path: '/api/auth/refresh', httpOnly: true, secure, sameSite: 'strict' })
       .send({ success: true });
   });
 

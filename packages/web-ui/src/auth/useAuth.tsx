@@ -100,6 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setWorkspaceId(null);
     setRoles([]);
+    // Hard redirect to ensure a clean page load with no stale state
+    window.location.href = '/login';
   }, []);
 
   return (
