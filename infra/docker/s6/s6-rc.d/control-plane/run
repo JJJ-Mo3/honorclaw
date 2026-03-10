@@ -14,6 +14,7 @@ if [ ! -f /tmp/skip-embedded-redis ]; then
     sleep 1
   done
   export REDIS_SOCKET=/var/run/redis/redis.sock
+  export REDIS_PASSWORD="${REDIS_PASSWORD:-honorclaw}"
 fi
 
 export NODE_ENV=${NODE_ENV:-production}

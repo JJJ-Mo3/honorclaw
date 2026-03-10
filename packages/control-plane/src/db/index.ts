@@ -13,10 +13,11 @@ export function createDb(config: DatabaseConfig): Database {
     return new Pool({ connectionString: config.url, max: config.poolSize });
   }
   if (config.socket) {
-    return new Pool({ host: config.socket, database: config.name, max: config.poolSize });
+    return new Pool({ host: config.socket, user: config.user ?? 'postgres', database: config.name, max: config.poolSize });
   }
   return new Pool({
     host: '/var/run/postgresql',
+    user: config.user ?? 'postgres',
     database: config.name,
     max: config.poolSize,
   });

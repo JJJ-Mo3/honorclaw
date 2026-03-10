@@ -10,6 +10,7 @@ export const ServerConfigSchema = z.object({
 
 export const DatabaseConfigSchema = z.object({
   socket: z.string().optional(),
+  user: z.string().optional(),
   name: z.string().default('honorclaw'),
   poolSize: z.number().default(10),
   url: z.string().optional(),

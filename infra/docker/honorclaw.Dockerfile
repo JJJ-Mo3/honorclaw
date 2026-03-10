@@ -42,7 +42,9 @@ RUN apk add --no-cache \
     redis \
     iproute2 iptables ip6tables \
     su-exec curl bash socat \
-    && mkdir -p /var/run/postgresql /var/run/redis /data
+    && mkdir -p /var/run/postgresql /var/run/redis /data/postgres /data/redis \
+    && chown postgres:postgres /var/run/postgresql /data/postgres \
+    && chown redis:redis /var/run/redis /data/redis
 
 # Install Ollama (pre-built binary archive, compatible with Alpine musl)
 ARG OLLAMA_VERSION=0.6.2

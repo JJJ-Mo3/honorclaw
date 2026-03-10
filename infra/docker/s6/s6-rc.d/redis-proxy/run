@@ -1,5 +1,5 @@
 #!/bin/sh
-if [ -f /tmp/skip-redis-proxy ]; then
+if [ -f /tmp/skip-redis-proxy ] || [ ! -f /tmp/agent-netns-name ]; then
   exec sleep infinity
 fi
 
