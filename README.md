@@ -1,9 +1,6 @@
 <p align="center">
   <img src="assets/logo.png" alt="HonorClaw" width="200" />
 </p>
-
-<h1 align="center">HonorClaw</h1>
-
 <p align="center">
   <strong>Enterprise-grade, self-hosted AI agent platform where security is architectural, not behavioral.</strong>
 </p>
