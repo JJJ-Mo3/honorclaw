@@ -233,15 +233,20 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
   delivered_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Scheduled agent runs
+-- Scheduled agent runs (configuration + execution tracking)
 CREATE TABLE IF NOT EXISTS scheduled_runs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   agent_id UUID NOT NULL REFERENCES agents(id),
   workspace_id UUID NOT NULL REFERENCES workspaces(id),
+  cron_expression TEXT,
+  enabled BOOLEAN DEFAULT true,
+  next_run_at TIMESTAMPTZ,
+  last_run_at TIMESTAMPTZ,
   session_id UUID REFERENCES sessions(id),
-  status TEXT NOT NULL CHECK (status IN ('running', 'completed', 'failed')),
-  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  completed_at TIMESTAMPTZ
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed')),
+  started_at TIMESTAMPTZ DEFAULT now(),
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Notifications

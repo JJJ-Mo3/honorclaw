@@ -20,7 +20,7 @@ export interface HeadlessSessionOptions {
 
 export interface HeadlessSessionResult {
   sessionId: string;
-  status: 'completed' | 'error' | 'timeout';
+  status: 'ended' | 'error' | 'timeout';
   output: string;
   startedAt: Date;
   completedAt: Date;
@@ -48,8 +48,8 @@ export async function createHeadlessSession(
 
   // Insert session record
   await options.db.query(
-    `INSERT INTO sessions (id, agent_id, workspace_id, user_id, session_type, status, metadata, created_at)
-     VALUES ($1, $2, $3, $4, $5, 'running', $6, $7)`,
+    `INSERT INTO sessions (id, agent_id, workspace_id, user_id, session_type, status, metadata)
+     VALUES ($1, $2, $3, $4, $5, 'active', $6)`,
     [
       sessionId,
       options.agentId,
@@ -57,7 +57,6 @@ export async function createHeadlessSession(
       options.userId ?? null,
       options.sessionType,
       JSON.stringify(options.metadata ?? {}),
-      startedAt,
     ],
   );
 
@@ -78,27 +77,27 @@ export async function createHeadlessSession(
   const output = await waitForCompletion(options.redis, sessionId);
   const completedAt = new Date();
 
-  const status = output.error ? 'error' : 'completed';
+  const status = output.error ? 'error' : 'ended';
 
   // Update session record
   await options.db.query(
-    `UPDATE sessions SET status = $1, completed_at = $2 WHERE id = $3`,
-    [status, completedAt, sessionId],
+    `UPDATE sessions SET status = $1, ended_at = $2, tokens_used = $3 WHERE id = $4`,
+    [status, completedAt, output.tokenUsage.totalTokens, sessionId],
   );
 
   // Archive the full session output
   await options.db.query(
-    `INSERT INTO session_archives (session_id, agent_id, workspace_id, session_type, input, output, token_usage, started_at, completed_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    `INSERT INTO session_archives (session_id, agent_id, workspace_id, messages, summary, archived_at)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
     [
       sessionId,
       options.agentId,
       options.workspaceId,
-      options.sessionType,
-      options.input,
-      output.text,
-      JSON.stringify(output.tokenUsage),
-      startedAt,
+      JSON.stringify([
+        { role: 'user', content: options.input },
+        { role: 'assistant', content: output.text },
+      ]),
+      output.text.slice(0, 500),
       completedAt,
     ],
   );

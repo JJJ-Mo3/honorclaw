@@ -985,7 +985,7 @@ sessions
         userId: string;
         channel: string;
         status: string;
-        createdAt: string;
+        startedAt: string;
       }> }>('/sessions', params);
       spinner.stop();
 
@@ -997,7 +997,7 @@ sessions
       console.log(chalk.bold(`\nSessions (${list.length})\n`));
       for (const s of list) {
         const status = s.status === 'active' ? chalk.green(s.status) : chalk.dim(s.status);
-        const ts = new Date(s.createdAt).toLocaleString();
+        const ts = new Date(s.startedAt).toLocaleString();
         console.log(`  ${chalk.dim(s.id.slice(0, 8))} [${status}] agent:${s.agentId.slice(0, 8)} ${chalk.dim(ts)}`);
       }
       console.log('');

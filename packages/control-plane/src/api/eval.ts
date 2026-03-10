@@ -46,8 +46,8 @@ export async function evalRoutes(app: FastifyInstance) {
     const sessionId = crypto.randomUUID();
 
     await db.query(
-      `INSERT INTO sessions (id, agent_id, workspace_id, user_id, session_type, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, 'running', NOW())`,
+      `INSERT INTO sessions (id, agent_id, workspace_id, user_id, session_type, status)
+       VALUES ($1, $2, $3, $4, $5, 'active')`,
       [
         sessionId,
         agentId,
@@ -57,7 +57,7 @@ export async function evalRoutes(app: FastifyInstance) {
       ],
     );
 
-    reply.code(201).send({ sessionId, agentId, status: 'running' });
+    reply.code(201).send({ sessionId, agentId, status: 'active' });
   });
 
   /**
@@ -132,8 +132,8 @@ export async function evalRoutes(app: FastifyInstance) {
     if (!session) {
       return { error: 'Session not found' };
     }
-    if (session.status !== 'running') {
-      return { error: `Session is ${session.status}, not running` };
+    if (session.status !== 'active') {
+      return { error: `Session is ${session.status}, not active` };
     }
 
     // Store the turn

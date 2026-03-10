@@ -17,7 +17,7 @@ export async function toolRoutes(app: FastifyInstance) {
     query += ' ORDER BY name, version DESC';
 
     const result = await db.query(query);
-    return mapRows(result.rows);
+    return { tools: mapRows(result.rows) };
   });
 
   // Search tool registries (GitHub marketplace)

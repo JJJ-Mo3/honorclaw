@@ -28,7 +28,7 @@ export async function migrateRoutes(app: FastifyInstance) {
       db.query('SELECT id, workspace_id, path, expires_at, created_at, updated_at FROM secrets WHERE workspace_id = $1', [workspaceId]),
       db.query('SELECT * FROM skills WHERE workspace_id = $1', [workspaceId]),
       db.query('SELECT * FROM approval_requests WHERE workspace_id = $1', [workspaceId]),
-      db.query('SELECT id, workspace_id, url, event_types, active, created_at, updated_at FROM webhook_subscriptions WHERE workspace_id = $1', [workspaceId]),
+      db.query('SELECT id, workspace_id, url, event_types, enabled, created_at, last_delivered_at FROM webhook_subscriptions WHERE workspace_id = $1', [workspaceId]),
       db.query('SELECT * FROM notifications WHERE workspace_id = $1', [workspaceId]),
     ]);
 
