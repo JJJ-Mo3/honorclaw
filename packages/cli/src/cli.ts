@@ -243,14 +243,16 @@ agents
   .command('create')
   .description('Create a new agent')
   .requiredOption('-n, --name <name>', 'Agent name')
+  .option('-d, --display-name <displayName>', 'Display name')
   .option('-m, --model <model>', 'Model to use', 'ollama/llama3.2')
   .option('-w, --workspace <id>', 'Workspace ID')
   .option('-p, --prompt <prompt>', 'System prompt')
-  .action(async (opts: { name: string; model: string; workspace?: string; prompt?: string }) => {
+  .action(async (opts: { name: string; displayName?: string; model: string; workspace?: string; prompt?: string }) => {
     const spinner = ora(`Creating agent ${chalk.bold(opts.name)}...`).start();
     try {
       const { agent } = await cliApi.post<{ agent: { id: string; name: string } }>('/agents', {
         name: opts.name,
+        displayName: opts.displayName,
         model: opts.model,
         systemPrompt: opts.prompt,
       });
@@ -581,6 +583,58 @@ skills
       spinner.succeed(`Removed skill ${name}`);
     } catch (err) {
       spinner.fail('Failed to remove skill');
+      printError(err);
+    }
+  });
+
+skills
+  .command('apply <skill-name>')
+  .description('Apply a skill to an agent')
+  .requiredOption('-a, --agent <id>', 'Agent ID')
+  .action(async (skillName: string, opts: { agent: string }) => {
+    const spinner = ora(`Applying ${chalk.bold(skillName)} to agent...`).start();
+    try {
+      await cliApi.post(`/skills/agents/${opts.agent}`, { skillName });
+      spinner.succeed(`Applied skill ${chalk.bold(skillName)} to agent ${opts.agent.slice(0, 8)}`);
+    } catch (err) {
+      spinner.fail('Failed to apply skill');
+      printError(err);
+    }
+  });
+
+skills
+  .command('detach <skill-name>')
+  .description('Remove a skill from an agent')
+  .requiredOption('-a, --agent <id>', 'Agent ID')
+  .action(async (skillName: string, opts: { agent: string }) => {
+    try {
+      await cliApi.delete(`/skills/agents/${opts.agent}/${encodeURIComponent(skillName)}`);
+      console.log(chalk.green(`Removed skill ${skillName} from agent ${opts.agent.slice(0, 8)}`));
+    } catch (err) {
+      printError(err);
+    }
+  });
+
+skills
+  .command('agent-skills <agent-id>')
+  .description('List skills applied to an agent')
+  .action(async (agentId: string) => {
+    try {
+      const { skills: list } = await cliApi.get<{ skills: Array<{ skillName: string; enabled: boolean; description?: string }> }>(
+        `/skills/agents/${agentId}`,
+      );
+      if (list.length === 0) {
+        console.log(chalk.dim('No skills applied to this agent.'));
+        return;
+      }
+      console.log(chalk.bold(`\nSkills for agent ${agentId.slice(0, 8)}\n`));
+      for (const s of list) {
+        const status = s.enabled ? chalk.green('enabled') : chalk.dim('disabled');
+        console.log(`  ${chalk.bold(s.skillName)} [${status}]`);
+        if (s.description) console.log(`    ${chalk.dim(s.description)}`);
+      }
+      console.log('');
+    } catch (err) {
       printError(err);
     }
   });

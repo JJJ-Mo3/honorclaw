@@ -38,11 +38,7 @@ export function loadConfig(): HonorClawConfig {
     server.sessionCookieSecret = process.env.SESSION_COOKIE_SECRET;
     parsed.server = server;
   }
-  if (process.env.JWT_SECRET) {
-    const auth = (parsed.auth as Record<string, unknown>) ?? {};
-    auth.jwtSecret = process.env.JWT_SECRET;
-    parsed.auth = auth;
-  }
+  // JWT_SECRET is read directly from process.env by auth/plugin.ts (not from config)
   if (process.env.REDIS_SOCKET) {
     parsed.redis = { ...(parsed.redis as Record<string, unknown> ?? {}), socket: process.env.REDIS_SOCKET };
   }

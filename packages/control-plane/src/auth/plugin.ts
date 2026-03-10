@@ -95,6 +95,19 @@ async function authPluginImpl(app: FastifyInstance) {
         return;
       }
 
+      // Enforce API key scopes: empty scopes array = full access; otherwise
+      // each scope is a path prefix like "agents", "sessions", "secrets"
+      const scopes: string[] = keyRow.scopes ?? [];
+      if (scopes.length > 0) {
+        // Extract the resource segment from the path: /api/<resource>/...
+        const segments = path.replace(/^\/api\//, '').split('/');
+        const resource = segments[0] ?? ''; // e.g. "agents", "sessions", "secrets"
+        if (resource && !scopes.includes('*') && !scopes.includes(resource)) {
+          reply.code(403).send({ error: `API key scope does not permit access to /${resource}` });
+          return;
+        }
+      }
+
       // Update last_used_at (fire-and-forget)
       db.query('UPDATE api_keys SET last_used_at = now() WHERE key_hash = $1', [keyHash]).catch(() => {});
 

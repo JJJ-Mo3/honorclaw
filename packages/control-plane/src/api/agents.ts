@@ -8,7 +8,7 @@ export async function agentRoutes(app: FastifyInstance) {
   app.get('/', async (request) => {
     const db = (app as any).db;
     const result = await db.query(
-      'SELECT id, workspace_id, name, display_name, model, status, created_at, updated_at FROM agents WHERE workspace_id = $1 ORDER BY name',
+      'SELECT id, workspace_id, name, display_name, model, system_prompt, status, settings, created_at, updated_at FROM agents WHERE workspace_id = $1 ORDER BY name',
       [request.workspaceId]
     );
     return { agents: mapRows(result.rows) };
