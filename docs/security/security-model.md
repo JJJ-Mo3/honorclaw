@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../assets/logo.png" alt="HonorClaw" width="120" />
+</p>
+
 # HonorClaw Security Model
 
 ## Overview

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../assets/logo.png" alt="HonorClaw" width="120" />
+</p>
+
 # HonorClaw Quickstart
 
 Get HonorClaw running in under 5 minutes.

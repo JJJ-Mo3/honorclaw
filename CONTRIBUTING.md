@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="HonorClaw" width="120" />
+</p>
+
 # Contributing to HonorClaw
 
 Thank you for your interest in contributing. HonorClaw is an enterprise-grade AI agent platform where security is architectural, not behavioral.
