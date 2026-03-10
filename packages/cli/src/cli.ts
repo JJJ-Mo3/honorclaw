@@ -31,8 +31,13 @@ program
 program
   .command('init')
   .description('Initialize a new HonorClaw deployment')
-  .action(async () => {
-    await runInit();
+  .option('-y, --yes', 'Non-interactive mode with defaults')
+  .option('--email <email>', 'Admin email (non-interactive)')
+  .option('--password <password>', 'Admin password (non-interactive)')
+  .option('--workspace <name>', 'Workspace name', 'default')
+  .option('--data-dir <dir>', 'Data directory', '/data/honorclaw')
+  .action(async (opts: { yes?: boolean; email?: string; password?: string; workspace?: string; dataDir?: string }) => {
+    await runInit(opts);
   });
 
 program

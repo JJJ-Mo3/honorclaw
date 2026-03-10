@@ -14,84 +14,124 @@ interface InitAnswers {
   dataDir: string;
 }
 
+export interface InitOptions {
+  yes?: boolean;
+  email?: string;
+  password?: string;
+  workspace?: string;
+  dataDir?: string;
+}
+
 /**
  * First-time setup wizard for HonorClaw.
  *
  * - Generates encryption keys
  * - Creates the admin user
  * - Writes the configuration file
+ *
+ * Supports non-interactive mode via --yes flag.
  */
-export async function runInit(): Promise<void> {
+export async function runInit(opts?: InitOptions): Promise<void> {
   console.log(chalk.bold('\nHonorClaw Setup Wizard\n'));
+
+  const nonInteractive = opts?.yes ?? false;
 
   // Check if already initialized
   const configPath = path.resolve('honorclaw.yaml');
   if (fs.existsSync(configPath)) {
-    const { overwrite } = await inquirer.prompt<{ overwrite: boolean }>([
-      {
-        type: 'confirm',
-        name: 'overwrite',
-        message: 'honorclaw.yaml already exists. Overwrite?',
-        default: false,
-      },
-    ]);
-    if (!overwrite) {
-      console.log(chalk.dim('Aborted.'));
-      return;
+    if (nonInteractive) {
+      console.log(chalk.yellow('honorclaw.yaml already exists. Overwriting (--yes mode).'));
+    } else {
+      const { overwrite } = await inquirer.prompt<{ overwrite: boolean }>([
+        {
+          type: 'confirm',
+          name: 'overwrite',
+          message: 'honorclaw.yaml already exists. Overwrite?',
+          default: false,
+        },
+      ]);
+      if (!overwrite) {
+        console.log(chalk.dim('Aborted.'));
+        return;
+      }
     }
   }
 
-  // Gather inputs
-  const answers = await inquirer.prompt<InitAnswers>([
-    {
-      type: 'input',
-      name: 'workspaceName',
-      message: 'Workspace name:',
-      default: 'default',
-      validate: (v: string) => v.trim().length > 0 || 'Workspace name is required',
-    },
-    {
-      type: 'input',
-      name: 'adminEmail',
-      message: 'Admin email:',
-      validate: (v: string) => v.includes('@') || 'Enter a valid email address',
-    },
-    {
-      type: 'password',
-      name: 'adminPassword',
-      message: 'Admin password:',
-      mask: '*',
-      validate: (v: string) => v.length >= 12 || 'Password must be at least 12 characters',
-    },
-    {
-      type: 'password',
-      name: 'confirmPassword',
-      message: 'Confirm password:',
-      mask: '*',
-      validate: (v: string, a?: InitAnswers) =>
-        v === a?.adminPassword || 'Passwords do not match',
-    },
-    {
-      type: 'confirm',
-      name: 'generateEncryptionKey',
-      message: 'Generate a new encryption key?',
-      default: true,
-    },
-    {
-      type: 'input',
-      name: 'dataDir',
-      message: 'Data directory:',
-      default: '/data/honorclaw',
-    },
-  ]);
+  let answers: InitAnswers;
+
+  if (nonInteractive) {
+    // Non-interactive mode: use CLI flags or defaults
+    const adminEmail = opts?.email ?? 'admin@honorclaw.local';
+    const adminPassword = opts?.password ?? crypto.randomBytes(16).toString('base64url');
+
+    if (!opts?.password) {
+      console.log(chalk.yellow(`Generated admin password: ${adminPassword}`));
+      console.log(chalk.dim('(Save this — it will not be shown again)\n'));
+    }
+
+    answers = {
+      workspaceName: opts?.workspace ?? 'default',
+      adminEmail,
+      adminPassword,
+      confirmPassword: adminPassword,
+      generateEncryptionKey: true,
+      dataDir: opts?.dataDir ?? '/data/honorclaw',
+    };
+  } else {
+    // Interactive mode
+    answers = await inquirer.prompt<InitAnswers>([
+      {
+        type: 'input',
+        name: 'workspaceName',
+        message: 'Workspace name:',
+        default: 'default',
+        validate: (v: string) => v.trim().length > 0 || 'Workspace name is required',
+      },
+      {
+        type: 'input',
+        name: 'adminEmail',
+        message: 'Admin email:',
+        validate: (v: string) => v.includes('@') || 'Enter a valid email address',
+      },
+      {
+        type: 'password',
+        name: 'adminPassword',
+        message: 'Admin password:',
+        mask: '*',
+        validate: (v: string) => v.length >= 12 || 'Password must be at least 12 characters',
+      },
+      {
+        type: 'password',
+        name: 'confirmPassword',
+        message: 'Confirm password:',
+        mask: '*',
+        validate: (v: string, a?: InitAnswers) =>
+          v === a?.adminPassword || 'Passwords do not match',
+      },
+      {
+        type: 'confirm',
+        name: 'generateEncryptionKey',
+        message: 'Generate a new encryption key?',
+        default: true,
+      },
+      {
+        type: 'input',
+        name: 'dataDir',
+        message: 'Data directory:',
+        default: '/data/honorclaw',
+      },
+    ]);
+  }
 
   // ── Generate encryption key ─────────────────────────────────────────
   let encryptionKey: string;
   if (answers.generateEncryptionKey) {
     encryptionKey = crypto.randomBytes(32).toString('base64');
-    console.log(chalk.green('\nEncryption key generated.'));
-    console.log(chalk.dim('Store this securely — it cannot be recovered:\n'));
-    console.log(`  ${chalk.yellow(encryptionKey)}\n`);
+    console.log(chalk.green('Encryption key generated.'));
+    if (!nonInteractive) {
+      console.log(chalk.dim('Store this securely — it cannot be recovered:\n'));
+      console.log(`  ${chalk.yellow(encryptionKey)}\n`);
+    }
   } else {
     const { key } = await inquirer.prompt<{ key: string }>([
       {

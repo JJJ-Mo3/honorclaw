@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/command/with-contenv sh
 
 # Wait for PostgreSQL only if using embedded (local Unix socket) mode
 if [ ! -f /tmp/skip-embedded-postgres ]; then

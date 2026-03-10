@@ -53,7 +53,8 @@ import { NotificationDispatcher } from './notifications/dispatcher.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
+const logLevel = process.env.LOG_LEVEL ?? 'info';
+const logger = pino({ level: logLevel });
 
 async function main() {
   const config = loadConfig();
@@ -67,7 +68,7 @@ async function main() {
   }
 
   const app = Fastify({
-    logger,
+    logger: { level: logLevel },
     trustProxy: config.server.trustProxy ?? false,
   });
 

@@ -4,9 +4,18 @@ WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* turbo.json tsconfig.base.json ./
 COPY packages/ packages/
+ENV CI=true
 RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 RUN pnpm build
-RUN pnpm prune --prod
+
+# Stage 1b: Production dependencies only (clean install without devDependencies)
+FROM node:22-alpine AS deps
+WORKDIR /app
+RUN corepack enable
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY packages/ packages/
+ENV CI=true
+RUN pnpm install --frozen-lockfile --prod 2>/dev/null || pnpm install --prod
 
 # Stage 2: Runtime
 FROM node:22-alpine AS honorclaw
@@ -27,35 +36,29 @@ RUN case "${TARGETARCH:-amd64}" in \
     tar -C / -Jxpf /tmp/s6-overlay-arch.tar.xz && \
     rm -f /tmp/s6-overlay-*.tar.xz
 
-# PostgreSQL 16, Redis 7, and network tools
+# PostgreSQL 18 (Alpine default), pgvector, Redis, and network tools
 RUN apk add --no-cache \
-    postgresql16 postgresql16-contrib \
+    postgresql18 postgresql18-contrib postgresql-pgvector \
     redis \
     iproute2 iptables ip6tables \
     su-exec curl bash socat \
     && mkdir -p /var/run/postgresql /var/run/redis /data
 
-# Install pgvector extension
-RUN apk add --no-cache --virtual .build-deps build-base postgresql16-dev git && \
-    git clone --branch v0.7.0 --depth 1 https://github.com/pgvector/pgvector.git /tmp/pgvector && \
-    cd /tmp/pgvector && make && make install && \
-    rm -rf /tmp/pgvector && \
-    apk del .build-deps
-
-# Install Ollama (pre-built static binary, compatible with Alpine musl)
+# Install Ollama (pre-built binary archive, compatible with Alpine musl)
 ARG OLLAMA_VERSION=0.6.2
 RUN case "${TARGETARCH:-amd64}" in \
       amd64) OLLAMA_ARCH="amd64" ;; \
       arm64) OLLAMA_ARCH="arm64" ;; \
       *)     OLLAMA_ARCH="${TARGETARCH}" ;; \
     esac && \
-    wget -qO /usr/local/bin/ollama \
-      "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-${OLLAMA_ARCH}" && \
-    chmod +x /usr/local/bin/ollama
+    wget -qO /tmp/ollama.tgz \
+      "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-${OLLAMA_ARCH}.tgz" && \
+    tar -xzf /tmp/ollama.tgz -C /usr && \
+    rm -f /tmp/ollama.tgz
 
-# Copy application (owned by node user for privilege-dropped execution)
+# Copy built application code and production-only dependencies
 COPY --from=build --chown=node:node /app/packages /app/packages
-COPY --from=build --chown=node:node /app/node_modules /app/node_modules
+COPY --from=deps --chown=node:node /app/node_modules /app/node_modules
 COPY --from=build --chown=node:node /app/package.json /app/package.json
 
 # Config template (provides sane defaults for the embedded single-container setup)
