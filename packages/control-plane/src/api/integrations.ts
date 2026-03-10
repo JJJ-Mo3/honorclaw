@@ -1,11 +1,19 @@
 import type { FastifyInstance } from 'fastify';
 import { requireWorkspace, requireRoles } from '../middleware/rbac.js';
 
+interface SecretFieldDef {
+  path: string;
+  label: string;
+  required: boolean;
+  placeholder?: string;
+}
+
 interface IntegrationDef {
   id: string;
   name: string;
   secretPath: string;
   description: string;
+  secretFields?: SecretFieldDef[];
 }
 
 const KNOWN_INTEGRATIONS: IntegrationDef[] = [
@@ -26,6 +34,21 @@ const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     name: 'Slack',
     secretPath: 'integrations/slack/credentials',
     description: 'Post messages, read channels, search, and manage users',
+    secretFields: [
+      { path: 'slack/bot-token', label: 'Bot Token', required: true, placeholder: 'xoxb-...' },
+      { path: 'slack/signing-secret', label: 'Signing Secret', required: true, placeholder: 'Signing secret from Slack app settings' },
+      { path: 'slack/app-token', label: 'App Token (Socket Mode)', required: false, placeholder: 'xapp-... (optional)' },
+    ],
+  },
+  {
+    id: 'microsoft-teams',
+    name: 'Microsoft Teams',
+    secretPath: 'integrations/microsoft-teams/credentials',
+    description: 'Bot messaging, adaptive cards, and team collaboration',
+    secretFields: [
+      { path: 'teams/app-id', label: 'App ID', required: true, placeholder: 'Azure Bot App ID' },
+      { path: 'teams/app-password', label: 'App Password', required: true, placeholder: 'Azure Bot App Password' },
+    ],
   },
   {
     id: 'jira',
@@ -74,20 +97,39 @@ export async function integrationRoutes(app: FastifyInstance) {
   app.get('/', async (request) => {
     const workspaceId = request.workspaceId;
 
-    // Check which integrations have credentials stored
+    // Collect all known secret paths to check in one query
+    const allKnownPaths: string[] = [];
+    for (const def of KNOWN_INTEGRATIONS) {
+      allKnownPaths.push(def.secretPath);
+      if (def.secretFields) {
+        for (const f of def.secretFields) {
+          allKnownPaths.push(f.path);
+        }
+      }
+    }
+
     const { rows } = await db.query(
-      `SELECT path FROM secrets WHERE workspace_id = $1 AND path LIKE 'integrations/%/credentials'`,
-      [workspaceId],
+      `SELECT path FROM secrets WHERE workspace_id = $1 AND path = ANY($2)`,
+      [workspaceId, allKnownPaths],
     );
     const configuredPaths = new Set(rows.map((r: { path: string }) => r.path));
 
-    return KNOWN_INTEGRATIONS.map((def) => ({
-      id: def.id,
-      name: def.name,
-      description: def.description,
-      status: configuredPaths.has(def.secretPath) ? 'connected' : 'disconnected',
-      authMode: configuredPaths.has(def.secretPath) ? 'credentials' : 'none',
-    }));
+    return KNOWN_INTEGRATIONS.map((def) => {
+      const hasCredentials = configuredPaths.has(def.secretPath);
+      const hasFieldSecrets = def.secretFields
+        ? def.secretFields.some((f) => configuredPaths.has(f.path))
+        : false;
+      const isConfigured = hasCredentials || hasFieldSecrets;
+
+      return {
+        id: def.id,
+        name: def.name,
+        description: def.description,
+        status: isConfigured ? 'connected' : 'disconnected',
+        authMode: isConfigured ? 'credentials' : 'none',
+        secretFields: def.secretFields ?? null,
+      };
+    });
   });
 
   // POST /integrations/:id/test — test connection to an integration
@@ -104,17 +146,34 @@ export async function integrationRoutes(app: FastifyInstance) {
         return;
       }
 
-      // Check if credentials exist
+      // Check if credentials exist (main path or per-field secrets)
+      const pathsToCheck = [def.secretPath];
+      if (def.secretFields) {
+        for (const f of def.secretFields) pathsToCheck.push(f.path);
+      }
+
       const { rows } = await db.query(
-        `SELECT id FROM secrets WHERE workspace_id = $1 AND path = $2`,
-        [workspaceId, def.secretPath],
+        `SELECT path FROM secrets WHERE workspace_id = $1 AND path = ANY($2)`,
+        [workspaceId, pathsToCheck],
       );
 
       if (rows.length === 0) {
-        return {
-          status: 'disconnected',
-          errorMessage: `${def.name} is not configured. Store credentials with: honorclaw secrets set ${def.secretPath} '{...}'`,
-        };
+        const hint = def.secretFields
+          ? `Configure ${def.name} from the Integrations page or via CLI.`
+          : `Store credentials with: honorclaw secrets set ${def.secretPath} '{...}'`;
+        return { status: 'disconnected', errorMessage: `${def.name} is not configured. ${hint}` };
+      }
+
+      // For integrations with per-field secrets, check that required fields are present
+      if (def.secretFields) {
+        const storedPaths = new Set(rows.map((r: { path: string }) => r.path));
+        const missing = def.secretFields.filter((f) => f.required && !storedPaths.has(f.path));
+        if (missing.length > 0) {
+          return {
+            status: 'error',
+            errorMessage: `Missing required fields: ${missing.map((f) => f.label).join(', ')}`,
+          };
+        }
       }
 
       return {
