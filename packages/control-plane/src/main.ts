@@ -31,6 +31,9 @@ import { evalRoutes } from './api/eval.js';
 import { metricsRoutes } from './api/metrics.js';
 import { approvalRoutes } from './api/approvals.js';
 import { integrationRoutes } from './api/integrations.js';
+import { toolRoutes } from './api/tools.js';
+import { scheduledRunRoutes } from './api/scheduled-runs.js';
+import { apiKeyRoutes } from './api/api-keys.js';
 import { totpRoutes } from './auth/totp.js';
 import { registerWebhookRoutes } from './webhooks/api.js';
 import { WebhookDispatcher } from './webhooks/dispatcher.js';
@@ -90,6 +93,16 @@ async function main() {
     }
   }
   await app.register(cookie, { secret: cookieSecret ?? 'change-me-in-production' });
+
+  // Global error handler — consistent JSON error response shape
+  app.setErrorHandler((error: Error & { statusCode?: number; validation?: unknown }, _request, reply) => {
+    const statusCode = error.statusCode ?? 500;
+    logger.error({ err: error, statusCode }, 'Request error');
+    reply.status(statusCode).send({
+      error: error.message ?? 'Internal server error',
+      ...(statusCode === 400 && error.validation ? { validation: error.validation } : {}),
+    });
+  });
 
   // WebSocket support
   await app.register(websocket);
@@ -161,6 +174,9 @@ async function main() {
   await app.register(skillRoutes, { prefix: '/api/skills' });
   await app.register(secretRoutes, { prefix: '/api/secrets' });
   await app.register(integrationRoutes, { prefix: '/api/integrations' });
+  await app.register(toolRoutes, { prefix: '/api/tools' });
+  await app.register(scheduledRunRoutes, { prefix: '/api/scheduled-runs' });
+  await app.register(apiKeyRoutes, { prefix: '/api/api-keys' });
   await app.register(statusRoutes, { prefix: '/api' });
   await app.register(upgradeRoutes, { prefix: '/api/upgrade' });
   await app.register(migrateRoutes, { prefix: '/api/migrate' });

@@ -35,7 +35,7 @@ function getUpgradeConfig(): UpgradeConfig {
     deploymentType: (process.env.HONORCLAW_DEPLOYMENT_TYPE as any) ?? 'docker-compose',
     composeFile: process.env.HONORCLAW_COMPOSE_FILE ?? 'docker-compose.yml',
     kubeNamespace: process.env.HONORCLAW_NAMESPACE ?? 'honorclaw',
-    healthEndpoint: process.env.HONORCLAW_HEALTH_URL ?? 'http://localhost:3000/health',
+    healthEndpoint: process.env.HONORCLAW_HEALTH_URL ?? 'http://localhost:3000/health/ready',
     healthTimeout: parseInt(process.env.HONORCLAW_HEALTH_TIMEOUT ?? '120', 10),
     migrationImage: process.env.HONORCLAW_MIGRATION_IMAGE ?? 'ghcr.io/jjj-mo3/honorclaw:latest',
   };
@@ -65,10 +65,7 @@ async function waitForHealth(endpoint: string, timeoutSeconds: number): Promise<
     try {
       const response = await fetch(endpoint);
       if (response.ok) {
-        const body = await response.json() as any;
-        if (body.status === 'healthy' || body.status === 'ok') {
-          return true;
-        }
+        return true;
       }
     } catch {
       // Service not ready yet
@@ -113,7 +110,7 @@ async function upgradeDockerCompose(config: UpgradeConfig, options: UpgradeOptio
     logStep(2, totalSteps, 'Running database migrations...');
     try {
       execSync(
-        `docker compose -f "${config.composeFile}" run --rm honorclaw node dist/db/migrate.js`,
+        `docker compose -f "${config.composeFile}" run --rm honorclaw node -e "import('./dist/db/index.js').then(m => import('./dist/config.js').then(c => m.runMigrations(m.createDb(c.loadConfig().database)).then(() => process.exit(0))))"`,
         { encoding: 'utf-8', stdio: 'pipe' },
       );
       log('Migrations complete.');
@@ -194,7 +191,7 @@ async function upgradeKubernetes(config: UpgradeConfig, options: UpgradeOptions)
         `kubectl run honorclaw-migrate --rm -it --restart=Never ` +
         `-n ${ns} ` +
         `--image=${config.migrationImage} ` +
-        `-- node dist/db/migrate.js`,
+        `-- node -e "import('./dist/db/index.js').then(m => import('./dist/config.js').then(c => m.runMigrations(m.createDb(c.loadConfig().database)).then(() => process.exit(0))))"`,
         { encoding: 'utf-8', stdio: 'pipe', timeout: 120_000 },
       );
       log('Migrations complete.');
@@ -237,7 +234,7 @@ async function upgradeKubernetes(config: UpgradeConfig, options: UpgradeOptions)
   logStep(4, totalSteps, 'Verifying health...');
   try {
     const { stdout } = await execAsync(
-      `kubectl exec -n ${ns} deploy/honorclaw-control-plane -- wget -qO- http://localhost:3000/health`,
+      `kubectl exec -n ${ns} deploy/honorclaw-control-plane -- wget -qO- http://localhost:3000/health/ready`,
     );
     const health = JSON.parse(stdout);
     if (health.status === 'healthy' || health.status === 'ok') {

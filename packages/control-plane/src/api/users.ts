@@ -79,4 +79,82 @@ export async function userRoutes(app: FastifyInstance) {
 
     return { updated: true, role };
   });
+
+  // Remove a user from this workspace
+  app.delete('/:id', { preHandler: [requireWorkspace(), requireRoles('workspace_admin')] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const db = (app as any).db;
+
+    // Prevent self-deletion
+    if (id === request.userId) {
+      reply.code(400).send({ error: 'Cannot remove yourself from the workspace' });
+      return;
+    }
+
+    const result = await db.query(
+      'DELETE FROM user_workspace_roles WHERE user_id = $1 AND workspace_id = $2 RETURNING *',
+      [id, request.workspaceId]
+    );
+
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: 'User not found in this workspace' });
+      return;
+    }
+
+    return { removed: true, userId: id };
+  });
+
+  // Change a user's password (admin-only or self-service)
+  app.patch('/:id/password', { preHandler: [requireWorkspace()] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { currentPassword, newPassword } = request.body as {
+      currentPassword?: string; newPassword?: string;
+    };
+    const db = (app as any).db;
+
+    if (!newPassword || newPassword.length < 12) {
+      reply.code(400).send({ error: 'New password must be at least 12 characters' });
+      return;
+    }
+
+    // Self-service: verify current password. Admin: skip if workspace_admin
+    const userRoles = request.roles ?? [];
+    const isAdmin = request.isDeploymentAdmin || userRoles.includes('workspace_admin');
+    const isSelf = id === request.userId;
+
+    if (!isSelf && !isAdmin) {
+      reply.code(403).send({ error: 'Cannot change another user\'s password' });
+      return;
+    }
+
+    if (isSelf && !isAdmin) {
+      if (!currentPassword) {
+        reply.code(400).send({ error: 'Current password is required' });
+        return;
+      }
+      const user = await db.query('SELECT password_hash FROM users WHERE id = $1', [id]);
+      if (user.rows.length === 0) {
+        reply.code(404).send({ error: 'User not found' });
+        return;
+      }
+      const valid = await bcrypt.compare(currentPassword, user.rows[0].password_hash);
+      if (!valid) {
+        reply.code(401).send({ error: 'Current password is incorrect' });
+        return;
+      }
+    }
+
+    const hash = await bcrypt.hash(newPassword, 12);
+    const result = await db.query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING id',
+      [hash, id]
+    );
+
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: 'User not found' });
+      return;
+    }
+
+    return { updated: true };
+  });
 }

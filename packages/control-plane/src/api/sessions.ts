@@ -12,7 +12,7 @@ export async function sessionRoutes(app: FastifyInstance) {
     const db = (app as any).db;
     const { status, agentId, limit } = request.query as { status?: string; agentId?: string; limit?: string };
 
-    let query = 'SELECT id, workspace_id, agent_id, user_id, channel, status, created_at, updated_at FROM sessions WHERE workspace_id = $1';
+    let query = 'SELECT id, workspace_id, agent_id, user_id, channel, status, started_at, ended_at, tokens_used, tool_calls_count FROM sessions WHERE workspace_id = $1';
     const params: unknown[] = [request.workspaceId];
     let idx = 2;
 
@@ -32,7 +32,7 @@ export async function sessionRoutes(app: FastifyInstance) {
       params.push(agentId);
     }
 
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY started_at DESC';
     query += ` LIMIT $${idx}`;
     params.push(Math.min(parseInt(limit ?? '50', 10) || 50, 200));
 

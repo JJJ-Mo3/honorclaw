@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fp from 'fastify-plugin';
 import * as jose from 'jose';
 import bcrypt from 'bcryptjs';
+import { createHash } from 'node:crypto';
 import { checkRateLimit, recordFailedAttempt, clearRateLimit } from './rate-limiter.js';
 
 declare module 'fastify' {
@@ -44,28 +45,69 @@ async function authPluginImpl(app: FastifyInstance) {
       return;
     }
 
+    // Try JWT first (cookie or Authorization: Bearer)
     const token = extractToken(request);
-    if (!token) {
+    const apiKey = request.headers['x-api-key'] as string | undefined;
+
+    if (!token && !apiKey) {
       reply.code(401).send({ error: 'Authentication required' });
       return;
     }
 
-    try {
-      const { payload } = await jose.jwtVerify(token, jwtSecret, { issuer: 'honorclaw' });
+    if (token) {
+      try {
+        const { payload } = await jose.jwtVerify(token, jwtSecret, { issuer: 'honorclaw' });
 
-      // Only allow access tokens (reject refresh/mfa tokens used as access)
-      if (payload.type && payload.type !== 'access') {
-        reply.code(401).send({ error: 'Invalid token type' });
+        if (payload.type && payload.type !== 'access') {
+          reply.code(401).send({ error: 'Invalid token type' });
+          return;
+        }
+
+        request.userId = payload.sub;
+        request.workspaceId = payload.workspace_id as string | undefined;
+        request.roles = (payload.roles as string[]) ?? [];
+        request.isDeploymentAdmin = (payload.is_deployment_admin as boolean) ?? false;
+      } catch {
+        reply.code(401).send({ error: 'Invalid or expired token' });
+        return;
+      }
+    } else if (apiKey) {
+      // X-API-Key authentication
+      const db = (app as any).db;
+      const keyHash = createHash('sha256').update(apiKey).digest('hex');
+
+      const keyResult = await db.query(
+        `SELECT ak.user_id, ak.workspace_id, ak.scopes, ak.expires_at, u.is_deployment_admin
+         FROM api_keys ak JOIN users u ON ak.user_id = u.id
+         WHERE ak.key_hash = $1`,
+        [keyHash],
+      );
+
+      if (keyResult.rows.length === 0) {
+        reply.code(401).send({ error: 'Invalid API key' });
         return;
       }
 
-      request.userId = payload.sub;
-      request.workspaceId = payload.workspace_id as string | undefined;
-      request.roles = (payload.roles as string[]) ?? [];
-      request.isDeploymentAdmin = (payload.is_deployment_admin as boolean) ?? false;
-    } catch {
-      reply.code(401).send({ error: 'Invalid or expired token' });
-      return;
+      const keyRow = keyResult.rows[0];
+
+      if (keyRow.expires_at && new Date(keyRow.expires_at) < new Date()) {
+        reply.code(401).send({ error: 'API key expired' });
+        return;
+      }
+
+      // Update last_used_at (fire-and-forget)
+      db.query('UPDATE api_keys SET last_used_at = now() WHERE key_hash = $1', [keyHash]).catch(() => {});
+
+      // Look up workspace roles for this user
+      const rolesResult = await db.query(
+        'SELECT role FROM user_workspace_roles WHERE user_id = $1 AND workspace_id = $2',
+        [keyRow.user_id, keyRow.workspace_id],
+      );
+
+      request.userId = keyRow.user_id;
+      request.workspaceId = keyRow.workspace_id;
+      request.roles = rolesResult.rows.map((r: { role: string }) => r.role);
+      request.isDeploymentAdmin = keyRow.is_deployment_admin ?? false;
     }
   });
 
@@ -163,8 +205,8 @@ async function authPluginImpl(app: FastifyInstance) {
     const { email, password, displayName } = request.body as { email: string; password: string; displayName?: string };
     const db = (app as any).db;
 
-    if (!email || !password || password.length < 8 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      reply.code(400).send({ error: 'Valid email and password (min 8 chars) are required' });
+    if (!email || !password || password.length < 12 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      reply.code(400).send({ error: 'Valid email and password (min 12 chars) are required' });
       return;
     }
 
@@ -337,8 +379,8 @@ async function authPluginImpl(app: FastifyInstance) {
     };
     const db = (app as any).db;
 
-    if (!adminEmail || !adminPassword || adminPassword.length < 8 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
-      reply.code(400).send({ error: 'Valid email and password (min 8 chars) are required' });
+    if (!adminEmail || !adminPassword || adminPassword.length < 12 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+      reply.code(400).send({ error: 'Valid email and password (min 12 chars) are required' });
       return;
     }
 

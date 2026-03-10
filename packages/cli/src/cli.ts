@@ -13,6 +13,7 @@ import { registerKeyRotationCommands } from './commands/key-rotation.js';
 import { registerBundleCommands } from './commands/bundle.js';
 import { registerMigrateModelCommand } from './commands/migrate-model.js';
 import { registerUpgradeCommand } from './commands/upgrade.js';
+import { registerServerCommands } from './commands/server.js';
 import path from 'node:path';
 import { cliApi, CliApiError } from './api.js';
 
@@ -72,6 +73,7 @@ program
   });
 
 registerUpgradeCommand(program);
+registerServerCommands(program);
 
 // ═══════════════════════════════════════════════════════════════════════
 //  Authentication

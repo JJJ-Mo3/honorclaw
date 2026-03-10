@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireRoles, requireWorkspace } from '../middleware/rbac.js';
+import { mapRows, toCamelCase } from './row-mapper.js';
 
 export async function approvalRoutes(app: FastifyInstance) {
   app.addHook('onRequest', requireWorkspace());
@@ -14,7 +15,7 @@ export async function approvalRoutes(app: FastifyInstance) {
        ORDER BY created_at DESC`,
       [request.workspaceId]
     );
-    return { approvals: result.rows };
+    return { approvals: mapRows(result.rows) };
   });
 
   // Get a single approval request
@@ -29,7 +30,7 @@ export async function approvalRoutes(app: FastifyInstance) {
       reply.code(404).send({ error: 'Approval request not found' });
       return;
     }
-    return { approval: result.rows[0] };
+    return { approval: toCamelCase(result.rows[0]) };
   });
 
   // Approve a request

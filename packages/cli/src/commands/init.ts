@@ -88,7 +88,7 @@ export async function runInit(): Promise<void> {
   // ── Generate encryption key ─────────────────────────────────────────
   let encryptionKey: string;
   if (answers.generateEncryptionKey) {
-    encryptionKey = crypto.randomBytes(32).toString('hex');
+    encryptionKey = crypto.randomBytes(32).toString('base64');
     console.log(chalk.green('\nEncryption key generated.'));
     console.log(chalk.dim('Store this securely — it cannot be recovered:\n'));
     console.log(`  ${chalk.yellow(encryptionKey)}\n`);
@@ -97,10 +97,15 @@ export async function runInit(): Promise<void> {
       {
         type: 'password',
         name: 'key',
-        message: 'Encryption key (64 hex chars):',
+        message: 'Encryption key (base64-encoded 32 bytes):',
         mask: '*',
-        validate: (v: string) =>
-          /^[0-9a-f]{64}$/i.test(v) || 'Must be a 64-character hex string',
+        validate: (v: string) => {
+          try {
+            return Buffer.from(v, 'base64').length === 32 || 'Must be a base64-encoded 32-byte key';
+          } catch {
+            return 'Must be a valid base64-encoded 32-byte key';
+          }
+        },
       },
     ]);
     encryptionKey = key;
@@ -125,10 +130,16 @@ export async function runInit(): Promise<void> {
     `  sessionCookieSecret: "${cookieSecret}"`,
     '',
     'database:',
+    '  # Use socket for embedded Docker deployment, or url for external databases',
+    '  # socket: /var/run/postgresql',
+    '  # url: postgresql://honorclaw:password@localhost:5432/honorclaw',
     '  name: honorclaw',
     '  poolSize: 10',
     '',
-    'redis: {}',
+    'redis:',
+    '  # Use socket for embedded Docker deployment, or url for external Redis',
+    '  # socket: /var/run/redis/redis.sock',
+    '  # url: redis://localhost:6379',
     '',
     'auth:',
     '  jwtIssuer: honorclaw',
@@ -163,11 +174,15 @@ export async function runInit(): Promise<void> {
 
   // ── Store secrets in .env file (gitignored) ─────────────────────────
   const envPath = path.resolve('.env');
+  const postgresPassword = crypto.randomBytes(24).toString('base64url');
+  const redisPassword = crypto.randomBytes(24).toString('base64url');
   const envContent = [
     '# HonorClaw secrets — DO NOT COMMIT',
-    `HONORCLAW_ENCRYPTION_KEY=${encryptionKey}`,
+    `HONORCLAW_MASTER_KEY=${encryptionKey}`,
     `JWT_SECRET=${jwtSecret}`,
-    `HONORCLAW_COOKIE_SECRET=${cookieSecret}`,
+    `SESSION_COOKIE_SECRET=${cookieSecret}`,
+    `POSTGRES_PASSWORD=${postgresPassword}`,
+    `REDIS_PASSWORD=${redisPassword}`,
     '',
   ].join('\n');
 

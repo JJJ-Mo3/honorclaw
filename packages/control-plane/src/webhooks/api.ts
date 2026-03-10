@@ -5,6 +5,7 @@ import type { EncryptionProvider } from '@honorclaw/core';
 import { WebhookDispatcher } from './dispatcher.js';
 import { validateWebhookUrl } from './url-validator.js';
 import { requireRoles, requireWorkspace } from '../middleware/rbac.js';
+import { mapRows } from '../api/row-mapper.js';
 
 export function registerWebhookRoutes(
   app: FastifyInstance,
@@ -26,7 +27,7 @@ export function registerWebhookRoutes(
       [workspaceId],
     );
 
-    return result.rows;
+    return { webhooks: mapRows(result.rows) };
   });
 
   // Create webhook subscription
@@ -109,10 +110,14 @@ export function registerWebhookRoutes(
     }
 
     params.push(id, workspaceId);
-    await db.query(
-      `UPDATE webhook_subscriptions SET ${sets.join(', ')} WHERE id = $${idx++} AND workspace_id = $${idx}`,
+    const result = await db.query(
+      `UPDATE webhook_subscriptions SET ${sets.join(', ')} WHERE id = $${idx++} AND workspace_id = $${idx} RETURNING id`,
       params,
     );
+
+    if (result.rows.length === 0) {
+      return reply.status(404).send({ error: 'Webhook not found' });
+    }
 
     return { success: true };
   });
@@ -124,10 +129,14 @@ export function registerWebhookRoutes(
 
     const { id } = request.params as { id: string };
 
-    await db.query(
-      `DELETE FROM webhook_subscriptions WHERE id = $1 AND workspace_id = $2`,
+    const result = await db.query(
+      `DELETE FROM webhook_subscriptions WHERE id = $1 AND workspace_id = $2 RETURNING id`,
       [id, workspaceId],
     );
+
+    if (result.rows.length === 0) {
+      return reply.status(404).send({ error: 'Webhook not found' });
+    }
 
     return { success: true };
   });
@@ -183,6 +192,6 @@ export function registerWebhookRoutes(
       [id, workspaceId],
     );
 
-    return result.rows;
+    return { deliveries: mapRows(result.rows) };
   });
 }

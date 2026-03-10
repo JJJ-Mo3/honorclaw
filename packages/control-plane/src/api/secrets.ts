@@ -62,6 +62,24 @@ export async function secretRoutes(app: FastifyInstance) {
     reply.code(201).send({ secret: toCamelCase(result.rows[0]) });
   });
 
+  // Delete a secret
+  app.delete('/:secretPath', { preHandler: [requireRoles('workspace_admin')] }, async (request, reply) => {
+    const { secretPath } = request.params as { secretPath: string };
+    const db = (app as any).db;
+
+    const result = await db.query(
+      'DELETE FROM secrets WHERE workspace_id = $1 AND path = $2 RETURNING id',
+      [request.workspaceId, secretPath]
+    );
+
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: 'Secret not found' });
+      return;
+    }
+
+    return { deleted: true, path: secretPath };
+  });
+
   // Rotate a secret
   app.post('/rotate', { preHandler: [requireRoles('workspace_admin')] }, async (request, reply) => {
     const { path: secretPath, value } = request.body as {
