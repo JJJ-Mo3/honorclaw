@@ -28,6 +28,7 @@ honorclaw agents create \
 | Flag | Description | Default |
 |------|-------------|---------|
 | `-n, --name` | Agent name (required) | — |
+| `-d, --display-name` | Display name | — |
 | `-m, --model` | Model identifier | `ollama/llama3.2` |
 | `-w, --workspace` | Workspace ID | Current workspace |
 | `-p, --prompt` | System prompt | — |
@@ -66,7 +67,7 @@ description: Short description of what this agent does
 
 # LLM Configuration
 model:
-  provider: ollama          # ollama, anthropic, openai, google, mistral, etc.
+  provider: ollama          # ollama, anthropic, openai, google
   model: llama3.2           # Model name within the provider
   temperature: 0.7          # 0.0 = deterministic, 1.0 = creative
   maxTokens: 2048           # Max tokens per LLM response
@@ -353,11 +354,20 @@ honorclaw skills available
 # Install a skill
 honorclaw skills install customer-support
 
-# Apply to agent via API
+# Apply to an agent via CLI
+honorclaw skills apply customer-support -a <agent-id>
+
+# Or apply via API
 curl -X POST http://localhost:3000/api/skills/agents/<agent-id> \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"skillName": "customer-support"}'
+
+# Detach a skill from an agent
+honorclaw skills detach customer-support -a <agent-id>
+
+# List skills applied to an agent
+honorclaw skills agent-skills <agent-id>
 ```
 
 ## Available Models
@@ -369,13 +379,12 @@ curl http://localhost:3000/api/models -H "Authorization: Bearer $TOKEN"
 
 | Provider | Example Models |
 |----------|---------------|
-| **Ollama** (local) | `ollama/llama3.2`, `ollama/mistral`, `ollama/codellama` |
+| **Ollama** (local, default) | `ollama/llama3.2`, `ollama/mistral`, `ollama/codellama` |
 | **Anthropic** | `anthropic/claude-3-5-sonnet`, `anthropic/claude-3-haiku` |
 | **OpenAI** | `openai/gpt-4o`, `openai/gpt-4o-mini` |
 | **Google** | `google/gemini-pro`, `google/gemini-flash` |
-| **Mistral** | `mistral/mistral-large`, `mistral/mistral-medium` |
 
-Configure frontier providers by setting API keys in `honorclaw.yaml` or via secrets:
+Frontier providers (Anthropic, OpenAI, Google) are available when the corresponding API keys are set. Configure them in `honorclaw.yaml` or via secrets:
 
 ```bash
 honorclaw secrets set providers/anthropic/api-key "sk-ant-..."

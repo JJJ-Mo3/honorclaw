@@ -8,7 +8,7 @@ HonorClaw uses role-based access control (RBAC) scoped to workspaces. Each user 
 
 | Role | Scope | Capabilities |
 |------|-------|-------------|
-| **deployment_admin** | Global | Create/manage workspaces, manage all users, full platform access |
+| **deployment_admin** | Global | Bypasses all role checks; create/manage workspaces, manage all users, full platform access |
 | **workspace_admin** | Workspace | Manage agents, skills, secrets, users, webhooks, approvals within workspace |
 | **agent_user** | Workspace | Create sessions, interact with agents, view own sessions |
 | **auditor** | Workspace | Read-only access to audit logs, metrics, and session history |
@@ -32,6 +32,8 @@ honorclaw users create -e admin@example.com -p "securepassword" -r workspace_adm
 
 Valid roles: `workspace_admin`, `agent_user`, `auditor`, `api_service`
 
+Password minimum: 12 characters.
+
 **API:**
 
 ```bash
@@ -47,12 +49,6 @@ If `password` is omitted, a temporary password is auto-generated and returned in
 
 ```bash
 honorclaw users list
-```
-
-### Add User to a Workspace
-
-```bash
-honorclaw users add-workspace -u <user-id> -w <workspace-id> -r agent_user
 ```
 
 ## Workspace Management
@@ -74,6 +70,36 @@ honorclaw workspaces list
 ```
 
 Deployment admins see all workspaces. Regular users see only workspaces they belong to.
+
+## Deployment Management
+
+### Start / Stop
+
+```bash
+# Start deployment
+honorclaw start
+honorclaw start --detach        # Run in background
+honorclaw start --wait          # Wait for services to be ready
+honorclaw start --no-detach     # Force foreground mode
+
+# Stop deployment
+honorclaw stop
+honorclaw stop --remove         # Stop and remove containers/volumes
+```
+
+### View Logs
+
+```bash
+honorclaw logs
+honorclaw logs -f               # Follow (stream) logs
+honorclaw logs -n 100           # Last 100 lines
+```
+
+### Login
+
+```bash
+honorclaw login -s http://localhost:3000
+```
 
 ## Registration Control
 
@@ -162,19 +188,19 @@ All platform events are written to an immutable append-only audit log. Events in
 
 ```bash
 # Recent events (last 7 days)
-honorclaw audit query --start 2024-01-01 --end 2024-01-31
+honorclaw audit events --start 2024-01-01 --end 2024-01-31
 
 # Filter by event type
-honorclaw audit query -t auth.login
+honorclaw audit events -t auth.login
 
 # Filter by actor
-honorclaw audit query -a <user-id>
+honorclaw audit events -a <user-id>
 
 # Filter by session
-honorclaw audit query -s <session-id>
+honorclaw audit events -s <session-id>
 
 # Limit results
-honorclaw audit query -l 100
+honorclaw audit events -l 100
 ```
 
 ### Export Audit Log
@@ -217,6 +243,24 @@ honorclaw backup create
 ```
 
 This creates a full backup of the PostgreSQL database and configuration.
+
+### Restore a Backup
+
+```bash
+honorclaw backup restore <backup-id>
+```
+
+### List Backups
+
+```bash
+honorclaw backup list
+```
+
+### Schedule Backups
+
+```bash
+honorclaw backup schedule
+```
 
 ### Export Workspace Data
 
@@ -310,6 +354,259 @@ honorclaw sessions list -l 20
 honorclaw sessions messages <session-id>
 ```
 
+### Interactive Chat
+
+```bash
+honorclaw chat <agent-name-or-id>
+```
+
+### Export / Import Sessions
+
+```bash
+honorclaw sessions export <session-id>
+honorclaw sessions import <file>
+```
+
+### Create a Session
+
+```bash
+honorclaw sessions create -a <agent-id>
+```
+
+### Send a Message
+
+```bash
+honorclaw sessions chat <session-id> -m "Hello!"
+```
+
+## Skills Management
+
+### List Installed Skills
+
+```bash
+honorclaw skills list
+```
+
+### Search for Skills
+
+```bash
+honorclaw skills search <query>
+```
+
+### Install a Skill
+
+```bash
+honorclaw skills install <name>
+```
+
+### List Available Skills
+
+```bash
+honorclaw skills available
+```
+
+### Scaffold a New Skill
+
+```bash
+honorclaw skills scaffold <name>
+```
+
+### Agent-Skill Bindings
+
+```bash
+# List skills bound to an agent
+honorclaw skills agent-skills <agent-id>
+
+# Apply a skill to an agent
+honorclaw skills apply <agent-id> <skill-name>
+
+# Detach a skill from an agent
+honorclaw skills detach <agent-id> <skill-name>
+```
+
+### Remove a Skill
+
+```bash
+honorclaw skills remove <name>
+```
+
+## Tool Management
+
+### List Installed Tools
+
+```bash
+honorclaw tools list
+```
+
+### Search for Tools
+
+```bash
+honorclaw tools search <query>
+```
+
+### Install a Tool
+
+```bash
+honorclaw tools install <name>
+```
+
+### Scaffold a New Tool
+
+```bash
+honorclaw tools scaffold <name>
+```
+
+### Security Scan a Tool
+
+```bash
+honorclaw tools scan <name>
+```
+
+### Update Tools
+
+```bash
+honorclaw tools update
+```
+
+### Dev Mode
+
+```bash
+honorclaw tools dev <name>
+```
+
+### Remove a Tool
+
+```bash
+honorclaw tools remove <name>
+```
+
+## Memory / RAG Management
+
+### View Memory Statistics
+
+```bash
+honorclaw memory stats
+```
+
+### List Memory Documents
+
+```bash
+honorclaw memory documents
+```
+
+## Models
+
+### List Available Models
+
+```bash
+honorclaw models list
+```
+
+Lists all available LLM models (both local via Ollama and configured frontier providers).
+
+## TLS Certificate Management
+
+### Generate Certificates
+
+```bash
+honorclaw certs generate
+```
+
+### Renew Certificates
+
+```bash
+honorclaw certs renew
+```
+
+### Verify Certificates
+
+```bash
+honorclaw certs verify
+```
+
+## Key Rotation
+
+### Rotate Encryption Keys
+
+```bash
+honorclaw key-rotation rotate
+```
+
+### Check Key Rotation Status
+
+```bash
+honorclaw key-rotation status
+```
+
+### Schedule Key Rotation
+
+```bash
+honorclaw key-rotation schedule
+```
+
+## Model Migration
+
+Migrate agents from one model to another:
+
+```bash
+honorclaw migrate-model <from-model> <to-model>
+```
+
+For example:
+
+```bash
+honorclaw migrate-model ollama/llama3.2 anthropic/claude-sonnet-4-20250514
+```
+
+## API Key Management
+
+API keys provide machine-to-machine access with the `hc_` prefix. Keys are hashed with SHA-256 for storage.
+
+API keys are managed via the REST API (`/api/api-keys`) by workspace admins. Scopes restrict access to specific resource paths (e.g., `"agents"`, `"sessions"`).
+
+## Evaluation Framework
+
+The evaluation framework supports prompt regression testing via CLI:
+
+```bash
+# Manage eval sessions
+honorclaw eval sessions
+
+# Send eval turns
+honorclaw eval turns
+
+# Register mock handlers
+honorclaw eval mocks
+
+# Stream eval events
+honorclaw eval events
+```
+
+## Rolling Upgrade
+
+```bash
+# Basic upgrade
+honorclaw upgrade
+
+# Skip backup before upgrading
+honorclaw upgrade --skip-backup
+
+# Skip health check after upgrading
+honorclaw upgrade --skip-health-check
+```
+
+## Air-Gap Bundle Management
+
+For air-gapped deployments, create and verify deployment bundles:
+
+```bash
+# Create an air-gap bundle
+honorclaw bundle create
+
+# Verify an air-gap bundle
+honorclaw bundle verify
+```
+
 ## Health Checks
 
 ### Run Diagnostics
@@ -357,8 +654,10 @@ Key admin-relevant variables:
 
 | Variable | Purpose |
 |----------|---------|
-| `JWT_SECRET` | JWT signing secret (min 32 chars) |
-| `SESSION_COOKIE_SECRET` | Cookie signing secret |
-| `HONORCLAW_MASTER_KEY` | Master encryption key for secrets |
+| `HONORCLAW_MASTER_KEY` | Master encryption key for secrets (base64, 32 bytes) |
+| `JWT_SECRET` | JWT signing secret (base64url, 48 bytes) |
+| `SESSION_COOKIE_SECRET` | Cookie signing secret (base64url, 32 bytes) |
+| `POSTGRES_PASSWORD` | PostgreSQL password (base64url, 24 bytes) |
+| `REDIS_PASSWORD` | Redis password (base64url, 24 bytes) |
 | `NODE_ENV` | `development` or `production` |
 | `LOG_LEVEL` | Logging level (default: `info`) |

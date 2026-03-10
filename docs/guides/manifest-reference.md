@@ -11,7 +11,7 @@ description: string             # Human-readable description
 
 # LLM configuration
 model:
-  provider: string              # ollama, anthropic, openai, google, mistral, etc.
+  provider: string              # ollama, anthropic, openai, google
   model: string                 # Model name within the provider
   temperature: number           # 0.0-1.0 (default: 0.7)
   maxTokens: number             # Max tokens per LLM response

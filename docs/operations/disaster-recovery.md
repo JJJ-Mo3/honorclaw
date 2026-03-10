@@ -146,7 +146,8 @@ honorclaw doctor
    ```bash
    git clone https://github.com/JJJ-Mo3/honorclaw.git
    cd honorclaw
-   make init
+   pnpm install && pnpm build
+   cd packages/cli && pnpm link --global
    ```
 3. Restore from off-site backup
 4. Verify and resume operations
@@ -155,7 +156,8 @@ honorclaw doctor
 # 1. Install HonorClaw CLI
 git clone https://github.com/JJJ-Mo3/honorclaw.git
 cd honorclaw
-make init
+pnpm install && pnpm build
+cd packages/cli && pnpm link --global
 
 # 2. Initialize new deployment
 honorclaw init

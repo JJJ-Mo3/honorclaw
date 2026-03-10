@@ -42,7 +42,7 @@ mkdir honorclaw && cd honorclaw
 honorclaw init
 ```
 
-This prompts for workspace name, admin email/password, and encryption key, then generates:
+This prompts for workspace name, admin email/password, and master key, then generates:
 - `honorclaw.yaml` — Platform configuration
 - `.env` — Environment variables (secrets)
 
@@ -97,12 +97,18 @@ tools:
     - type: local
 ```
 
-The `.env` file stores secrets (JWT key, encryption key, cookie secret). For external databases, set `POSTGRES_URL` and/or `REDIS_URL` there as well.
+The `.env` file stores secrets (`JWT_SECRET`, `HONORCLAW_MASTER_KEY`, `SESSION_COOKIE_SECRET`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`). For external databases, set `POSTGRES_URL` and/or `REDIS_URL` there as well.
 
 ### 4. Start
 
 ```bash
-docker compose up -d
+honorclaw start
+```
+
+Or equivalently, run Docker Compose directly:
+
+```bash
+docker compose -f infra/docker/docker-compose.yml up -d
 ```
 
 ### 5. Verify
@@ -120,7 +126,7 @@ You can also bootstrap via API:
 ```bash
 curl -X POST http://localhost:3000/api/admin/bootstrap \
   -H "Content-Type: application/json" \
-  -d '{"workspaceName": "default", "adminEmail": "admin@example.com", "adminPassword": "your-secure-password"}'
+  -d '{"workspaceName": "default", "adminEmail": "admin@example.com", "adminPassword": "your-secure-password-12chars"}'
 ```
 
 ---

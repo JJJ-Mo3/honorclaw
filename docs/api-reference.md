@@ -4,10 +4,10 @@ Complete REST API reference for HonorClaw. All endpoints are prefixed with `/api
 
 ## Authentication
 
-All authenticated endpoints require either:
+All authenticated endpoints require one of:
 - **Cookie**: `token` cookie (set automatically by login/register)
-- **Bearer token**: `Authorization: Bearer <access_token>` header
-- **API key**: `X-API-Key: <key>` header (for machine-to-machine)
+- **Bearer token**: `Authorization: Bearer <access_token>` header (JWT, HS256)
+- **API key**: `X-API-Key: <key>` header (for machine-to-machine; `hc_` prefix; SHA-256 hash lookup; scope enforcement restricts access to resource paths like `"agents"`, `"sessions"`)
 
 ## Base URL
 
@@ -23,7 +23,7 @@ http://localhost:3000/api
 
 Authenticate with email and password.
 
-**Public:** Yes (rate-limited)
+**Public:** Yes (rate-limited: 5 attempts/15 min)
 
 ```json
 // Request
@@ -63,7 +63,7 @@ Create a new account. The first user becomes deployment admin.
 // Request
 {
   "email": "user@example.com",
-  "password": "min8chars",
+  "password": "min12characters",
   "displayName": "Jane Doe"  // optional
 }
 
@@ -130,6 +130,32 @@ Get public authentication configuration.
   "mfaRequired": false
 }
 ```
+
+### POST /admin/bootstrap
+
+First-run bootstrap — creates the initial deployment admin account. Only available when no users exist.
+
+**Public:** Yes (rate-limited: 5 attempts/15 min)
+
+```json
+// Request
+{
+  "email": "admin@example.com",
+  "password": "min12characters",
+  "displayName": "Admin"  // optional
+}
+
+// Response (201)
+{
+  "user": { "id": "uuid", "email": "string", "isDeploymentAdmin": true },
+  "workspaceId": "uuid",
+  "roles": ["deployment_admin"],
+  "accessToken": "jwt-string",
+  "refreshToken": "jwt-string"
+}
+```
+
+**Status Codes:** 201, 400 (invalid input), 403 (bootstrap already completed), 429 (rate limited)
 
 ### POST /auth/totp/setup
 
@@ -201,7 +227,7 @@ List all agents in the current workspace.
 
 ### GET /agents/:id
 
-Get agent details including manifest.
+Get agent details including system prompt, settings, and manifest.
 
 ```json
 // Response
@@ -212,6 +238,7 @@ Get agent details including manifest.
     "displayName": "My Agent",
     "model": "ollama/llama3.2",
     "systemPrompt": "You are helpful.",
+    "settings": { /* agent-specific settings */ },
     "status": "active",
     "createdAt": "2024-01-01T00:00:00.000Z"
   },
@@ -273,19 +300,13 @@ Soft-delete (archive) an agent. **Role:** workspace_admin
 }
 ```
 
-### POST /agents/:id/rollback
+---
 
-Rollback agent to a previous manifest version. **Role:** workspace_admin
+## Manifests
 
-```json
-// Request
-{ "version": 2 }
+Agent manifest versioning endpoints (under `/api/manifests`).
 
-// Response
-{ "manifest": { /* restored manifest */ } }
-```
-
-### GET /agents/:id/versions
+### GET /manifests/:agentId
 
 List manifest versions for an agent.
 
@@ -297,6 +318,23 @@ List manifest versions for an agent.
     { "id": "uuid", "version": 2, "createdAt": "...", "createdBy": "uuid" }
   ]
 }
+```
+
+### POST /manifests/:agentId
+
+Create a new manifest version for an agent. **Role:** workspace_admin
+
+```json
+// Request
+{
+  "tools": [
+    { "name": "web_search", "constraints": { "max_results": 5 } }
+  ],
+  "rate_limit": { "requests_per_minute": 30 }
+}
+
+// Response (201)
+{ "manifest": { "id": "uuid", "version": 4, "agentId": "uuid", ... } }
 ```
 
 ---
@@ -474,6 +512,125 @@ Remove a skill from an agent. **Role:** workspace_admin
 
 ---
 
+## Tools
+
+Tool management endpoints (under `/api/tools`).
+
+### GET /tools
+
+List installed tools.
+
+```json
+// Response
+{
+  "tools": [
+    { "name": "web_search", "version": "1.0.0", "status": "active", ... }
+  ]
+}
+```
+
+### GET /tools/search?q=query
+
+Search the GitHub tool marketplace.
+
+### GET /tools/:name
+
+Get tool details.
+
+### POST /tools/install
+
+Install a tool. **Role:** workspace_admin
+
+```json
+// Request
+{ "name": "web_search", "version": "latest" }
+
+// Response (201)
+{ "tool": { "name": "web_search", "version": "1.0.0", ... } }
+```
+
+### POST /tools/scaffold
+
+Scaffold a new custom tool. **Role:** workspace_admin
+
+```json
+// Request
+{ "name": "my-custom-tool" }
+
+// Response
+{
+  "scaffold": {
+    "name": "my-custom-tool",
+    "files": { "manifest.yaml": "...", "index.ts": "..." }
+  }
+}
+```
+
+### POST /tools/:name/scan
+
+Run a security scan on a tool. **Role:** workspace_admin
+
+### DELETE /tools/:name
+
+Remove a tool. **Role:** workspace_admin. Returns 204.
+
+### POST /tools/update
+
+Update installed tools. **Role:** workspace_admin
+
+### POST /tools/:name/dev
+
+Enable dev mode for a tool. **Role:** workspace_admin
+
+---
+
+## API Keys
+
+API key management (under `/api/api-keys`). Keys use the `hc_` prefix.
+
+### GET /api-keys
+
+List API keys. **Role:** workspace_admin
+
+```json
+// Response
+{
+  "keys": [
+    { "id": "uuid", "name": "ci-pipeline", "prefix": "hc_abc...", "scopes": ["agents", "sessions"], "createdAt": "..." }
+  ]
+}
+```
+
+### POST /api-keys
+
+Create a new API key. **Role:** workspace_admin
+
+The full key value is only returned once on creation. Store it securely.
+
+```json
+// Request
+{
+  "name": "ci-pipeline",
+  "scopes": ["agents", "sessions"]  // restricts access to specific resource paths
+}
+
+// Response (201)
+{
+  "key": "hc_full-key-value-returned-once",
+  "id": "uuid",
+  "name": "ci-pipeline",
+  "scopes": ["agents", "sessions"]
+}
+```
+
+API keys are looked up via SHA-256 hash. Scopes restrict access to specific resource paths (e.g., `"agents"`, `"sessions"`).
+
+### DELETE /api-keys/:id
+
+Revoke an API key. **Role:** workspace_admin
+
+---
+
 ## Secrets
 
 All secrets endpoints require **workspace_admin** role.
@@ -523,6 +680,12 @@ Rotate a secret value.
 // Response
 { "secret": { ... }, "rotated": true }
 ```
+
+### DELETE /secrets/:secretPath
+
+Delete a secret. **Role:** workspace_admin
+
+**Status Codes:** 204, 404
 
 ---
 
@@ -580,6 +743,26 @@ Update a user's role. **Role:** workspace_admin
 // Response
 { "updated": true, "role": "workspace_admin" }
 ```
+
+### DELETE /users/:id
+
+Delete a user. **Role:** workspace_admin. Users cannot delete themselves.
+
+**Status Codes:** 204, 400 (self-delete), 404
+
+### PATCH /users/:id/password
+
+Change a user's password. **Role:** workspace_admin (or the user themselves)
+
+```json
+// Request
+{ "password": "newSecurePassword12" }
+
+// Response
+{ "updated": true }
+```
+
+Password minimum: 12 characters.
 
 ---
 
@@ -870,11 +1053,111 @@ Import agents and skills.
 
 ---
 
+## Scheduled Runs
+
+Cron-based scheduled agent sessions (under `/api/scheduled-runs`).
+
+### GET /scheduled-runs
+
+List scheduled runs.
+
+```json
+// Response
+{
+  "runs": [
+    {
+      "id": "uuid",
+      "agentId": "uuid",
+      "cron": "0 9 * * 1-5",
+      "message": "Generate daily report",
+      "enabled": true,
+      "lastRunAt": "2024-01-01T09:00:00.000Z",
+      "nextRunAt": "2024-01-02T09:00:00.000Z"
+    }
+  ]
+}
+```
+
+### POST /scheduled-runs
+
+Create a scheduled run. **Role:** workspace_admin
+
+```json
+// Request
+{
+  "agentId": "uuid",
+  "cron": "0 9 * * 1-5",
+  "message": "Generate daily report",
+  "enabled": true
+}
+
+// Response (201)
+{ "run": { "id": "uuid", ... } }
+```
+
+### PUT /scheduled-runs/:id
+
+Update a scheduled run. **Role:** workspace_admin
+
+### DELETE /scheduled-runs/:id
+
+Delete a scheduled run. **Role:** workspace_admin
+
+---
+
+## Integrations
+
+Integration status and testing (under `/api/integrations`).
+
+### GET /integrations
+
+List integration status for all configured integrations.
+
+```json
+// Response
+{
+  "integrations": [
+    { "id": "slack", "name": "Slack", "status": "connected", "lastChecked": "..." },
+    { "id": "github", "name": "GitHub", "status": "not_configured" }
+  ]
+}
+```
+
+### POST /integrations/:id/test
+
+Test an integration connection.
+
+---
+
+## Upgrade
+
+Rolling upgrade management (under `/api/upgrade`).
+
+### GET /upgrade/check
+
+Check for available updates.
+
+```json
+// Response
+{
+  "currentVersion": "0.1.0",
+  "latestVersion": "0.2.0",
+  "updateAvailable": true,
+  "releaseNotes": "..."
+}
+```
+
+### POST /upgrade/apply
+
+Apply a rolling upgrade. **Role:** deployment_admin
+
+---
+
 ## Memory
 
-Agent memory management endpoints (nested under agents).
+Agent memory management endpoints (under `/api/memory`).
 
-### GET /agents/:id/memory/stats
+### GET /memory/:agentId/stats
 
 Get memory statistics for an agent.
 
@@ -890,21 +1173,29 @@ Get memory statistics for an agent.
 }
 ```
 
-### GET /agents/:id/memory/documents
+### GET /memory/:agentId/documents
 
-List ingested documents.
+List ingested documents for an agent.
 
-### GET /agents/:id/memory/documents/:docId/chunks
+### POST /memory/:agentId/documents
 
-List chunks for a document.
+Ingest a document into agent memory. **Role:** workspace_admin
 
-### DELETE /agents/:id/memory/documents/:docId
+```json
+// Request
+{
+  "title": "Product FAQ",
+  "content": "...",
+  "metadata": { "source": "wiki" }
+}
+
+// Response (201)
+{ "document": { "id": "uuid", "title": "Product FAQ", "chunks": 12, ... } }
+```
+
+### DELETE /memory/:id/documents/:docId
 
 Delete a document and its chunks. **Role:** workspace_admin
-
-### POST /agents/:id/memory/documents/:docId/reingest
-
-Re-ingest a document. **Role:** workspace_admin
 
 ---
 
@@ -947,6 +1238,20 @@ Exposed metrics:
 - `honorclaw_sessions_active` — Currently active sessions
 - `honorclaw_tool_latency_ms` — Tool execution latency
 
+### GET /metrics/dashboard
+
+Dashboard metrics for the Web UI. **Role:** workspace_admin or auditor
+
+```json
+// Response
+{
+  "agents": { "total": 5, "active": 3 },
+  "sessions": { "total": 100, "active": 2 },
+  "tokenUsage": { "prompt": 50000, "completion": 20000 },
+  "toolCalls": { "total": 500, "denied": 3 }
+}
+```
+
 ---
 
 ## Health
@@ -982,9 +1287,9 @@ Deep health check with latency metrics.
 }
 ```
 
-### GET /api/status
+### GET /status
 
-Platform status overview (used by `honorclaw status` CLI command).
+Platform status overview (used by `honorclaw status` CLI command). Not under the `/api` prefix.
 
 ```json
 // Response
@@ -1002,28 +1307,23 @@ Platform status overview (used by `honorclaw status` CLI command).
 
 ## WebSocket
 
-### GET /api/ws/chat
+### /api/sessions/:sessionId/ws
 
-Real-time agent chat via WebSocket.
+Real-time chat via WebSocket, scoped to a specific session.
 
 **Auth:** Cookie (`token`) or query param (`?token=jwt`)
-
-**Query params:** `agentId` (optional), `token` (optional)
 
 **Client -> Server:**
 ```json
 {
   "type": "user_message",
-  "content": "Hello!",
-  "agentId": "uuid",
-  "sessionId": "uuid"
+  "content": "Hello!"
 }
 ```
 
 **Server -> Client:**
 ```json
-{ "type": "connected", "userId": "uuid", "workspaceId": "uuid" }
-{ "type": "session_created", "sessionId": "uuid" }
+{ "type": "connected", "userId": "uuid", "sessionId": "uuid" }
 { "type": "agent_response", "content": "Hi! How can I help?", "sessionId": "uuid" }
 { "type": "error", "message": "Something went wrong" }
 ```

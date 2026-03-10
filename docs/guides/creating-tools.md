@@ -36,6 +36,29 @@ or
 
 **Exit codes**: `0` = success, `1` = error, `2` = timeout
 
+## CLI Tool Management
+
+HonorClaw provides CLI commands for managing tools:
+
+```bash
+# Scaffold a new tool project
+honorclaw tools scaffold my-tool
+
+# Install a tool
+honorclaw tools install my-tool
+
+# Run a security scan on a tool
+honorclaw tools scan my-tool
+```
+
+You can also install and scan tools via the API:
+
+- **Install:** `POST /api/tools/install`
+- **Remove:** `DELETE /api/tools/:name`
+- **Scan:** `POST /api/tools/:name/scan`
+
+Tools are containerized and stored in the `tools` table with fields: `name`, `version`, `image_digest`, `manifest`, `trust_level`, and `scan_result`.
+
 ## Step 1: Create the Package
 
 ```bash

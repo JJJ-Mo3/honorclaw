@@ -173,7 +173,7 @@ kubectl create secret generic honorclaw-redis \
 # JWT signing key
 kubectl create secret generic honorclaw-jwt \
   -n honorclaw \
-  --from-literal=secret=$(openssl rand -base64 64)
+  --from-literal=secret=$(openssl rand -base64url 48)
 ```
 
 ### 3. Apply OPA Policies

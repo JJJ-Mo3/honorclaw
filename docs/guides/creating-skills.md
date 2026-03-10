@@ -17,7 +17,7 @@ That's it. Skills are YAML configurations, not executables.
 ## Step 1: Scaffold a New Skill
 
 ```bash
-honorclaw skills init my-skill
+honorclaw skills scaffold my-skill
 ```
 
 This creates:
@@ -125,11 +125,20 @@ honorclaw skills install my-skill
 ### Apply to an agent
 
 ```bash
-# Via API
+# Via CLI
+honorclaw skills apply my-skill -a <agent-id>
+
+# Or via API
 curl -X POST http://localhost:3000/api/skills/agents/<agent-id> \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"skillName": "my-skill"}'
+
+# Detach from an agent
+honorclaw skills detach my-skill -a <agent-id>
+
+# List skills on an agent
+honorclaw skills agent-skills <agent-id>
 ```
 
 ### Test the agent

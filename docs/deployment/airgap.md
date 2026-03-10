@@ -157,6 +157,7 @@ llm:
 
 ```bash
 honorclaw init
+honorclaw start
 honorclaw doctor
 ```
 

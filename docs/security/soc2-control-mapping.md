@@ -14,7 +14,7 @@ HonorClaw is a self-hosted platform. The organization deploying HonorClaw is the
 |-----|----------|-------------------|--------|
 | CC1.1 | COSO Principle 1: Demonstrates commitment to integrity and ethical values | Operator responsibility. HonorClaw provides audit logging to support oversight. | Operator |
 | CC1.2 | COSO Principle 2: Board exercises oversight | Operator responsibility. RBAC enforces separation of duties. | Operator |
-| CC1.3 | COSO Principle 3: Management establishes structure, authority, accountability | RBAC with admin/operator/viewer roles. All role assignments audit-logged. | Built-in |
+| CC1.3 | COSO Principle 3: Management establishes structure, authority, accountability | RBAC with deployment_admin, workspace_admin, agent_user, auditor, api_service roles. All role assignments audit-logged. | Built-in |
 | CC1.4 | COSO Principle 4: Demonstrates commitment to competence | Operator responsibility. | Operator |
 | CC1.5 | COSO Principle 5: Enforces accountability | Complete audit trail: every user action, agent tool call, and configuration change is logged with user ID, timestamp, and workspace context. | Built-in |
 
@@ -54,9 +54,9 @@ HonorClaw is a self-hosted platform. The organization deploying HonorClaw is the
 
 | TSC | Criteria | HonorClaw Control | Status |
 |-----|----------|-------------------|--------|
-| CC6.1 | Logical access security | JWT authentication with RS256 signing. Session management with configurable timeouts. | Built-in |
-| CC6.2 | Prior to issuing credentials | User creation requires admin role. API keys are generated with scoped permissions. | Built-in |
-| CC6.3 | Registration and authorization | RBAC: admin, operator, viewer roles. Workspace-scoped permissions. | Built-in |
+| CC6.1 | Logical access security | JWT authentication with HS256 (HMAC-SHA256) signing. Session management with configurable timeouts. | Built-in |
+| CC6.2 | Prior to issuing credentials | User creation requires admin role. API keys are generated with `hc_` prefix, SHA-256 hashed, and scoped permissions. | Built-in |
+| CC6.3 | Registration and authorization | RBAC: deployment_admin, workspace_admin, agent_user, auditor, api_service roles. Workspace-scoped permissions. | Built-in |
 | CC6.4 | Restriction and removal of access | API key revocation. Session invalidation. User deactivation (soft delete with audit). | Built-in |
 | CC6.5 | Accountability for access | All authentication events logged: login, logout, failed attempts, token refresh, MFA verification. | Built-in |
 | CC6.6 | Restriction of system and data access | Agent-runtime containers are network-isolated. Workspace isolation at database level. SSRF protection in sanitizer. | Built-in |

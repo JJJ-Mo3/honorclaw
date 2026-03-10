@@ -112,8 +112,8 @@ audit:
 # honorclaw.yaml — MFA required for HIPAA
 auth:
   mfaRequired: true
-  # Note: Password complexity (min 8 chars, mixed case, numbers, special chars)
-  # is enforced at the application level, not via honorclaw.yaml configuration.
+  # Note: Password complexity (min 12 chars) is enforced at the application level,
+  # not via honorclaw.yaml configuration.
 ```
 
 - [ ] MFA enabled and required for all users

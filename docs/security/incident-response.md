@@ -212,7 +212,8 @@ kubectl run test-egress --rm -it --image=busybox -n honorclaw-agents -- wget -qO
    ```bash
    honorclaw doctor
    # Check that all health endpoints return healthy
-   curl -s http://localhost:3000/health | jq
+   curl -s http://localhost:3000/health/ready | jq
+   curl -s http://localhost:3000/health/deep | jq
    ```
 
 3. **Monitor closely for 24-48 hours**
