@@ -14,6 +14,19 @@ declare module 'fastify' {
   }
 }
 
+/**
+ * Determine whether to set the Secure flag on auth cookies.
+ * Secure cookies are only sent over HTTPS, so we must NOT set it when the
+ * browser is connecting over plain HTTP (e.g., http://localhost:3000).
+ */
+function shouldSecureCookie(request: FastifyRequest): boolean {
+  if (process.env.NODE_ENV === 'development') return false;
+  // Check the Host header — localhost and 127.0.0.1 are plain HTTP in dev/test
+  const host = request.hostname ?? '';
+  if (host.startsWith('localhost') || host.startsWith('127.0.0.1')) return false;
+  return true;
+}
+
 async function authPluginImpl(app: FastifyInstance) {
   const rawSecret = process.env.JWT_SECRET;
   if (!rawSecret && process.env.NODE_ENV !== 'development') {
@@ -192,14 +205,14 @@ async function authPluginImpl(app: FastifyInstance) {
     reply
       .setCookie('token', tokens.accessToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV !== 'development',
+        secure: shouldSecureCookie(request),
         sameSite: 'strict',
         path: '/',
         maxAge: tokenTtl.accessMinutes * 60,
       })
       .setCookie('refresh_token', tokens.refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV !== 'development',
+        secure: shouldSecureCookie(request),
         sameSite: 'strict',
         path: '/api/auth/refresh',
         maxAge: tokenTtl.refreshDays * 86400,
@@ -271,14 +284,14 @@ async function authPluginImpl(app: FastifyInstance) {
         .code(201)
         .setCookie('token', tokens.accessToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV !== 'development',
+          secure: shouldSecureCookie(request),
           sameSite: 'strict',
           path: '/',
           maxAge: tokenTtl.accessMinutes * 60,
         })
         .setCookie('refresh_token', tokens.refreshToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV !== 'development',
+          secure: shouldSecureCookie(request),
           sameSite: 'strict',
           path: '/api/auth/refresh',
           maxAge: tokenTtl.refreshDays * 86400,
@@ -354,7 +367,7 @@ async function authPluginImpl(app: FastifyInstance) {
       reply
         .setCookie('token', tokens.accessToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV !== 'development',
+          secure: shouldSecureCookie(request),
           sameSite: 'strict',
           path: '/',
           maxAge: tokenTtl.accessMinutes * 60,
@@ -377,8 +390,8 @@ async function authPluginImpl(app: FastifyInstance) {
     };
   });
 
-  app.post('/api/auth/logout', async (_request, reply) => {
-    const secure = process.env.NODE_ENV !== 'development';
+  app.post('/api/auth/logout', async (request, reply) => {
+    const secure = shouldSecureCookie(request);
     reply
       .clearCookie('token', { path: '/', httpOnly: true, secure, sameSite: 'strict' })
       .clearCookie('refresh_token', { path: '/api/auth/refresh', httpOnly: true, secure, sameSite: 'strict' })
