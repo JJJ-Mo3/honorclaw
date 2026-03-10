@@ -92,7 +92,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <img src="/logo.png" alt="HonorClaw" className="mx-auto h-20 w-20 mb-4" />
+          <img src="/logo.png" alt="HonorClaw" className="mx-auto h-24 w-24 mb-4" />
           <h1 className="text-2xl font-bold text-gray-900">HonorClaw</h1>
           <p className="mt-1 text-sm text-gray-600">Sign in to your account</p>
         </div>

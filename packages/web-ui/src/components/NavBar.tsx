@@ -38,8 +38,9 @@ export function NavBar() {
   return (
     <nav className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
       <div className="flex items-center gap-1">
-        <Link to="/" className="font-bold text-lg mr-6 text-gray-900">
-          HonorClaw
+        <Link to="/" className="flex items-center gap-2 mr-6">
+          <img src="/logo.png" alt="HonorClaw" className="h-7 w-7" />
+          <span className="font-bold text-lg text-gray-900">HonorClaw</span>
         </Link>
         {visibleItems.map((item) => (
           <Link
