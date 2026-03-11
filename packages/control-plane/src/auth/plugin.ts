@@ -55,7 +55,7 @@ async function authPluginImpl(app: FastifyInstance) {
   app.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const path = request.url;
     // Skip auth for health checks, auth endpoints, and static web UI assets
-    if (path.startsWith('/health') || path === '/api/auth/login' || path === '/api/auth/register' || path === '/api/auth/totp/verify' || path === '/api/auth/config' || path === '/api/admin/bootstrap') {
+    if (path.startsWith('/health') || path === '/api/auth/login' || path === '/api/auth/register' || path === '/api/auth/totp/verify' || path === '/api/auth/config' || path === '/api/admin/bootstrap' || path.startsWith('/api/ws/')) {
       return;
     }
     if (!path.startsWith('/api/') && !path.startsWith('/health')) {

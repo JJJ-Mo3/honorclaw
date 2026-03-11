@@ -51,12 +51,15 @@ interface MessageEntry {
 export class AgentLoop {
   private db: Database;
   private redis: Redis;
+  /** Dedicated connection for blocking commands (brpop) so they don't stall the shared connection. */
+  private blockingRedis: Redis;
   private config: HonorClawConfig;
   private auditEmitter?: AuditEmitter;
 
   constructor(db: Database, redis: Redis, config: HonorClawConfig, auditEmitter?: AuditEmitter) {
     this.db = db;
     this.redis = redis;
+    this.blockingRedis = redis.duplicate();
     this.config = config;
     this.auditEmitter = auditEmitter;
   }
@@ -223,7 +226,7 @@ export class AgentLoop {
       // Wait for LLM response
       const responseListKey = `llm:${sessionId}:response:${correlationId}`;
       const timeoutSeconds = context.toolTimeoutSeconds || 60;
-      const result = await this.redis.brpop(responseListKey, timeoutSeconds);
+      const result = await this.blockingRedis.brpop(responseListKey, timeoutSeconds);
 
       if (!result) {
         logger.error({ sessionId, correlationId }, 'AgentLoop: LLM response timed out');
@@ -435,7 +438,7 @@ export class AgentLoop {
     }));
 
     const resultKey = RedisChannels.toolResult(sessionId, toolCall.id);
-    const result = await this.redis.brpop(resultKey, timeoutSeconds || 60);
+    const result = await this.blockingRedis.brpop(resultKey, timeoutSeconds || 60);
 
     if (!result) {
       logger.warn({ sessionId, callId: toolCall.id }, 'AgentLoop: tool call timed out');

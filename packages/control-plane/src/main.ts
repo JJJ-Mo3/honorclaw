@@ -440,12 +440,18 @@ async function main() {
                 socket.send(JSON.stringify({ type: 'error', message: 'Failed to create session' }));
               });
             } else {
-              // Verify session ownership then send message
+              // Verify session ownership, subscribe to output, then send message
               db.query('SELECT id FROM sessions WHERE id = $1 AND workspace_id = $2', [msgSessionId, workspaceId])
-                .then((result: { rows: { id: string }[] }) => {
+                .then(async (result: { rows: { id: string }[] }) => {
                   if (result.rows.length === 0) {
                     socket.send(JSON.stringify({ type: 'error', message: 'Session not found' }));
                     return;
+                  }
+                  // Subscribe to output channel before sending to avoid race
+                  const outputChannel = RedisChannels.agentOutput(msgSessionId!);
+                  if (!subscribedChannels.has(outputChannel)) {
+                    subscribedChannels.add(outputChannel);
+                    await sub.subscribe(outputChannel);
                   }
                   return sessionManager.sendMessage(msgSessionId!, content!, userId!);
                 })
