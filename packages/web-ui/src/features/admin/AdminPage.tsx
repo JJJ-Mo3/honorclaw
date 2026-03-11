@@ -270,13 +270,64 @@ export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEdito
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Model</label>
-          <input
-            type="text"
+          <select
             required
             value={model}
             onChange={(e) => setModel(e.target.value)}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
+          >
+            <optgroup label="Ollama (Local)">
+              <option value="ollama/llama3.2">Llama 3.2</option>
+              <option value="ollama/llama3.1">Llama 3.1</option>
+              <option value="ollama/llama3.3">Llama 3.3</option>
+              <option value="ollama/mistral">Mistral</option>
+              <option value="ollama/mixtral">Mixtral</option>
+              <option value="ollama/gemma2">Gemma 2</option>
+              <option value="ollama/qwen2.5">Qwen 2.5</option>
+              <option value="ollama/phi3">Phi-3</option>
+              <option value="ollama/deepseek-r1">DeepSeek R1</option>
+              <option value="ollama/command-r">Command R</option>
+            </optgroup>
+            <optgroup label="Anthropic">
+              <option value="anthropic/claude-sonnet-4-20250514">Claude Sonnet 4</option>
+              <option value="anthropic/claude-opus-4-20250514">Claude Opus 4</option>
+              <option value="anthropic/claude-haiku-4-20250414">Claude Haiku 4</option>
+              <option value="anthropic/claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+              <option value="anthropic/claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+            </optgroup>
+            <optgroup label="OpenAI">
+              <option value="openai/gpt-4o">GPT-4o</option>
+              <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+              <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="openai/o1">o1</option>
+              <option value="openai/o1-mini">o1-mini</option>
+              <option value="openai/o3-mini">o3-mini</option>
+            </optgroup>
+            <optgroup label="Google Gemini">
+              <option value="gemini/gemini-2.0-flash">Gemini 2.0 Flash</option>
+              <option value="gemini/gemini-2.0-pro">Gemini 2.0 Pro</option>
+              <option value="gemini/gemini-1.5-pro">Gemini 1.5 Pro</option>
+              <option value="gemini/gemini-1.5-flash">Gemini 1.5 Flash</option>
+            </optgroup>
+            <optgroup label="AWS Bedrock">
+              <option value="bedrock/anthropic.claude-sonnet-4-20250514-v1:0">Claude Sonnet 4 (Bedrock)</option>
+              <option value="bedrock/anthropic.claude-opus-4-20250514-v1:0">Claude Opus 4 (Bedrock)</option>
+              <option value="bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0">Claude 3.5 Sonnet (Bedrock)</option>
+              <option value="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0">Claude 3.5 Haiku (Bedrock)</option>
+              <option value="bedrock/amazon.nova-pro-v1:0">Amazon Nova Pro</option>
+              <option value="bedrock/amazon.nova-lite-v1:0">Amazon Nova Lite</option>
+            </optgroup>
+            <optgroup label="Google Vertex AI">
+              <option value="vertex/claude-sonnet-4@20250514">Claude Sonnet 4 (Vertex)</option>
+              <option value="vertex/claude-opus-4@20250514">Claude Opus 4 (Vertex)</option>
+              <option value="vertex/claude-3-5-sonnet@20241022">Claude 3.5 Sonnet (Vertex)</option>
+            </optgroup>
+            <optgroup label="Azure OpenAI">
+              <option value="azure/gpt-4o">GPT-4o (Azure)</option>
+              <option value="azure/gpt-4o-mini">GPT-4o Mini (Azure)</option>
+              <option value="azure/gpt-4-turbo">GPT-4 Turbo (Azure)</option>
+            </optgroup>
+          </select>
         </div>
       </div>
 
