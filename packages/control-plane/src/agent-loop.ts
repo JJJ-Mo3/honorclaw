@@ -471,6 +471,8 @@ export class AgentLoop {
   private async publishOutput(sessionId: string, content: string, model: string): Promise<void> {
     const outputChannel = RedisChannels.agentOutput(sessionId);
     await this.redis.publish(outputChannel, JSON.stringify({
+      type: 'agent_response',
+      messageId: crypto.randomUUID(),
       sessionId,
       content,
       model,
@@ -481,6 +483,8 @@ export class AgentLoop {
   private async publishError(sessionId: string, message: string): Promise<void> {
     const errorChannel = RedisChannels.agentOutput(sessionId);
     await this.redis.publish(errorChannel, JSON.stringify({
+      type: 'error',
+      messageId: crypto.randomUUID(),
       sessionId,
       content: `Error: ${message}`,
       error: true,

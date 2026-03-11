@@ -17,18 +17,7 @@ interface IntegrationDef {
 }
 
 const KNOWN_INTEGRATIONS: IntegrationDef[] = [
-  {
-    id: 'google-workspace',
-    name: 'Google Workspace',
-    secretPath: 'integrations/google-workspace/credentials',
-    description: 'Gmail, Calendar, Drive, Sheets, and Contacts access',
-  },
-  {
-    id: 'microsoft-365',
-    name: 'Microsoft 365',
-    secretPath: 'integrations/microsoft-365/credentials',
-    description: 'Outlook, Calendar, OneDrive, Excel, and Contacts access',
-  },
+  // ── Messaging & Collaboration ─────────────────────────────────────────
   {
     id: 'slack',
     name: 'Slack',
@@ -51,34 +40,144 @@ const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     ],
   },
   {
-    id: 'jira',
-    name: 'Jira',
-    secretPath: 'integrations/jira/credentials',
-    description: 'Issue tracking, sprint management, and project boards',
+    id: 'email',
+    name: 'Email (SMTP)',
+    secretPath: 'integrations/email/credentials',
+    description: 'Send emails via SMTP relay',
+    secretFields: [
+      { path: 'email/smtp-host', label: 'SMTP Host', required: true, placeholder: 'smtp.example.com' },
+      { path: 'email/smtp-port', label: 'SMTP Port', required: true, placeholder: '587' },
+      { path: 'email/smtp-user', label: 'Username', required: false, placeholder: 'user@example.com' },
+      { path: 'email/smtp-pass', label: 'Password', required: false, placeholder: 'SMTP password or app password' },
+    ],
   },
+  // ── Productivity Suites ───────────────────────────────────────────────
+  {
+    id: 'google-workspace',
+    name: 'Google Workspace',
+    secretPath: 'integrations/google-workspace/credentials',
+    description: 'Gmail, Calendar, Drive, Sheets, and Contacts access',
+    secretFields: [
+      { path: 'google-workspace/service-account-json', label: 'Service Account JSON', required: true, placeholder: '{"type":"service_account",...}' },
+    ],
+  },
+  {
+    id: 'microsoft-365',
+    name: 'Microsoft 365',
+    secretPath: 'integrations/microsoft-365/credentials',
+    description: 'Outlook, Calendar, OneDrive, Excel, and Contacts access',
+    secretFields: [
+      { path: 'microsoft-365/tenant-id', label: 'Tenant ID', required: true, placeholder: 'Azure AD Tenant ID' },
+      { path: 'microsoft-365/client-id', label: 'Client ID', required: true, placeholder: 'Azure App Registration Client ID' },
+      { path: 'microsoft-365/client-secret', label: 'Client Secret', required: true, placeholder: 'Azure App Registration Client Secret' },
+    ],
+  },
+  {
+    id: 'notion',
+    name: 'Notion',
+    secretPath: 'integrations/notion/credentials',
+    description: 'Pages, databases, search, and knowledge management',
+    secretFields: [
+      { path: 'notion/api-key', label: 'Integration Token', required: true, placeholder: 'ntn_... or secret_...' },
+    ],
+  },
+  // ── Developer Tools ───────────────────────────────────────────────────
   {
     id: 'github',
     name: 'GitHub',
     secretPath: 'integrations/github/credentials',
     description: 'Repository access, pull requests, issues, and actions',
+    secretFields: [
+      { path: 'github/token', label: 'Personal Access Token', required: true, placeholder: 'ghp_... or github_pat_...' },
+    ],
   },
   {
-    id: 'pagerduty',
-    name: 'PagerDuty',
-    secretPath: 'integrations/pagerduty/credentials',
-    description: 'Incident management, on-call schedules, and alerting',
-  },
-  {
-    id: 'salesforce',
-    name: 'Salesforce',
-    secretPath: 'integrations/salesforce/credentials',
-    description: 'CRM queries, records, cases, and search',
+    id: 'jira',
+    name: 'Jira',
+    secretPath: 'integrations/jira/credentials',
+    description: 'Issue tracking, sprint management, and project boards',
+    secretFields: [
+      { path: 'jira/base-url', label: 'Jira URL', required: true, placeholder: 'https://yourorg.atlassian.net' },
+      { path: 'jira/email', label: 'Email', required: true, placeholder: 'user@company.com' },
+      { path: 'jira/api-token', label: 'API Token', required: true, placeholder: 'Atlassian API token' },
+    ],
   },
   {
     id: 'confluence',
     name: 'Confluence',
     secretPath: 'integrations/confluence/credentials',
     description: 'Wiki pages, knowledge base, and documentation',
+    secretFields: [
+      { path: 'confluence/base-url', label: 'Confluence URL', required: true, placeholder: 'https://yourorg.atlassian.net/wiki' },
+      { path: 'confluence/email', label: 'Email', required: true, placeholder: 'user@company.com' },
+      { path: 'confluence/api-token', label: 'API Token', required: true, placeholder: 'Atlassian API token' },
+    ],
+  },
+  // ── CRM & Business ────────────────────────────────────────────────────
+  {
+    id: 'salesforce',
+    name: 'Salesforce',
+    secretPath: 'integrations/salesforce/credentials',
+    description: 'CRM queries, records, cases, and search',
+    secretFields: [
+      { path: 'salesforce/instance-url', label: 'Instance URL', required: true, placeholder: 'https://yourorg.my.salesforce.com' },
+      { path: 'salesforce/access-token', label: 'Access Token', required: true, placeholder: 'OAuth access token or session ID' },
+    ],
+  },
+  {
+    id: 'hubspot',
+    name: 'HubSpot',
+    secretPath: 'integrations/hubspot/credentials',
+    description: 'CRM contacts, deals, tickets, and marketing automation',
+    secretFields: [
+      { path: 'hubspot/access-token', label: 'Access Token', required: true, placeholder: 'Private app access token (pat-...)' },
+    ],
+  },
+  // ── Data & Analytics ──────────────────────────────────────────────────
+  {
+    id: 'snowflake',
+    name: 'Snowflake',
+    secretPath: 'integrations/snowflake/credentials',
+    description: 'Data warehouse queries, tables, and schema exploration',
+    secretFields: [
+      { path: 'snowflake/account', label: 'Account', required: true, placeholder: 'orgname-accountname' },
+      { path: 'snowflake/username', label: 'Username', required: true, placeholder: 'ANALYTICS_USER' },
+      { path: 'snowflake/password', label: 'Password', required: true, placeholder: 'Snowflake password' },
+      { path: 'snowflake/warehouse', label: 'Warehouse', required: false, placeholder: 'COMPUTE_WH' },
+      { path: 'snowflake/database', label: 'Database', required: false, placeholder: 'ANALYTICS_DB' },
+    ],
+  },
+  {
+    id: 'bigquery',
+    name: 'BigQuery',
+    secretPath: 'integrations/bigquery/credentials',
+    description: 'Google Cloud data warehouse queries and table exploration',
+    secretFields: [
+      { path: 'bigquery/project-id', label: 'Project ID', required: true, placeholder: 'my-gcp-project' },
+      { path: 'bigquery/service-account-json', label: 'Service Account JSON', required: true, placeholder: '{"type":"service_account",...}' },
+    ],
+  },
+  // ── Ops & Monitoring ──────────────────────────────────────────────────
+  {
+    id: 'pagerduty',
+    name: 'PagerDuty',
+    secretPath: 'integrations/pagerduty/credentials',
+    description: 'Incident management, on-call schedules, and alerting',
+    secretFields: [
+      { path: 'pagerduty/api-key', label: 'API Key', required: true, placeholder: 'PagerDuty REST API key' },
+      { path: 'pagerduty/from-email', label: 'From Email', required: false, placeholder: 'user@company.com (for incident creation)' },
+    ],
+  },
+  // ── Search ────────────────────────────────────────────────────────────
+  {
+    id: 'web-search',
+    name: 'Web Search',
+    secretPath: 'integrations/web-search/credentials',
+    description: 'Web search via Brave Search, Google, or other providers',
+    secretFields: [
+      { path: 'web-search/api-key', label: 'API Key', required: true, placeholder: 'Brave Search or other provider API key' },
+      { path: 'web-search/provider', label: 'Provider', required: false, placeholder: 'brave (default)' },
+    ],
   },
 ];
 

@@ -60,7 +60,7 @@ function getAuthHeader(): Record<string, string> {
   // Prefer API key from environment (CI / headless)
   const apiKey = process.env['HONORCLAW_API_KEY'];
   if (apiKey) {
-    return { Authorization: `Bearer ${apiKey}` };
+    return { 'X-API-Key': apiKey };
   }
 
   // Fall back to stored token (interactive)

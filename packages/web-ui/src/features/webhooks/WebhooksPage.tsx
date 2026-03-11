@@ -42,8 +42,8 @@ export function WebhooksPage() {
   const loadWebhooks = useCallback(async () => {
     try {
       setError('');
-      const data = await api.get<Webhook[]>('/webhooks');
-      setWebhooks(data);
+      const data = await api.get<{ webhooks: Webhook[] } | Webhook[]>('/webhooks');
+      setWebhooks(Array.isArray(data) ? data : data.webhooks);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load webhooks');
     } finally {
@@ -108,8 +108,8 @@ export function WebhooksPage() {
       return;
     }
     try {
-      const data = await api.get<Delivery[]>(`/webhooks/${id}/deliveries`);
-      setDeliveries((prev) => ({ ...prev, [id]: data }));
+      const data = await api.get<{ deliveries: Delivery[] } | Delivery[]>(`/webhooks/${id}/deliveries`);
+      setDeliveries((prev) => ({ ...prev, [id]: Array.isArray(data) ? data : data.deliveries }));
       setExpandedId(id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load deliveries');

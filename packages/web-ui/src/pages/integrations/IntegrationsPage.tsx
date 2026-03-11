@@ -90,6 +90,50 @@ const INTEGRATION_ICONS: Record<string, React.ReactNode> = {
       <defs><linearGradient id="conf-grad" x1="22" y1="0" x2="2" y2="10"><stop stopColor="#0052CC"/><stop offset="1" stopColor="#2684FF"/></linearGradient></defs>
     </svg>
   ),
+  hubspot: (
+    <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none">
+      <path d="M17.41 10.125V7.106a2.003 2.003 0 0 0 1.155-1.81v-.06a2.005 2.005 0 0 0-2.005-2.006h-.06a2.005 2.005 0 0 0-2.006 2.005v.06c0 .78.45 1.455 1.1 1.783v3.046a5.56 5.56 0 0 0-2.46 1.198l-6.478-5.04a2.392 2.392 0 0 0 .073-.566 2.4 2.4 0 1 0-2.4 2.4c.396 0 .766-.1 1.094-.274l6.37 4.958a5.584 5.584 0 0 0-.26 1.7 5.602 5.602 0 0 0 5.6 5.6 5.602 5.602 0 0 0 5.6-5.6 5.602 5.602 0 0 0-5.323-5.575zm.09 8.319a2.848 2.848 0 1 1 0-5.696 2.848 2.848 0 0 1 0 5.696z" fill="#FF7A59"/>
+    </svg>
+  ),
+  snowflake: (
+    <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" stroke="#29B5E8" strokeWidth="2" strokeLinecap="round"/>
+      <circle cx="12" cy="2" r="1.5" fill="#29B5E8"/>
+      <circle cx="12" cy="22" r="1.5" fill="#29B5E8"/>
+      <circle cx="2" cy="12" r="1.5" fill="#29B5E8"/>
+      <circle cx="22" cy="12" r="1.5" fill="#29B5E8"/>
+      <circle cx="4.93" cy="4.93" r="1.5" fill="#29B5E8"/>
+      <circle cx="19.07" cy="19.07" r="1.5" fill="#29B5E8"/>
+      <circle cx="19.07" cy="4.93" r="1.5" fill="#29B5E8"/>
+      <circle cx="4.93" cy="19.07" r="1.5" fill="#29B5E8"/>
+    </svg>
+  ),
+  bigquery: (
+    <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none">
+      <path d="M6.354 18.354l-3.565 3.565a1.688 1.688 0 0 0 2.387 2.387l3.565-3.565" fill="#4386FA"/>
+      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 17a7 7 0 1 1 0-14 7 7 0 0 1 0 14z" fill="#4386FA"/>
+      <path d="M13 8h-2v4H8v2h3v4h2v-4h3v-2h-3V8z" fill="#4386FA" opacity="0.6"/>
+    </svg>
+  ),
+  notion: (
+    <svg className="h-8 w-8" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L18.19 2.23c-.42-.326-.98-.7-2.055-.607L3.01 2.882c-.466.047-.56.28-.374.466l1.823 1.86zm.793 3.312v13.894c0 .746.373 1.026 1.213.98l14.523-.84c.84-.046.933-.56.933-1.166V6.54c0-.607-.233-.933-.746-.887l-15.177.887c-.56.047-.746.327-.746.98zm14.337.42c.093.42 0 .84-.42.887l-.7.14v10.264c-.607.327-1.166.513-1.633.513-.746 0-.933-.233-1.493-.933l-4.572-7.178v6.945l1.446.327s0 .84-1.166.84l-3.218.187c-.093-.187 0-.653.327-.727l.84-.233V9.854L7.16 9.714c-.094-.42.14-1.026.793-1.073l3.452-.233 4.759 7.272V9.34l-1.213-.14c-.093-.513.28-.886.746-.933l3.452-.233zM2.69.84L16.26.002c1.68-.14 2.1.093 2.8.607l3.872 2.706c.467.327.607.747.607 1.307v17.075c0 1.026-.373 1.633-1.68 1.726L5.766 24.28c-.98.047-1.447-.093-1.96-.747L.84 19.666C.28 18.92.001 18.36.001 17.687V2.562C.001 1.723.374.934 2.69.84z"/>
+    </svg>
+  ),
+  email: (
+    <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="4" width="20" height="16" rx="2" stroke="#6B7280" strokeWidth="2"/>
+      <path d="M2 7l10 7 10-7" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  'web-search': (
+    <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none">
+      <circle cx="11" cy="11" r="8" stroke="#6B7280" strokeWidth="2"/>
+      <path d="M21 21l-4.35-4.35" stroke="#6B7280" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M11 3a8 8 0 0 1 0 16" stroke="#6B7280" strokeWidth="1" strokeDasharray="2 2" opacity="0.5"/>
+      <path d="M3 11h16" stroke="#6B7280" strokeWidth="1" opacity="0.5"/>
+    </svg>
+  ),
 };
 
 function getIcon(id: string): React.ReactNode {
