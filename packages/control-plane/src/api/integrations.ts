@@ -40,6 +40,27 @@ const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     ],
   },
   {
+    id: 'discord',
+    name: 'Discord',
+    secretPath: 'integrations/discord/credentials',
+    description: 'Bot messaging, slash commands, and server management',
+    secretFields: [
+      { path: 'discord/bot-token', label: 'Bot Token', required: true, placeholder: 'Discord bot token from Developer Portal' },
+      { path: 'discord/application-id', label: 'Application ID', required: true, placeholder: 'Discord application ID' },
+    ],
+  },
+  {
+    id: 'whatsapp',
+    name: 'WhatsApp',
+    secretPath: 'integrations/whatsapp/credentials',
+    description: 'Send and receive messages via WhatsApp Business API',
+    secretFields: [
+      { path: 'whatsapp/access-token', label: 'Access Token', required: true, placeholder: 'Permanent access token from Meta Business' },
+      { path: 'whatsapp/phone-number-id', label: 'Phone Number ID', required: true, placeholder: 'WhatsApp Business phone number ID' },
+      { path: 'whatsapp/verify-token', label: 'Webhook Verify Token', required: false, placeholder: 'Custom verify token for webhook setup' },
+    ],
+  },
+  {
     id: 'email',
     name: 'Email (SMTP)',
     secretPath: 'integrations/email/credentials',
@@ -166,6 +187,27 @@ const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     secretFields: [
       { path: 'pagerduty/api-key', label: 'API Key', required: true, placeholder: 'PagerDuty REST API key' },
       { path: 'pagerduty/from-email', label: 'From Email', required: false, placeholder: 'user@company.com (for incident creation)' },
+    ],
+  },
+  // ── Meeting Intelligence ────────────────────────────────────────────
+  {
+    id: 'fireflies',
+    name: 'Fireflies.ai',
+    secretPath: 'integrations/fireflies/credentials',
+    description: 'Meeting transcripts, summaries, and action items via Fireflies API',
+    secretFields: [
+      { path: 'fireflies/api-key', label: 'API Key', required: true, placeholder: 'Fireflies API key from Settings → Integrations' },
+    ],
+  },
+  {
+    id: 'gong',
+    name: 'Gong',
+    secretPath: 'integrations/gong/credentials',
+    description: 'Call recordings, transcripts, and revenue intelligence',
+    secretFields: [
+      { path: 'gong/access-key', label: 'Access Key', required: true, placeholder: 'Gong API access key' },
+      { path: 'gong/access-key-secret', label: 'Access Key Secret', required: true, placeholder: 'Gong API access key secret' },
+      { path: 'gong/base-url', label: 'Base URL', required: false, placeholder: 'https://api.gong.io (default)' },
     ],
   },
   // ── Search ────────────────────────────────────────────────────────────
