@@ -4,4 +4,27 @@ if [ "${OLLAMA_DISABLED:-false}" = "true" ]; then
 fi
 
 mkdir -p /data/ollama/models
-OLLAMA_MODELS=/data/ollama/models exec ollama serve 2>/dev/null || exec sleep infinity
+export OLLAMA_MODELS=/data/ollama/models
+
+# Start Ollama in the background, then pull the default model
+ollama serve &
+OLLAMA_PID=$!
+
+# Wait for Ollama to become ready (up to 30 seconds)
+OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://localhost:11434}"
+for i in $(seq 1 30); do
+  if curl -sf "${OLLAMA_BASE_URL}/api/tags" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+# Pull the default model if not already present
+DEFAULT_MODEL="${HONORCLAW_DEFAULT_MODEL:-llama3.2}"
+if ! ollama list 2>/dev/null | grep -q "^${DEFAULT_MODEL}"; then
+  echo "Pulling default model: ${DEFAULT_MODEL} ..."
+  ollama pull "${DEFAULT_MODEL}" 2>&1 || echo "WARNING: Failed to pull ${DEFAULT_MODEL}"
+fi
+
+# Keep Ollama running as the foreground process
+wait $OLLAMA_PID

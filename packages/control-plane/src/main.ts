@@ -112,6 +112,53 @@ async function main() {
   const db = createDb(config.database);
   await runMigrations(db);
 
+  // Ensure the default Ollama model is available (pull if missing)
+  const defaultModel = process.env.HONORCLAW_DEFAULT_MODEL ?? 'llama3.2';
+  const ollamaBaseUrl = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
+  if (process.env.OLLAMA_DISABLED !== 'true') {
+    try {
+      // Wait up to 60 s for Ollama to become reachable (s6 starts it concurrently)
+      let ollamaReady = false;
+      for (let i = 0; i < 60; i++) {
+        try {
+          const resp = await fetch(`${ollamaBaseUrl}/api/tags`);
+          if (resp.ok) { ollamaReady = true; break; }
+        } catch { /* not ready yet */ }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+
+      if (ollamaReady) {
+        // Check if the default model is already present
+        const tagsResp = await fetch(`${ollamaBaseUrl}/api/tags`);
+        const tagsData = await tagsResp.json() as { models?: { name: string }[] };
+        const installed = (tagsData.models ?? []).some(
+          m => m.name === defaultModel || m.name.startsWith(`${defaultModel}:`),
+        );
+
+        if (!installed) {
+          logger.info({ model: defaultModel }, 'Default model not found — pulling (this may take a few minutes on first start)');
+          // Fire-and-forget: pull happens in the background so the server can start
+          fetch(`${ollamaBaseUrl}/api/pull`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: defaultModel, stream: false }),
+          }).then(r => {
+            if (r.ok) logger.info({ model: defaultModel }, 'Default model pulled successfully');
+            else logger.warn({ model: defaultModel, status: r.status }, 'Default model pull returned non-OK');
+          }).catch(err => {
+            logger.warn({ err, model: defaultModel }, 'Failed to pull default model');
+          });
+        } else {
+          logger.info({ model: defaultModel }, 'Default Ollama model is available');
+        }
+      } else {
+        logger.warn('Ollama not reachable after 60 s — default model will not be available until Ollama starts');
+      }
+    } catch (err) {
+      logger.warn({ err }, 'Ollama model check failed (non-fatal)');
+    }
+  }
+
   // Seed a default agent on first startup (only if a workspace exists and no agents yet)
   try {
     const { rows: workspaceRows } = await db.query('SELECT id FROM workspaces LIMIT 1');
@@ -121,9 +168,9 @@ async function main() {
         await db.query(
           `INSERT INTO agents (id, workspace_id, name, model, system_prompt, status, created_at, updated_at)
            VALUES (gen_random_uuid(), $1, 'General Assistant',
-                   'ollama/llama3.2', 'You are a helpful AI assistant.', 'active', NOW(), NOW())
+                   $2, 'You are a helpful AI assistant.', 'active', NOW(), NOW())
            ON CONFLICT DO NOTHING`,
-          [workspaceRows[0].id],
+          [workspaceRows[0].id, `ollama/${defaultModel}`],
         );
         logger.info('Created default "General Assistant" agent');
       }
