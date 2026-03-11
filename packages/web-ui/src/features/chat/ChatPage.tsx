@@ -10,7 +10,7 @@ interface Agent {
   status: 'active' | 'inactive' | 'archived';
 }
 
-type MessageType = 'user' | 'agent_response' | 'tool_call_pending' | 'tool_result';
+type MessageType = 'user' | 'agent_response' | 'tool_call_pending' | 'tool_result' | 'error';
 
 interface ChatMessage {
   id: string;
@@ -93,7 +93,7 @@ export function ChatPage() {
         const msgType = data.type as string;
 
         // Handle control messages without adding to chat
-        if (msgType === 'connected' || msgType === 'error') return;
+        if (msgType === 'connected') return;
         if (msgType === 'session_created') {
           setSessionId(data.sessionId as string);
           return;
@@ -103,7 +103,7 @@ export function ChatPage() {
         const msg: ChatMessage = {
           id: (data.id as string) ?? crypto.randomUUID(),
           type: msgType as MessageType,
-          content: (data.content as string) ?? '',
+          content: (data.content as string) ?? (data.message as string) ?? '',
           timestamp: (data.timestamp as string) ?? new Date().toISOString(),
           toolCallId: data.toolCallId as string | undefined,
           toolName: data.toolName as string | undefined,
@@ -133,7 +133,8 @@ export function ChatPage() {
     return () => {
       ws.close();
     };
-  }, [selectedAgentId, workspaceId, sessionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sessionId intentionally excluded to prevent reconnect on session creation
+  }, [selectedAgentId, workspaceId]);
 
   useEffect(() => {
     const cleanup = connectWs();
@@ -279,6 +280,14 @@ export function ChatPage() {
                   {msg.toolStatus === 'rejected' && (
                     <div className="mt-2 text-xs text-red-700 font-medium">Rejected</div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {msg.type === 'error' && (
+              <div className="flex justify-start">
+                <div className="max-w-[70%] rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 shadow-sm">
+                  {msg.content}
                 </div>
               </div>
             )}

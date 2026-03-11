@@ -343,24 +343,19 @@ async function main() {
                 agentId: effectiveAgentId,
                 userId: userId!,
                 channel: 'websocket',
-              }).then((session) => {
+              }).then(async (session) => {
                 currentSessionId = session.id;
                 socket.send(JSON.stringify({ type: 'session_created', sessionId: session.id }));
 
-                // Subscribe to output for the new session
+                // Subscribe to output BEFORE sending the message to avoid race condition
                 const outputChannel = RedisChannels.agentOutput(session.id);
                 subscribedChannels.add(outputChannel);
-                sub.subscribe(outputChannel).catch((err: unknown) => {
-                  logger.error({ err, channel: outputChannel }, 'Failed to subscribe to agent output');
-                });
+                await sub.subscribe(outputChannel);
 
-                // Send the message
-                sessionManager.sendMessage(session.id, content!, userId!).catch((err: unknown) => {
-                  logger.error({ err }, 'Failed to send message');
-                  socket.send(JSON.stringify({ type: 'error', message: 'Failed to send message' }));
-                });
+                // Now send the message — subscription is guaranteed ready
+                await sessionManager.sendMessage(session.id, content!, userId!);
               }).catch((err: unknown) => {
-                logger.error({ err }, 'Failed to create session');
+                logger.error({ err }, 'Failed to create session or send message');
                 socket.send(JSON.stringify({ type: 'error', message: 'Failed to create session' }));
               });
             } else {
