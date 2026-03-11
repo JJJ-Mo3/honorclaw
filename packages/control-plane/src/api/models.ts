@@ -107,29 +107,61 @@ function getFrontierModels(): ModelInfo[] {
   if (process.env.ANTHROPIC_API_KEY) {
     models.push(
       { name: 'claude-sonnet-4-20250514', provider: 'anthropic' },
+      { name: 'claude-opus-4-20250514', provider: 'anthropic' },
       { name: 'claude-haiku-4-5-20251001', provider: 'anthropic' },
+      { name: 'claude-3-5-sonnet-20241022', provider: 'anthropic' },
+      { name: 'claude-3-5-haiku-20241022', provider: 'anthropic' },
     );
   }
 
   if (process.env.OPENAI_API_KEY) {
     models.push(
       { name: 'gpt-4o', provider: 'openai' },
+      { name: 'gpt-4o-mini', provider: 'openai' },
       { name: 'gpt-4-turbo', provider: 'openai' },
-      { name: 'gpt-3.5-turbo', provider: 'openai' },
+      { name: 'o1', provider: 'openai' },
+      { name: 'o1-mini', provider: 'openai' },
+      { name: 'o3-mini', provider: 'openai' },
     );
   }
 
   if (process.env.GOOGLE_AI_API_KEY) {
     models.push(
-      { name: 'gemini-1.5-pro', provider: 'google' },
-      { name: 'gemini-1.5-flash', provider: 'google' },
+      { name: 'gemini-2.0-flash', provider: 'gemini' },
+      { name: 'gemini-2.0-pro', provider: 'gemini' },
+      { name: 'gemini-1.5-pro', provider: 'gemini' },
+      { name: 'gemini-1.5-flash', provider: 'gemini' },
     );
   }
 
-  if (process.env.MISTRAL_API_KEY) {
+  const bedrockKey = process.env.AWS_ACCESS_KEY_ID;
+  const bedrockSecret = process.env.AWS_SECRET_ACCESS_KEY;
+  if (bedrockKey && bedrockSecret) {
     models.push(
-      { name: 'mistral-large-latest', provider: 'mistral' },
-      { name: 'mistral-medium-latest', provider: 'mistral' },
+      { name: 'anthropic.claude-sonnet-4-20250514-v1:0', provider: 'bedrock' },
+      { name: 'anthropic.claude-opus-4-20250514-v1:0', provider: 'bedrock' },
+      { name: 'anthropic.claude-3-5-sonnet-20241022-v2:0', provider: 'bedrock' },
+      { name: 'anthropic.claude-3-5-haiku-20241022-v1:0', provider: 'bedrock' },
+      { name: 'amazon.nova-pro-v1:0', provider: 'bedrock' },
+      { name: 'amazon.nova-lite-v1:0', provider: 'bedrock' },
+    );
+  }
+
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+    models.push(
+      { name: 'claude-sonnet-4@20250514', provider: 'vertex' },
+      { name: 'claude-opus-4@20250514', provider: 'vertex' },
+      { name: 'claude-3-5-sonnet@20241022', provider: 'vertex' },
+    );
+  }
+
+  const azureKey = process.env.AZURE_OPENAI_API_KEY;
+  const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  if (azureKey && azureEndpoint) {
+    models.push(
+      { name: 'gpt-4o', provider: 'azure' },
+      { name: 'gpt-4o-mini', provider: 'azure' },
+      { name: 'gpt-4-turbo', provider: 'azure' },
     );
   }
 

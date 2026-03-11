@@ -198,12 +198,71 @@ interface AgentEditorProps {
   onCancel: () => void;
 }
 
+interface ModelOption {
+  value: string;
+  label: string;
+  provider: string;
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  ollama: 'Ollama (Local)',
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  gemini: 'Google Gemini',
+  bedrock: 'AWS Bedrock',
+  vertex: 'Google Vertex AI',
+  azure: 'Azure OpenAI',
+  google: 'Google',
+  mistral: 'Mistral',
+};
+
+function humanModelName(fullName: string): string {
+  // "ollama/llama3.2:latest" → "llama3.2:latest"
+  const name = fullName.includes('/') ? fullName.split('/').slice(1).join('/') : fullName;
+  return name.replace(/:latest$/, '');
+}
+
 export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEditorProps) {
   const [name, setName] = useState(agent?.name ?? '');
   const [model, setModel] = useState(agent?.model ?? 'ollama/llama3.2');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
+
+  // Load available models from backend
+  useEffect(() => {
+    async function loadModels() {
+      try {
+        const data = await api.get<{
+          local: { name: string; provider: string }[];
+          frontier: { name: string; provider: string }[];
+        }>('/models');
+
+        const models: ModelOption[] = [];
+
+        // Local Ollama models (actually installed)
+        for (const m of data.local ?? []) {
+          const value = `ollama/${m.name}`;
+          models.push({ value, label: humanModelName(m.name), provider: 'ollama' });
+        }
+
+        // Frontier models (based on configured API keys)
+        for (const m of data.frontier ?? []) {
+          const value = `${m.provider}/${m.name}`;
+          models.push({ value, label: m.name, provider: m.provider });
+        }
+
+        setAvailableModels(models);
+      } catch {
+        // Fall back to empty — the select will still show the current value
+      } finally {
+        setModelsLoading(false);
+      }
+    }
+    void loadModels();
+  }, []);
 
   // Load existing system prompt if editing
   useEffect(() => {
@@ -276,57 +335,45 @@ export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEdito
             onChange={(e) => setModel(e.target.value)}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            <optgroup label="Ollama (Local)">
-              <option value="ollama/llama3.2">Llama 3.2</option>
-              <option value="ollama/llama3.1">Llama 3.1</option>
-              <option value="ollama/llama3.3">Llama 3.3</option>
-              <option value="ollama/mistral">Mistral</option>
-              <option value="ollama/mixtral">Mixtral</option>
-              <option value="ollama/gemma2">Gemma 2</option>
-              <option value="ollama/qwen2.5">Qwen 2.5</option>
-              <option value="ollama/phi3">Phi-3</option>
-              <option value="ollama/deepseek-r1">DeepSeek R1</option>
-              <option value="ollama/command-r">Command R</option>
-            </optgroup>
-            <optgroup label="Anthropic">
-              <option value="anthropic/claude-sonnet-4-20250514">Claude Sonnet 4</option>
-              <option value="anthropic/claude-opus-4-20250514">Claude Opus 4</option>
-              <option value="anthropic/claude-haiku-4-20250414">Claude Haiku 4</option>
-              <option value="anthropic/claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-              <option value="anthropic/claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
-            </optgroup>
-            <optgroup label="OpenAI">
-              <option value="openai/gpt-4o">GPT-4o</option>
-              <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
-              <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
-              <option value="openai/o1">o1</option>
-              <option value="openai/o1-mini">o1-mini</option>
-              <option value="openai/o3-mini">o3-mini</option>
-            </optgroup>
-            <optgroup label="Google Gemini">
-              <option value="gemini/gemini-2.0-flash">Gemini 2.0 Flash</option>
-              <option value="gemini/gemini-2.0-pro">Gemini 2.0 Pro</option>
-              <option value="gemini/gemini-1.5-pro">Gemini 1.5 Pro</option>
-              <option value="gemini/gemini-1.5-flash">Gemini 1.5 Flash</option>
-            </optgroup>
-            <optgroup label="AWS Bedrock">
-              <option value="bedrock/anthropic.claude-sonnet-4-20250514-v1:0">Claude Sonnet 4 (Bedrock)</option>
-              <option value="bedrock/anthropic.claude-opus-4-20250514-v1:0">Claude Opus 4 (Bedrock)</option>
-              <option value="bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0">Claude 3.5 Sonnet (Bedrock)</option>
-              <option value="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0">Claude 3.5 Haiku (Bedrock)</option>
-              <option value="bedrock/amazon.nova-pro-v1:0">Amazon Nova Pro</option>
-              <option value="bedrock/amazon.nova-lite-v1:0">Amazon Nova Lite</option>
-            </optgroup>
-            <optgroup label="Google Vertex AI">
-              <option value="vertex/claude-sonnet-4@20250514">Claude Sonnet 4 (Vertex)</option>
-              <option value="vertex/claude-opus-4@20250514">Claude Opus 4 (Vertex)</option>
-              <option value="vertex/claude-3-5-sonnet@20241022">Claude 3.5 Sonnet (Vertex)</option>
-            </optgroup>
-            <optgroup label="Azure OpenAI">
-              <option value="azure/gpt-4o">GPT-4o (Azure)</option>
-              <option value="azure/gpt-4o-mini">GPT-4o Mini (Azure)</option>
-              <option value="azure/gpt-4-turbo">GPT-4 Turbo (Azure)</option>
-            </optgroup>
+            {modelsLoading && <option value={model}>{model} (loading...)</option>}
+            {!modelsLoading && (() => {
+              // Group models by provider
+              const groups = new Map<string, ModelOption[]>();
+              for (const m of availableModels) {
+                const list = groups.get(m.provider) ?? [];
+                list.push(m);
+                groups.set(m.provider, list);
+              }
+
+              // Ensure the current model value is always selectable
+              const currentInList = availableModels.some(m => m.value === model);
+
+              const elements: React.ReactNode[] = [];
+
+              if (!currentInList && model) {
+                elements.push(
+                  <option key={model} value={model}>{model} (current)</option>
+                );
+              }
+
+              if (groups.size === 0) {
+                elements.push(
+                  <option key="__none" value="" disabled>No models available — check Ollama or API keys</option>
+                );
+              }
+
+              for (const [provider, models] of groups) {
+                elements.push(
+                  <optgroup key={provider} label={PROVIDER_LABELS[provider] ?? provider}>
+                    {models.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </optgroup>
+                );
+              }
+
+              return elements;
+            })()}
           </select>
         </div>
       </div>
