@@ -180,6 +180,32 @@ honorclaw secrets rotate integrations/slack/bot-token
 
 Rotation generates a new value. To set a specific new value, use `honorclaw secrets set` with the same path (it performs an upsert).
 
+### Custom Integrations
+
+In addition to the 20 built-in integrations, you can create custom integrations to connect agents to internal APIs or proprietary services.
+
+```bash
+# Create a custom integration
+honorclaw integrations create "Internal Analytics API" \
+  --description "Query internal analytics warehouse" \
+  --field "API Key:true" \
+  --field "Base URL:false"
+
+# List all integrations
+honorclaw integrations list
+
+# Configure credentials for the custom integration
+honorclaw secrets set custom/internal-analytics-api/api-key "sk-abc123"
+
+# Test the connection
+honorclaw integrations test custom/internal-analytics-api
+
+# Delete a custom integration (also removes credentials)
+honorclaw integrations delete internal-analytics-api
+```
+
+Custom integrations can also be created from the Web UI via the **+ Add Custom Integration** button on the Integrations page. See [Custom Integrations Guide](guides/custom-integrations.md) for full details.
+
 ## Audit Logging
 
 All platform events are written to an immutable append-only audit log. Events include authentication attempts, agent tool calls, policy violations, user management actions, and more.

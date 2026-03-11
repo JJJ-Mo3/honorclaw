@@ -361,3 +361,18 @@ CREATE INDEX IF NOT EXISTS idx_skills_workspace ON skills (workspace_id);
 CREATE INDEX IF NOT EXISTS idx_api_keys_workspace ON api_keys (workspace_id);
 CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys (user_id);
 CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys (key_hash);
+
+-- Custom user-defined integrations
+CREATE TABLE IF NOT EXISTS custom_integrations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  slug TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  category TEXT DEFAULT 'Custom',
+  secret_fields JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(workspace_id, slug)
+);
+CREATE INDEX IF NOT EXISTS idx_custom_integrations_workspace ON custom_integrations (workspace_id);

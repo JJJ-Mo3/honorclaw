@@ -947,6 +947,132 @@ secrets
   });
 
 // ═══════════════════════════════════════════════════════════════════════
+//  Integrations
+// ═══════════════════════════════════════════════════════════════════════
+
+const integrations = program.command('integrations').description('Manage integrations');
+
+integrations
+  .command('list')
+  .description('List all integrations (built-in and custom)')
+  .action(async () => {
+    const spinner = ora('Loading integrations...').start();
+    try {
+      const list = await cliApi.get<Array<{
+        id: string; name: string; status: string; source: string; description: string;
+      }>>('/integrations');
+      spinner.stop();
+
+      console.log(chalk.bold('\nIntegrations\n'));
+      for (const i of list) {
+        const statusIcon = i.status === 'connected' ? chalk.green('\u25CF') : chalk.dim('\u25CB');
+        const tag = i.source === 'custom' ? chalk.dim(' [custom]') : '';
+        console.log(`  ${statusIcon} ${chalk.bold(i.name)}${tag}`);
+        console.log(`    ${chalk.dim(i.description)}`);
+      }
+      console.log('');
+    } catch (err) {
+      spinner.fail('Failed to list integrations');
+      printError(err);
+    }
+  });
+
+integrations
+  .command('create <name>')
+  .description('Create a custom integration')
+  .option('-d, --description <desc>', 'Description')
+  .option('-c, --category <cat>', 'Category', 'Custom')
+  .option('-f, --field <fields...>', 'Secret fields in "label:required" format (e.g., "API Key:true" "Base URL:false")')
+  .action(async (name: string, opts: { description?: string; category?: string; field?: string[] }) => {
+    if (!opts.field || opts.field.length === 0) {
+      console.error(chalk.red('At least one --field is required (e.g., --field "API Key:true")'));
+      process.exit(1);
+    }
+
+    const secretFields = opts.field.map((f) => {
+      const colonIdx = f.lastIndexOf(':');
+      const label = colonIdx > 0 ? f.slice(0, colonIdx).trim() : f.trim();
+      const req = colonIdx > 0 ? f.slice(colonIdx + 1).trim() : 'true';
+      return { label, required: req !== 'false', placeholder: '' };
+    });
+
+    const spinner = ora(`Creating integration ${chalk.bold(name)}...`).start();
+    try {
+      const result = await cliApi.post<{ integration: { slug: string } }>('/integrations/custom', {
+        name,
+        description: opts.description ?? '',
+        category: opts.category,
+        secretFields,
+      });
+      spinner.succeed(`Created custom integration ${chalk.bold(name)} (slug: ${result.integration.slug})`);
+    } catch (err) {
+      spinner.fail('Failed to create integration');
+      printError(err);
+    }
+  });
+
+integrations
+  .command('update <slug>')
+  .description('Update a custom integration')
+  .option('-n, --name <name>', 'New name')
+  .option('-d, --description <desc>', 'New description')
+  .option('-c, --category <cat>', 'New category')
+  .action(async (slug: string, opts: { name?: string; description?: string; category?: string }) => {
+    const body: Record<string, string> = {};
+    if (opts.name) body.name = opts.name;
+    if (opts.description) body.description = opts.description;
+    if (opts.category) body.category = opts.category;
+
+    if (Object.keys(body).length === 0) {
+      console.error(chalk.red('Provide at least one option to update (--name, --description, --category)'));
+      process.exit(1);
+    }
+
+    const spinner = ora(`Updating integration ${chalk.bold(slug)}...`).start();
+    try {
+      await cliApi.put(`/integrations/custom/${slug}`, body);
+      spinner.succeed(`Updated custom integration ${chalk.bold(slug)}`);
+    } catch (err) {
+      spinner.fail('Failed to update integration');
+      printError(err);
+    }
+  });
+
+integrations
+  .command('delete <slug>')
+  .description('Delete a custom integration and its credentials')
+  .action(async (slug: string) => {
+    const spinner = ora(`Deleting integration ${chalk.bold(slug)}...`).start();
+    try {
+      await cliApi.delete(`/integrations/custom/${slug}`);
+      spinner.succeed(`Deleted custom integration ${chalk.bold(slug)}`);
+    } catch (err) {
+      spinner.fail('Failed to delete integration');
+      printError(err);
+    }
+  });
+
+integrations
+  .command('test <id>')
+  .description('Test an integration connection')
+  .action(async (id: string) => {
+    const spinner = ora(`Testing ${chalk.bold(id)}...`).start();
+    try {
+      const result = await cliApi.post<{ status: string; message?: string; errorMessage?: string }>(
+        `/integrations/${id}/test`,
+      );
+      if (result.status === 'connected') {
+        spinner.succeed(result.message ?? `${id} is connected`);
+      } else {
+        spinner.fail(result.errorMessage ?? `${id}: ${result.status}`);
+      }
+    } catch (err) {
+      spinner.fail('Test failed');
+      printError(err);
+    }
+  });
+
+// ═══════════════════════════════════════════════════════════════════════
 //  Memory
 // ═══════════════════════════════════════════════════════════════════════
 

@@ -22,6 +22,8 @@ interface IntegrationInfo {
   secretFields: SecretField[] | null;
   lastChecked?: string;
   errorMessage?: string;
+  source?: 'default' | 'custom';
+  category?: string;
 }
 
 // ── Icons ───────────────────────────────────────────────────────────────
@@ -187,19 +189,19 @@ export function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [configuringId, setConfiguringId] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  async function loadIntegrations() {
+    try {
+      const data = await api.get<IntegrationInfo[]>('/integrations');
+      setIntegrations(data);
+    } catch {
+      setIntegrations([]);
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await api.get<IntegrationInfo[]>('/integrations');
-        setIntegrations(data);
-      } catch {
-        setIntegrations([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-    void load();
+    loadIntegrations().finally(() => setLoading(false));
   }, []);
 
   async function testConnection(integrationId: string) {
@@ -255,10 +257,15 @@ export function IntegrationsPage() {
     setConfiguringId(null);
     // Re-test connection after saving
     await testConnection(integrationId);
-    // Reload integrations to get fresh status
+    await loadIntegrations();
+  }
+
+  async function handleDeleteCustom(integrationId: string) {
+    if (!confirm('Delete this custom integration? This will also remove its stored credentials.')) return;
+    const slug = integrationId.replace('custom/', '');
     try {
-      const data = await api.get<IntegrationInfo[]>('/integrations');
-      setIntegrations(data);
+      await api.delete(`/integrations/custom/${slug}`);
+      await loadIntegrations();
     } catch {
       // Keep existing data
     }
@@ -274,10 +281,25 @@ export function IntegrationsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <h1 className="text-xl font-bold text-gray-900">Integrations</h1>
-        <p className="mt-1 text-sm text-gray-500">Manage external service connections</p>
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Integrations</h1>
+          <p className="mt-1 text-sm text-gray-500">Manage external service connections</p>
+        </div>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          + Add Custom Integration
+        </button>
       </header>
+
+      {showAddForm && (
+        <AddCustomIntegrationForm
+          onClose={() => setShowAddForm(false)}
+          onCreated={() => { setShowAddForm(false); loadIntegrations(); }}
+        />
+      )}
 
       <div className="max-w-5xl mx-auto px-6 py-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {integrations.map((integration) => (
@@ -290,6 +312,7 @@ export function IntegrationsPage() {
             onTestConnection={() => testConnection(integration.id)}
             onConfigure={() => setConfiguringId(configuringId === integration.id ? null : integration.id)}
             onSaveCredentials={(fields) => handleSaveCredentials(integration.id, fields)}
+            onDelete={integration.source === 'custom' ? () => handleDeleteCustom(integration.id) : undefined}
           />
         ))}
       </div>
@@ -307,6 +330,7 @@ interface IntegrationCardProps {
   onTestConnection: () => void;
   onConfigure: () => void;
   onSaveCredentials: (fields: { path: string; value: string }[]) => Promise<void>;
+  onDelete?: () => void;
 }
 
 function IntegrationCard({
@@ -317,6 +341,7 @@ function IntegrationCard({
   onTestConnection,
   onConfigure,
   onSaveCredentials,
+  onDelete,
 }: IntegrationCardProps) {
   const [saving, setSaving] = useState(false);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
@@ -352,6 +377,11 @@ function IntegrationCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-gray-900">{integration.name}</h3>
+            {integration.source === 'custom' && (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                Custom
+              </span>
+            )}
             <StatusIndicator status={integration.status} />
           </div>
           <p className="mt-1 text-xs text-gray-500">{integration.description}</p>
@@ -439,8 +469,195 @@ function IntegrationCard({
             >
               {testing ? 'Testing...' : 'Test Connection'}
             </button>
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+              >
+                Delete
+              </button>
+            )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Add Custom Integration Form ─────────────────────────────────────────
+
+interface FieldRow {
+  label: string;
+  required: boolean;
+  placeholder: string;
+}
+
+function AddCustomIntegrationForm({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Custom');
+  const [fields, setFields] = useState<FieldRow[]>([{ label: '', required: true, placeholder: '' }]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function addField() {
+    if (fields.length >= 20) return;
+    setFields([...fields, { label: '', required: true, placeholder: '' }]);
+  }
+
+  function removeField(index: number) {
+    if (fields.length <= 1) return;
+    setFields(fields.filter((_, i) => i !== index));
+  }
+
+  function updateField(index: number, patch: Partial<FieldRow>) {
+    setFields(fields.map((f, i) => (i === index ? { ...f, ...patch } : f)));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const validFields = fields.filter((f) => f.label.trim());
+    if (!name.trim() || validFields.length === 0) {
+      setError('Name and at least one secret field label are required.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await api.post('/integrations/custom', {
+        name: name.trim(),
+        description: description.trim(),
+        category: category.trim() || 'Custom',
+        secretFields: validFields,
+      });
+      onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create integration');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-6 py-6">
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Add Custom Integration</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="My Internal API"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Connect to our internal service"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="Custom"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">Secret Fields *</label>
+              <button
+                type="button"
+                onClick={addField}
+                disabled={fields.length >= 20}
+                className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
+              >
+                + Add Field
+              </button>
+            </div>
+            <div className="space-y-2">
+              {fields.map((field, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={field.label}
+                    onChange={(e) => updateField(i, { label: e.target.value })}
+                    placeholder="Field label (e.g., API Key)"
+                    className="flex-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <input
+                    type="text"
+                    value={field.placeholder}
+                    onChange={(e) => updateField(i, { placeholder: e.target.value })}
+                    placeholder="Placeholder"
+                    className="flex-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <label className="flex items-center gap-1 text-xs text-gray-600 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={field.required}
+                      onChange={(e) => updateField(i, { required: e.target.checked })}
+                      className="rounded border-gray-300"
+                    />
+                    Req
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => removeField(i)}
+                    disabled={fields.length <= 1}
+                    className="text-gray-400 hover:text-red-500 disabled:opacity-30 text-lg leading-none"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? 'Creating...' : 'Create Integration'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

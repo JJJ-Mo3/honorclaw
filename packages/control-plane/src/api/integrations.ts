@@ -233,57 +233,253 @@ const KNOWN_INTEGRATIONS: IntegrationDef[] = [
   },
 ];
 
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/;
+
+function toSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function customDefFromRow(row: any): IntegrationDef & { source: 'custom'; category: string } {
+  const slug = row.slug as string;
+  return {
+    id: `custom/${slug}`,
+    name: row.name,
+    secretPath: `integrations/custom/${slug}/credentials`,
+    description: row.description ?? '',
+    secretFields: row.secret_fields ?? [],
+    source: 'custom' as const,
+    category: row.category ?? 'Custom',
+  };
+}
+
+function integrationStatus(
+  def: IntegrationDef,
+  configuredPaths: Set<string>,
+  source: 'default' | 'custom',
+) {
+  const hasCredentials = configuredPaths.has(def.secretPath);
+  const hasFieldSecrets = def.secretFields
+    ? def.secretFields.some((f) => configuredPaths.has(f.path))
+    : false;
+  const isConfigured = hasCredentials || hasFieldSecrets;
+
+  return {
+    id: def.id,
+    name: def.name,
+    description: def.description,
+    status: isConfigured ? 'connected' : 'disconnected',
+    authMode: isConfigured ? 'credentials' : 'none',
+    secretFields: def.secretFields ?? null,
+    source,
+    ...('category' in def ? { category: (def as any).category } : {}),
+  };
+}
+
 /**
  * Integrations API routes.
  *
- * GET  /integrations            — list configured integrations with connection status
- * POST /integrations/:id/test   — test connection to an integration
+ * GET  /integrations              — list all integrations (built-in + custom)
+ * POST /integrations/custom       — create a custom integration
+ * GET  /integrations/custom       — list custom integrations only
+ * PUT  /integrations/custom/:slug — update a custom integration
+ * DELETE /integrations/custom/:slug — delete a custom integration
+ * POST /integrations/:id/test     — test connection to an integration
  */
 export async function integrationRoutes(app: FastifyInstance) {
   app.addHook('onRequest', requireWorkspace());
 
   const db = (app as any).db as import('pg').Pool;
 
-  // GET /integrations — list integrations with status derived from stored secrets
+  // ── GET / — list all integrations (built-in + custom) with status ────
   app.get('/', async (request) => {
     const workspaceId = request.workspaceId;
 
-    // Collect all known secret paths to check in one query
-    const allKnownPaths: string[] = [];
-    for (const def of KNOWN_INTEGRATIONS) {
-      allKnownPaths.push(def.secretPath);
+    // Load custom integrations for this workspace
+    const { rows: customRows } = await db.query(
+      `SELECT slug, name, description, category, secret_fields
+       FROM custom_integrations WHERE workspace_id = $1 ORDER BY name`,
+      [workspaceId],
+    );
+    const customDefs = customRows.map(customDefFromRow);
+
+    // Merge all defs
+    const allDefs: (IntegrationDef & { source: 'default' | 'custom' })[] = [
+      ...KNOWN_INTEGRATIONS.map((d) => ({ ...d, source: 'default' as const })),
+      ...customDefs,
+    ];
+
+    // Collect all secret paths to check in one query
+    const allPaths: string[] = [];
+    for (const def of allDefs) {
+      allPaths.push(def.secretPath);
       if (def.secretFields) {
-        for (const f of def.secretFields) {
-          allKnownPaths.push(f.path);
-        }
+        for (const f of def.secretFields) allPaths.push(f.path);
       }
     }
 
     const { rows } = await db.query(
       `SELECT path FROM secrets WHERE workspace_id = $1 AND path = ANY($2)`,
-      [workspaceId, allKnownPaths],
+      [workspaceId, allPaths],
     );
     const configuredPaths = new Set(rows.map((r: { path: string }) => r.path));
 
-    return KNOWN_INTEGRATIONS.map((def) => {
-      const hasCredentials = configuredPaths.has(def.secretPath);
-      const hasFieldSecrets = def.secretFields
-        ? def.secretFields.some((f) => configuredPaths.has(f.path))
-        : false;
-      const isConfigured = hasCredentials || hasFieldSecrets;
-
-      return {
-        id: def.id,
-        name: def.name,
-        description: def.description,
-        status: isConfigured ? 'connected' : 'disconnected',
-        authMode: isConfigured ? 'credentials' : 'none',
-        secretFields: def.secretFields ?? null,
-      };
-    });
+    return allDefs.map((def) => integrationStatus(def, configuredPaths, def.source));
   });
 
-  // POST /integrations/:id/test — test connection to an integration
+  // ── POST /custom — create a custom integration ──────────────────────
+  app.post(
+    '/custom',
+    { preHandler: [requireRoles('workspace_admin')] },
+    async (request, reply) => {
+      const body = request.body as {
+        name?: string;
+        slug?: string;
+        description?: string;
+        category?: string;
+        secretFields?: Array<{ label: string; required: boolean; placeholder?: string }>;
+      };
+
+      if (!body.name || !body.secretFields || body.secretFields.length === 0) {
+        return reply.code(400).send({ error: 'name and secretFields (non-empty) are required' });
+      }
+      if (body.secretFields.length > 20) {
+        return reply.code(400).send({ error: 'Maximum 20 secret fields per integration' });
+      }
+
+      const slug = body.slug ?? toSlug(body.name);
+      if (!SLUG_RE.test(slug)) {
+        return reply.code(400).send({
+          error: 'slug must be 2-64 lowercase alphanumeric characters and hyphens, cannot start/end with hyphen',
+        });
+      }
+
+      // Prevent collision with built-in IDs
+      if (KNOWN_INTEGRATIONS.some((i) => i.id === slug)) {
+        return reply.code(409).send({ error: `Slug "${slug}" conflicts with a built-in integration` });
+      }
+
+      // Build secret field paths
+      const fieldsWithPaths: SecretFieldDef[] = body.secretFields.map((f) => ({
+        path: `custom/${slug}/${toSlug(f.label)}`,
+        label: f.label,
+        required: f.required,
+        placeholder: f.placeholder ?? '',
+      }));
+
+      try {
+        const { rows } = await db.query(
+          `INSERT INTO custom_integrations (workspace_id, slug, name, description, category, secret_fields)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING id, slug, name, description, category, secret_fields AS "secretFields", created_at AS "createdAt", updated_at AS "updatedAt"`,
+          [request.workspaceId, slug, body.name, body.description ?? '', body.category ?? 'Custom', JSON.stringify(fieldsWithPaths)],
+        );
+        reply.code(201).send({ integration: rows[0] });
+      } catch (err: any) {
+        if (err.code === '23505') {
+          return reply.code(409).send({ error: `Custom integration "${slug}" already exists in this workspace` });
+        }
+        throw err;
+      }
+    },
+  );
+
+  // ── GET /custom — list custom integrations only ─────────────────────
+  app.get(
+    '/custom',
+    { preHandler: [requireRoles('workspace_admin')] },
+    async (request) => {
+      const { rows } = await db.query(
+        `SELECT id, slug, name, description, category, secret_fields AS "secretFields",
+                created_at AS "createdAt", updated_at AS "updatedAt"
+         FROM custom_integrations WHERE workspace_id = $1 ORDER BY name`,
+        [request.workspaceId],
+      );
+      return { integrations: rows };
+    },
+  );
+
+  // ── PUT /custom/:slug — update a custom integration ─────────────────
+  app.put(
+    '/custom/:slug',
+    { preHandler: [requireRoles('workspace_admin')] },
+    async (request, reply) => {
+      const { slug } = request.params as { slug: string };
+      const body = request.body as {
+        name?: string;
+        description?: string;
+        category?: string;
+        secretFields?: Array<{ label: string; required: boolean; placeholder?: string }>;
+      };
+
+      const updates: string[] = ['updated_at = now()'];
+      const params: unknown[] = [request.workspaceId, slug];
+      let idx = 3;
+
+      if (body.name !== undefined) { updates.push(`name = $${idx++}`); params.push(body.name); }
+      if (body.description !== undefined) { updates.push(`description = $${idx++}`); params.push(body.description); }
+      if (body.category !== undefined) { updates.push(`category = $${idx++}`); params.push(body.category); }
+      if (body.secretFields !== undefined) {
+        if (body.secretFields.length === 0) {
+          return reply.code(400).send({ error: 'secretFields must not be empty' });
+        }
+        if (body.secretFields.length > 20) {
+          return reply.code(400).send({ error: 'Maximum 20 secret fields per integration' });
+        }
+        const fieldsWithPaths: SecretFieldDef[] = body.secretFields.map((f) => ({
+          path: `custom/${slug}/${toSlug(f.label)}`,
+          label: f.label,
+          required: f.required,
+          placeholder: f.placeholder ?? '',
+        }));
+        updates.push(`secret_fields = $${idx++}`);
+        params.push(JSON.stringify(fieldsWithPaths));
+      }
+
+      const { rows } = await db.query(
+        `UPDATE custom_integrations SET ${updates.join(', ')}
+         WHERE workspace_id = $1 AND slug = $2
+         RETURNING id, slug, name, description, category, secret_fields AS "secretFields",
+                   created_at AS "createdAt", updated_at AS "updatedAt"`,
+        params,
+      );
+
+      if (rows.length === 0) {
+        return reply.code(404).send({ error: 'Custom integration not found' });
+      }
+
+      return { integration: rows[0] };
+    },
+  );
+
+  // ── DELETE /custom/:slug — delete a custom integration ──────────────
+  app.delete(
+    '/custom/:slug',
+    { preHandler: [requireRoles('workspace_admin')] },
+    async (request, reply) => {
+      const { slug } = request.params as { slug: string };
+
+      const { rows } = await db.query(
+        `DELETE FROM custom_integrations WHERE workspace_id = $1 AND slug = $2 RETURNING id`,
+        [request.workspaceId, slug],
+      );
+
+      if (rows.length === 0) {
+        return reply.code(404).send({ error: 'Custom integration not found' });
+      }
+
+      // Clean up associated secrets
+      await db.query(
+        `DELETE FROM secrets WHERE workspace_id = $1 AND (path LIKE $2 OR path LIKE $3)`,
+        [request.workspaceId, `custom/${slug}/%`, `integrations/custom/${slug}/%`],
+      );
+
+      return { deleted: true, slug };
+    },
+  );
+
+  // ── POST /:id/test — test connection to an integration ──────────────
   app.post(
     '/:id/test',
     { preHandler: [requireRoles('workspace_admin')] },
@@ -291,13 +487,27 @@ export async function integrationRoutes(app: FastifyInstance) {
       const { id } = request.params as { id: string };
       const workspaceId = request.workspaceId;
 
-      const def = KNOWN_INTEGRATIONS.find((i) => i.id === id);
+      // Resolve the integration definition (built-in or custom)
+      let def: IntegrationDef | undefined = KNOWN_INTEGRATIONS.find((i) => i.id === id);
+
+      if (!def && id.startsWith('custom/')) {
+        const slug = id.slice('custom/'.length);
+        const { rows } = await db.query(
+          `SELECT slug, name, description, secret_fields
+           FROM custom_integrations WHERE workspace_id = $1 AND slug = $2`,
+          [workspaceId, slug],
+        );
+        if (rows.length > 0) {
+          def = customDefFromRow(rows[0]);
+        }
+      }
+
       if (!def) {
         reply.code(404).send({ error: 'Integration not found' });
         return;
       }
 
-      // Check if credentials exist (main path or per-field secrets)
+      // Check if credentials exist
       const pathsToCheck = [def.secretPath];
       if (def.secretFields) {
         for (const f of def.secretFields) pathsToCheck.push(f.path);
@@ -315,7 +525,7 @@ export async function integrationRoutes(app: FastifyInstance) {
         return { status: 'disconnected', errorMessage: `${def.name} is not configured. ${hint}` };
       }
 
-      // For integrations with per-field secrets, check that required fields are present
+      // Check required fields
       if (def.secretFields) {
         const storedPaths = new Set(rows.map((r: { path: string }) => r.path));
         const missing = def.secretFields.filter((f) => f.required && !storedPaths.has(f.path));

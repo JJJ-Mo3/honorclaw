@@ -1125,7 +1125,37 @@ List integration status for all configured integrations.
 
 ### POST /integrations/:id/test
 
-Test an integration connection.
+Test an integration connection. For custom integrations, use the `custom/<slug>` format as the `:id` parameter.
+
+### POST /integrations/custom
+
+Create a custom integration definition. Requires `workspace_admin` role.
+
+```json
+{
+  "name": "My Internal API",
+  "description": "Connect to our internal service",
+  "category": "Internal Tools",
+  "secretFields": [
+    { "label": "API Key", "required": true, "placeholder": "sk-..." },
+    { "label": "Base URL", "required": false, "placeholder": "https://api.internal.com" }
+  ]
+}
+```
+
+Returns `201` with `{ "integration": { "id", "slug", "name", "description", "category", "secretFields", "createdAt", "updatedAt" } }`.
+
+### GET /integrations/custom
+
+List custom integration definitions for the current workspace. Returns `{ "integrations": [...] }`.
+
+### PUT /integrations/custom/:slug
+
+Update a custom integration. Supports partial updates (name, description, category, secretFields).
+
+### DELETE /integrations/custom/:slug
+
+Delete a custom integration and its associated secrets.
 
 ---
 
