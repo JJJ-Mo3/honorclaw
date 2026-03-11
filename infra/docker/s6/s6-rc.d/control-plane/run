@@ -2,7 +2,7 @@
 
 # Wait for PostgreSQL only if using embedded (local Unix socket) mode
 if [ ! -f /tmp/skip-embedded-postgres ]; then
-  while ! su-exec postgres pg_isready -h /var/run/postgresql -q 2>/dev/null; do
+  while ! gosu postgres pg_isready -h /var/run/postgresql -q 2>/dev/null; do
     sleep 1
   done
   export DATABASE_SOCKET=/var/run/postgresql
@@ -20,4 +20,4 @@ fi
 export NODE_ENV=${NODE_ENV:-production}
 
 # Drop privileges: run the Node.js app as the 'node' user (created by node:alpine base image)
-exec su-exec node node /app/packages/control-plane/dist/main.js
+exec gosu node node /app/packages/control-plane/dist/main.js

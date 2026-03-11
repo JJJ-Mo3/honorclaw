@@ -5,6 +5,7 @@ fi
 
 mkdir -p /data/ollama/models
 export OLLAMA_MODELS=/data/ollama/models
+export HOME="${HOME:-/root}"
 
 # Start Ollama in the background, then pull the default model
 ollama serve &
