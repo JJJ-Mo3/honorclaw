@@ -102,6 +102,42 @@ const KNOWN_INTEGRATIONS: IntegrationDef[] = [
       { path: 'notion/api-key', label: 'Integration Token', required: true, placeholder: 'ntn_... or secret_...' },
     ],
   },
+  {
+    id: 'coda',
+    name: 'Coda',
+    secretPath: 'integrations/coda/credentials',
+    description: 'Docs, tables, formulas, automations, and Packs',
+    secretFields: [
+      { path: 'coda/api-token', label: 'API Token', required: true, placeholder: 'Coda API token from Account Settings' },
+    ],
+  },
+  {
+    id: 'airtable',
+    name: 'Airtable',
+    secretPath: 'integrations/airtable/credentials',
+    description: 'Bases, tables, records, and automations',
+    secretFields: [
+      { path: 'airtable/api-key', label: 'Personal Access Token', required: true, placeholder: 'pat...' },
+    ],
+  },
+  {
+    id: 'asana',
+    name: 'Asana',
+    secretPath: 'integrations/asana/credentials',
+    description: 'Tasks, projects, portfolios, and team workloads',
+    secretFields: [
+      { path: 'asana/access-token', label: 'Personal Access Token', required: true, placeholder: 'Asana PAT from Developer Console' },
+    ],
+  },
+  {
+    id: 'linear',
+    name: 'Linear',
+    secretPath: 'integrations/linear/credentials',
+    description: 'Issues, projects, cycles, and team workflows',
+    secretFields: [
+      { path: 'linear/api-key', label: 'API Key', required: true, placeholder: 'lin_api_...' },
+    ],
+  },
   // ── Developer Tools ───────────────────────────────────────────────────
   {
     id: 'github',
@@ -164,6 +200,46 @@ const KNOWN_INTEGRATIONS: IntegrationDef[] = [
       { path: 'hubspot/access-token', label: 'Access Token', required: true, placeholder: 'Private app access token (pat-...)' },
     ],
   },
+  {
+    id: 'zendesk',
+    name: 'Zendesk',
+    secretPath: 'integrations/zendesk/credentials',
+    description: 'Support tickets, help center, users, and organizations',
+    secretFields: [
+      { path: 'zendesk/subdomain', label: 'Subdomain', required: true, placeholder: 'yourcompany (from yourcompany.zendesk.com)' },
+      { path: 'zendesk/email', label: 'Agent Email', required: true, placeholder: 'agent@company.com' },
+      { path: 'zendesk/api-token', label: 'API Token', required: true, placeholder: 'Zendesk API token' },
+    ],
+  },
+  {
+    id: 'servicenow',
+    name: 'ServiceNow',
+    secretPath: 'integrations/servicenow/credentials',
+    description: 'IT service management, incidents, changes, and CMDB',
+    secretFields: [
+      { path: 'servicenow/instance-url', label: 'Instance URL', required: true, placeholder: 'https://yourorg.service-now.com' },
+      { path: 'servicenow/username', label: 'Username', required: true, placeholder: 'API user' },
+      { path: 'servicenow/password', label: 'Password', required: true, placeholder: 'API password' },
+    ],
+  },
+  {
+    id: 'stripe',
+    name: 'Stripe',
+    secretPath: 'integrations/stripe/credentials',
+    description: 'Payments, subscriptions, invoices, and customer data',
+    secretFields: [
+      { path: 'stripe/api-key', label: 'Secret Key', required: true, placeholder: 'sk_live_... or sk_test_...' },
+    ],
+  },
+  {
+    id: 'intercom',
+    name: 'Intercom',
+    secretPath: 'integrations/intercom/credentials',
+    description: 'Customer messaging, inbox, conversations, and contacts',
+    secretFields: [
+      { path: 'intercom/access-token', label: 'Access Token', required: true, placeholder: 'Intercom access token' },
+    ],
+  },
   // ── Data & Analytics ──────────────────────────────────────────────────
   {
     id: 'snowflake',
@@ -188,6 +264,73 @@ const KNOWN_INTEGRATIONS: IntegrationDef[] = [
       { path: 'bigquery/service-account-json', label: 'Service Account JSON', required: true, placeholder: '{"type":"service_account",...}' },
     ],
   },
+  {
+    id: 'databricks',
+    name: 'Databricks',
+    secretPath: 'integrations/databricks/credentials',
+    description: 'Lakehouse queries, notebooks, jobs, and MLflow',
+    secretFields: [
+      { path: 'databricks/host', label: 'Workspace URL', required: true, placeholder: 'https://adb-1234567890.1.azuredatabricks.net' },
+      { path: 'databricks/token', label: 'Personal Access Token', required: true, placeholder: 'dapi...' },
+    ],
+  },
+  {
+    id: 'tableau',
+    name: 'Tableau',
+    secretPath: 'integrations/tableau/credentials',
+    description: 'Dashboards, workbooks, data sources, and views',
+    secretFields: [
+      { path: 'tableau/server-url', label: 'Server URL', required: true, placeholder: 'https://tableau.yourorg.com or https://us-east-1.online.tableau.com' },
+      { path: 'tableau/token-name', label: 'Token Name', required: true, placeholder: 'Personal access token name' },
+      { path: 'tableau/token-secret', label: 'Token Secret', required: true, placeholder: 'Personal access token secret' },
+      { path: 'tableau/site-id', label: 'Site ID', required: false, placeholder: 'Site content URL (blank for default)' },
+    ],
+  },
+  {
+    id: 'segment',
+    name: 'Segment',
+    secretPath: 'integrations/segment/credentials',
+    description: 'Customer data platform — track events, profiles, and audiences',
+    secretFields: [
+      { path: 'segment/write-key', label: 'Write Key', required: true, placeholder: 'Segment source write key' },
+      { path: 'segment/api-token', label: 'API Token', required: false, placeholder: 'Segment Public API token (for management)' },
+    ],
+  },
+  // ── Cloud Providers ────────────────────────────────────────────────────
+  {
+    id: 'aws',
+    name: 'Amazon Web Services',
+    secretPath: 'integrations/aws/credentials',
+    description: 'S3, Lambda, DynamoDB, SQS, Bedrock, and other AWS services',
+    secretFields: [
+      { path: 'aws/access-key-id', label: 'Access Key ID', required: true, placeholder: 'AKIA...' },
+      { path: 'aws/secret-access-key', label: 'Secret Access Key', required: true, placeholder: 'AWS secret access key' },
+      { path: 'aws/region', label: 'Default Region', required: false, placeholder: 'us-east-1' },
+      { path: 'aws/session-token', label: 'Session Token', required: false, placeholder: 'Temporary session token (optional)' },
+    ],
+  },
+  {
+    id: 'gcp',
+    name: 'Google Cloud Platform',
+    secretPath: 'integrations/gcp/credentials',
+    description: 'Cloud Storage, Pub/Sub, Cloud Functions, Vertex AI, and other GCP services',
+    secretFields: [
+      { path: 'gcp/service-account-json', label: 'Service Account JSON', required: true, placeholder: '{"type":"service_account",...}' },
+      { path: 'gcp/project-id', label: 'Default Project ID', required: false, placeholder: 'my-gcp-project' },
+    ],
+  },
+  {
+    id: 'azure',
+    name: 'Microsoft Azure',
+    secretPath: 'integrations/azure/credentials',
+    description: 'Blob Storage, Functions, Cognitive Services, OpenAI Service, and other Azure services',
+    secretFields: [
+      { path: 'azure/tenant-id', label: 'Tenant ID', required: true, placeholder: 'Azure AD tenant ID' },
+      { path: 'azure/client-id', label: 'Client ID', required: true, placeholder: 'App registration client ID' },
+      { path: 'azure/client-secret', label: 'Client Secret', required: true, placeholder: 'App registration client secret' },
+      { path: 'azure/subscription-id', label: 'Subscription ID', required: false, placeholder: 'Azure subscription ID' },
+    ],
+  },
   // ── Ops & Monitoring ──────────────────────────────────────────────────
   {
     id: 'pagerduty',
@@ -197,6 +340,40 @@ const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     secretFields: [
       { path: 'pagerduty/api-key', label: 'API Key', required: true, placeholder: 'PagerDuty REST API key' },
       { path: 'pagerduty/from-email', label: 'From Email', required: false, placeholder: 'user@company.com (for incident creation)' },
+    ],
+  },
+  {
+    id: 'datadog',
+    name: 'Datadog',
+    secretPath: 'integrations/datadog/credentials',
+    description: 'Infrastructure monitoring, APM, logs, and dashboards',
+    secretFields: [
+      { path: 'datadog/api-key', label: 'API Key', required: true, placeholder: 'Datadog API key' },
+      { path: 'datadog/app-key', label: 'Application Key', required: true, placeholder: 'Datadog application key' },
+      { path: 'datadog/site', label: 'Datadog Site', required: false, placeholder: 'datadoghq.com (default)' },
+    ],
+  },
+  // ── Identity & SSO ──────────────────────────────────────────────────
+  {
+    id: 'okta',
+    name: 'Okta',
+    secretPath: 'integrations/okta/credentials',
+    description: 'Identity management, SSO, user provisioning, and MFA',
+    secretFields: [
+      { path: 'okta/domain', label: 'Okta Domain', required: true, placeholder: 'yourorg.okta.com' },
+      { path: 'okta/api-token', label: 'API Token', required: true, placeholder: 'Okta API token from Security → API' },
+    ],
+  },
+  // ── Video & Conferencing ────────────────────────────────────────────
+  {
+    id: 'zoom',
+    name: 'Zoom',
+    secretPath: 'integrations/zoom/credentials',
+    description: 'Meetings, webinars, recordings, and user management',
+    secretFields: [
+      { path: 'zoom/account-id', label: 'Account ID', required: true, placeholder: 'Zoom Server-to-Server app Account ID' },
+      { path: 'zoom/client-id', label: 'Client ID', required: true, placeholder: 'Zoom app Client ID' },
+      { path: 'zoom/client-secret', label: 'Client Secret', required: true, placeholder: 'Zoom app Client Secret' },
     ],
   },
   // ── Meeting Intelligence ────────────────────────────────────────────
