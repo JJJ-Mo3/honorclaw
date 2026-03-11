@@ -46,13 +46,18 @@ RUN apk add --no-cache \
     && chown postgres:postgres /var/run/postgresql /data/postgres \
     && chown redis:redis /var/run/redis /data/redis
 
-# Install Ollama (pre-built binary archive, compatible with Alpine musl)
-ARG OLLAMA_VERSION=0.6.2
+# Install Ollama (latest release by default, override with --build-arg OLLAMA_VERSION=x.y.z)
+ARG OLLAMA_VERSION=""
 RUN case "${TARGETARCH:-amd64}" in \
       amd64) OLLAMA_ARCH="amd64" ;; \
       arm64) OLLAMA_ARCH="arm64" ;; \
       *)     OLLAMA_ARCH="${TARGETARCH}" ;; \
     esac && \
+    if [ -z "${OLLAMA_VERSION}" ]; then \
+      OLLAMA_VERSION=$(wget -qO- https://api.github.com/repos/ollama/ollama/releases/latest \
+        | grep '"tag_name"' | head -1 | sed 's/.*"v\([^"]*\)".*/\1/'); \
+    fi && \
+    echo "Installing Ollama v${OLLAMA_VERSION}" && \
     wget -qO /tmp/ollama.tgz \
       "https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-${OLLAMA_ARCH}.tgz" && \
     tar -xzf /tmp/ollama.tgz -C /usr && \
