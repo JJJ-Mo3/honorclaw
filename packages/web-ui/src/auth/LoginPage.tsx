@@ -12,14 +12,15 @@ interface MfaResponse {
   success: boolean;
 }
 
+interface AuthConfig {
+  selfRegistrationEnabled: boolean;
+  needsBootstrap: boolean;
+  mfaRequired: boolean;
+}
+
 /**
- * Login page with email + password form and optional TOTP MFA step.
- *
- * Flow:
- *   1. User submits email + password → POST /auth/login
- *   2. If the server responds with { requiresMfa: true, mfaToken },
- *      render a TOTP input field for the second factor.
- *   3. On success, redirect to the original destination or /.
+ * Login page with email + password form, optional TOTP MFA step,
+ * and first-time bootstrap setup when no users exist.
  */
 export function LoginPage() {
   const navigate = useNavigate();
@@ -30,21 +31,59 @@ export function LoginPage() {
   // ── Form state ──────────────────────────────────────────────────────
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationEnabled, setRegistrationEnabled] = useState(false);
+  const [needsBootstrap, setNeedsBootstrap] = useState(false);
+  const [configLoaded, setConfigLoaded] = useState(false);
 
   const showMfaStep = mfaToken !== null;
 
   useEffect(() => {
-    api.get<{ selfRegistrationEnabled: boolean }>('/auth/config')
-      .then((cfg) => setRegistrationEnabled(cfg.selfRegistrationEnabled))
-      .catch(() => {});
+    api.get<AuthConfig>('/auth/config')
+      .then((cfg) => {
+        setRegistrationEnabled(cfg.selfRegistrationEnabled);
+        setNeedsBootstrap(cfg.needsBootstrap);
+      })
+      .catch(() => {})
+      .finally(() => setConfigLoaded(true));
   }, []);
 
-  // ── Handlers ────────────────────────────────────────────────────────
+  // ── Bootstrap handler ─────────────────────────────────────────────
+  async function handleBootstrap(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (password.length < 12) {
+      setError('Password must be at least 12 characters');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await api.post('/admin/bootstrap', {
+        adminEmail: email,
+        adminPassword: password,
+      });
+      // Now login with the created account
+      await api.post<LoginResponse>('/auth/login', { email, password });
+      await refreshAuth();
+      navigate('/', { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Setup failed');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  // ── Login handler ─────────────────────────────────────────────────
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -56,7 +95,6 @@ export function LoginPage() {
       if (result.requiresMfa && result.mfaToken) {
         setMfaToken(result.mfaToken);
       } else {
-        // Login complete — refresh auth state then redirect
         await refreshAuth();
         navigate(from, { replace: true });
       }
@@ -87,6 +125,14 @@ export function LoginPage() {
     }
   }
 
+  if (!configLoaded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-sm text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+
   // ── Render ──────────────────────────────────────────────────────────
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
@@ -94,7 +140,11 @@ export function LoginPage() {
         <div className="text-center mb-8">
           <img src="/logo.png" alt="HonorClaw" className="mx-auto mb-4" style={{ width: '128px', height: '128px' }} />
           <h1 className="text-2xl font-bold text-gray-900">HonorClaw</h1>
-          <p className="mt-1 text-sm text-gray-600">Sign in to your account</p>
+          {needsBootstrap ? (
+            <p className="mt-1 text-sm text-gray-600">Create your admin account to get started</p>
+          ) : (
+            <p className="mt-1 text-sm text-gray-600">Sign in to your account</p>
+          )}
         </div>
 
         {error && (
@@ -103,7 +153,67 @@ export function LoginPage() {
           </div>
         )}
 
-        {!showMfaStep ? (
+        {needsBootstrap ? (
+          /* ── First-time Setup Form ─────────────────────────────── */
+          <form onSubmit={handleBootstrap} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Admin Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                minLength={12}
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">Minimum 12 characters</p>
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                required
+                minLength={12}
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+            >
+              {isSubmitting ? 'Setting up...' : 'Create Admin Account'}
+            </button>
+          </form>
+        ) : !showMfaStep ? (
+          /* ── Login Form ────────────────────────────────────────── */
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -144,6 +254,7 @@ export function LoginPage() {
             </button>
           </form>
         ) : (
+          /* ── MFA Form ──────────────────────────────────────────── */
           <form onSubmit={handleMfa} className="space-y-4">
             <p className="text-sm text-gray-600">
               Enter the 6-digit code from your authenticator app.
@@ -189,7 +300,7 @@ export function LoginPage() {
           </form>
         )}
 
-        {registrationEnabled && (
+        {registrationEnabled && !needsBootstrap && (
           <p className="mt-4 text-center text-sm text-gray-500">
             Don't have an account?{' '}
             <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">

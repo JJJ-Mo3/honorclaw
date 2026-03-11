@@ -460,17 +460,19 @@ async function authPluginImpl(app: FastifyInstance) {
   app.get('/api/auth/config', async () => {
     const db = (app as any).db;
     let selfRegistrationEnabled = process.env.ALLOW_SELF_REGISTRATION === 'true';
-    // Also enable registration if no users exist yet (first-user flow)
-    if (!selfRegistrationEnabled) {
-      try {
-        const { rows } = await db.query('SELECT count(*) AS cnt FROM users');
-        if (parseInt(rows[0].cnt, 10) === 0) selfRegistrationEnabled = true;
-      } catch {
-        // Non-fatal
+    let needsBootstrap = false;
+    try {
+      const { rows } = await db.query('SELECT count(*) AS cnt FROM users');
+      if (parseInt(rows[0].cnt, 10) === 0) {
+        needsBootstrap = true;
+        selfRegistrationEnabled = true;
       }
+    } catch {
+      // Non-fatal
     }
     return {
       selfRegistrationEnabled,
+      needsBootstrap,
       mfaRequired: authConfig?.mfaRequired ?? false,
     };
   });
