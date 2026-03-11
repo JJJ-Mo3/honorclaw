@@ -47,9 +47,9 @@ export async function modelRoutes(app: FastifyInstance) {
 
   // GET /models — list available local + frontier models
   app.get('/', async () => {
-    const local = await fetchOllamaModels();
+    const { installed, available } = await fetchOllamaModels();
     const frontier = getFrontierModels();
-    return { local, frontier };
+    return { local: installed, available, frontier };
   });
 
   // POST /models/pull — pull an Ollama model by name
@@ -115,21 +115,52 @@ export async function modelRoutes(app: FastifyInstance) {
   });
 }
 
-async function fetchOllamaModels(): Promise<ModelInfo[]> {
+/** Popular Ollama models shown as available options even when not yet pulled. */
+const POPULAR_OLLAMA_MODELS = [
+  'llama3.2', 'llama3.2:1b', 'llama3.1', 'llama3.1:70b',
+  'llama3.3', 'llama3.3:70b',
+  'mistral', 'mistral-nemo', 'mixtral',
+  'gemma2', 'gemma2:27b',
+  'phi4', 'phi3',
+  'qwen2.5', 'qwen2.5:14b', 'qwen2.5-coder',
+  'deepseek-r1:7b', 'deepseek-r1:14b',
+  'codellama', 'command-r',
+];
+
+async function fetchOllamaModels(): Promise<{ installed: ModelInfo[]; available: ModelInfo[] }> {
+  const installed: ModelInfo[] = [];
+  const installedNames = new Set<string>();
+
   try {
     const baseUrl = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
     const response = await fetch(`${baseUrl}/api/tags`);
-    if (!response.ok) return [];
-    const data = await response.json() as any;
-    return (data.models ?? []).map((m: any) => ({
-      name: m.name,
-      provider: 'ollama',
-      size: m.size,
-      modified: m.modified_at,
-    }));
+    if (response.ok) {
+      const data = await response.json() as any;
+      for (const m of data.models ?? []) {
+        installed.push({
+          name: m.name,
+          provider: 'ollama',
+          size: m.size,
+          modified: m.modified_at,
+        });
+        installedNames.add(m.name);
+        // Also track without :latest so we don't duplicate
+        installedNames.add(m.name.replace(/:latest$/, ''));
+      }
+    }
   } catch {
-    return [];
+    // Ollama not reachable
   }
+
+  // Add popular models that aren't already installed
+  const available: ModelInfo[] = [];
+  for (const name of POPULAR_OLLAMA_MODELS) {
+    if (!installedNames.has(name) && !installedNames.has(`${name}:latest`)) {
+      available.push({ name, provider: 'ollama' });
+    }
+  }
+
+  return { installed, available };
 }
 
 function getFrontierModels(): ModelInfo[] {

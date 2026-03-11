@@ -205,7 +205,8 @@ interface ModelOption {
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
-  ollama: 'Ollama (Local)',
+  ollama: 'Ollama (Installed)',
+  ollama_available: 'Ollama (Available to Pull)',
   anthropic: 'Anthropic',
   openai: 'OpenAI',
   gemini: 'Google Gemini',
@@ -239,6 +240,7 @@ export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEdito
         const [modelsData, statusData] = await Promise.all([
           api.get<{
             local: { name: string; provider: string }[];
+            available: { name: string; provider: string }[];
             frontier: { name: string; provider: string }[];
           }>('/models'),
           api.get<{ defaultModel: string }>('/models/status').catch(() => null),
@@ -255,6 +257,12 @@ export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEdito
         for (const m of modelsData.local ?? []) {
           const value = `ollama/${m.name}`;
           models.push({ value, label: humanModelName(m.name), provider: 'ollama' });
+        }
+
+        // Available Ollama models (not yet pulled — will auto-pull on use)
+        for (const m of modelsData.available ?? []) {
+          const value = `ollama/${m.name}`;
+          models.push({ value, label: `${m.name} (pull on use)`, provider: 'ollama_available' });
         }
 
         // Frontier models (based on configured API keys)

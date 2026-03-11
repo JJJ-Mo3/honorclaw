@@ -43,6 +43,21 @@ export class OllamaAdapter implements LLMAdapter {
     });
 
     if (!response.ok) {
+      // Auto-pull the model on 404 and retry once
+      if (response.status === 404) {
+        const pulled = await this.autoPull(modelName!);
+        if (pulled) {
+          const retry = await fetch(`${this.baseUrl}/api/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (retry.ok) {
+            const retryData = await retry.json() as any;
+            return this.parseNonStreamingResponse(retryData, request);
+          }
+        }
+      }
       throw new Error(`Ollama API error: ${response.status} ${await response.text()}`);
     }
 
@@ -186,6 +201,20 @@ export class OllamaAdapter implements LLMAdapter {
       model: request.model,
       finishReason: finishReason as 'stop' | 'tool_calls',
     };
+  }
+
+  /** Pull a model from the Ollama registry. Returns true on success. */
+  private async autoPull(modelName: string): Promise<boolean> {
+    try {
+      const resp = await fetch(`${this.baseUrl}/api/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: modelName, stream: false }),
+      });
+      return resp.ok;
+    } catch {
+      return false;
+    }
   }
 
   private parseNonStreamingResponse(data: any, request: LLMRequest): LLMResponse {
