@@ -69,7 +69,7 @@ export async function runtime(config: RuntimeConfig): Promise<void> {
             toolCallId: m.tool_call_id,
           })),
           tools,
-          model: sessionContext?.model ?? 'ollama/llama3.2',
+          model: sessionContext?.model ?? (process.env.HONORCLAW_DEFAULT_MODEL ? `ollama/${process.env.HONORCLAW_DEFAULT_MODEL}` : 'ollama/llama3.2'),
           maxTokens: Math.min(4096, tokenBudget),
         };
 

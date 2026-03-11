@@ -1,8 +1,39 @@
 import type { FastifyInstance } from 'fastify';
+import { readFileSync } from 'node:fs';
 import { requireWorkspace } from '../middleware/rbac.js';
 import pino from 'pino';
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
+
+const LLAMA_CANDIDATES = ['llama4', 'llama3.3', 'llama3.2', 'llama3.1', 'llama3'];
+
+/**
+ * Resolve the default Ollama model name. Priority:
+ * 1. HONORCLAW_DEFAULT_MODEL env var (explicit override)
+ * 2. /data/ollama/default-model file (written by s6 startup)
+ * 3. Registry probe for the latest Llama release
+ * 4. Hardcoded fallback
+ */
+async function resolveDefaultModel(): Promise<string> {
+  if (process.env.HONORCLAW_DEFAULT_MODEL) return process.env.HONORCLAW_DEFAULT_MODEL;
+
+  try {
+    const persisted = readFileSync('/data/ollama/default-model', 'utf-8').trim();
+    if (persisted) return persisted;
+  } catch { /* not written yet */ }
+
+  for (const candidate of LLAMA_CANDIDATES) {
+    try {
+      const resp = await fetch(
+        `https://registry.ollama.ai/v2/library/${candidate}/tags/list`,
+        { signal: AbortSignal.timeout(3000) },
+      );
+      if (resp.ok) return candidate;
+    } catch { /* try next */ }
+  }
+
+  return 'llama3.2';
+}
 
 interface ModelInfo {
   name: string;
@@ -54,7 +85,7 @@ export async function modelRoutes(app: FastifyInstance) {
 
   // GET /models/status — check if the default model is ready
   app.get('/status', async () => {
-    const defaultModel = process.env.HONORCLAW_DEFAULT_MODEL ?? 'llama3.2';
+    const defaultModel = await resolveDefaultModel();
     const baseUrl = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
 
     let ollamaReachable = false;

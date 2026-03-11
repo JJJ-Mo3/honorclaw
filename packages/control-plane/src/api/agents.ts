@@ -48,7 +48,7 @@ export async function agentRoutes(app: FastifyInstance) {
 
     const result = await db.query(
       'INSERT INTO agents (workspace_id, name, display_name, model, system_prompt) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [request.workspaceId, name, displayName, model ?? 'ollama/llama3.2', systemPrompt ?? '']
+      [request.workspaceId, name, displayName, model ?? (app as any).config?.llm?.defaultModel ?? 'ollama/llama3.2', systemPrompt ?? '']
     );
 
     const agent = result.rows[0];

@@ -19,12 +19,31 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
+# Discover the latest Llama model if no explicit default is set.
+# Probes the Ollama registry for the newest version and falls back gracefully.
+if [ -z "${HONORCLAW_DEFAULT_MODEL}" ]; then
+  REGISTRY="https://registry.ollama.ai/v2/library"
+  DISCOVERED=""
+  for candidate in llama4 llama3.3 llama3.2 llama3.1 llama3; do
+    if curl -sf "${REGISTRY}/${candidate}/tags/list" >/dev/null 2>&1; then
+      DISCOVERED="${candidate}"
+      break
+    fi
+  done
+  DEFAULT_MODEL="${DISCOVERED:-llama3.2}"
+  echo "Discovered latest Llama model: ${DEFAULT_MODEL}"
+else
+  DEFAULT_MODEL="${HONORCLAW_DEFAULT_MODEL}"
+fi
+
 # Pull the default model if not already present
-DEFAULT_MODEL="${HONORCLAW_DEFAULT_MODEL:-llama3.2}"
 if ! ollama list 2>/dev/null | grep -q "^${DEFAULT_MODEL}"; then
   echo "Pulling default model: ${DEFAULT_MODEL} ..."
   ollama pull "${DEFAULT_MODEL}" 2>&1 || echo "WARNING: Failed to pull ${DEFAULT_MODEL}"
 fi
+
+# Persist the resolved model name so the control plane can read it
+echo "${DEFAULT_MODEL}" > /data/ollama/default-model
 
 # Keep Ollama running as the foreground process
 wait $OLLAMA_PID

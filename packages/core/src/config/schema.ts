@@ -31,7 +31,12 @@ export const LlmProviderConfigSchema = z.object({
 });
 
 export const LlmConfigSchema = z.object({
-  defaultModel: z.string().default('ollama/llama3.2'),
+  // Resolved dynamically at startup if not set — see control-plane/main.ts
+  defaultModel: z.string().default(
+    process.env.HONORCLAW_DEFAULT_MODEL
+      ? `ollama/${process.env.HONORCLAW_DEFAULT_MODEL}`
+      : 'ollama/llama3.2',
+  ),
   providers: z.record(LlmProviderConfigSchema).default({}),
 });
 

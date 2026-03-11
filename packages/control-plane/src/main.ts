@@ -112,9 +112,11 @@ async function main() {
   const db = createDb(config.database);
   await runMigrations(db);
 
-  // Ensure the default Ollama model is available (pull if missing)
-  const defaultModel = process.env.HONORCLAW_DEFAULT_MODEL ?? 'llama3.2';
+  // Ensure the default Ollama model is available (pull if missing).
+  // If HONORCLAW_DEFAULT_MODEL is not set, discover the latest Llama from the
+  // Ollama registry so we don't stay pinned to an outdated version.
   const ollamaBaseUrl = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
+  let defaultModel = process.env.HONORCLAW_DEFAULT_MODEL ?? '';
   if (process.env.OLLAMA_DISABLED !== 'true') {
     try {
       // Wait up to 60 s for Ollama to become reachable (s6 starts it concurrently)
@@ -125,6 +127,36 @@ async function main() {
           if (resp.ok) { ollamaReady = true; break; }
         } catch { /* not ready yet */ }
         await new Promise(r => setTimeout(r, 1000));
+      }
+
+      // If no explicit default is configured, discover the latest Llama model
+      if (!defaultModel) {
+        // First check if the s6 script already resolved the model
+        try {
+          const { readFileSync } = await import('node:fs');
+          const persisted = readFileSync('/data/ollama/default-model', 'utf-8').trim();
+          if (persisted) defaultModel = persisted;
+        } catch { /* file doesn't exist yet — discover ourselves */ }
+
+        if (!defaultModel) {
+          const candidates = ['llama4', 'llama3.3', 'llama3.2', 'llama3.1', 'llama3'];
+          for (const candidate of candidates) {
+            try {
+              const resp = await fetch(
+                `https://registry.ollama.ai/v2/library/${candidate}/tags/list`,
+                { signal: AbortSignal.timeout(5000) },
+              );
+              if (resp.ok) {
+                defaultModel = candidate;
+                logger.info({ model: defaultModel }, 'Discovered latest Llama model from registry');
+                break;
+              }
+            } catch { /* try next */ }
+          }
+        }
+
+        // Final fallback
+        if (!defaultModel) defaultModel = 'llama3.2';
       }
 
       if (ollamaReady) {
@@ -156,8 +188,10 @@ async function main() {
       }
     } catch (err) {
       logger.warn({ err }, 'Ollama model check failed (non-fatal)');
+      if (!defaultModel) defaultModel = 'llama3.2';
     }
   }
+  if (!defaultModel) defaultModel = 'llama3.2';
 
   // Seed a default agent on first startup (only if a workspace exists and no agents yet)
   try {

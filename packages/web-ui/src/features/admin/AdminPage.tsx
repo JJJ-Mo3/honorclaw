@@ -224,32 +224,41 @@ function humanModelName(fullName: string): string {
 
 export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEditorProps) {
   const [name, setName] = useState(agent?.name ?? '');
-  const [model, setModel] = useState(agent?.model ?? 'ollama/llama3.2');
+  const [model, setModel] = useState(agent?.model ?? '');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
 
-  // Load available models from backend
+  // Load available models and resolve the default model from the backend
   useEffect(() => {
     async function loadModels() {
       try {
-        const data = await api.get<{
-          local: { name: string; provider: string }[];
-          frontier: { name: string; provider: string }[];
-        }>('/models');
+        // Fetch models and default model status in parallel
+        const [modelsData, statusData] = await Promise.all([
+          api.get<{
+            local: { name: string; provider: string }[];
+            frontier: { name: string; provider: string }[];
+          }>('/models'),
+          api.get<{ defaultModel: string }>('/models/status').catch(() => null),
+        ]);
+
+        // If creating a new agent and no model selected yet, use the server's default
+        if (!agent && !model && statusData?.defaultModel) {
+          setModel(`ollama/${statusData.defaultModel}`);
+        }
 
         const models: ModelOption[] = [];
 
         // Local Ollama models (actually installed)
-        for (const m of data.local ?? []) {
+        for (const m of modelsData.local ?? []) {
           const value = `ollama/${m.name}`;
           models.push({ value, label: humanModelName(m.name), provider: 'ollama' });
         }
 
         // Frontier models (based on configured API keys)
-        for (const m of data.frontier ?? []) {
+        for (const m of modelsData.frontier ?? []) {
           const value = `${m.provider}/${m.name}`;
           models.push({ value, label: m.name, provider: m.provider });
         }
