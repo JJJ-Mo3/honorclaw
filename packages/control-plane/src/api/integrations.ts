@@ -113,6 +113,16 @@ const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     ],
   },
   {
+    id: 'gitlab',
+    name: 'GitLab',
+    secretPath: 'integrations/gitlab/credentials',
+    description: 'Repository access, merge requests, issues, pipelines, and CI/CD',
+    secretFields: [
+      { path: 'gitlab/token', label: 'Personal Access Token', required: true, placeholder: 'glpat-...' },
+      { path: 'gitlab/base-url', label: 'GitLab URL', required: false, placeholder: 'https://gitlab.com (default, or self-hosted URL)' },
+    ],
+  },
+  {
     id: 'jira',
     name: 'Jira',
     secretPath: 'integrations/jira/credentials',
