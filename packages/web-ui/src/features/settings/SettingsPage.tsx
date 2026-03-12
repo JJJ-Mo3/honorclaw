@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { useAuth } from '../../auth/useAuth.js';
 import { api } from '../../api/client.js';
 
+type SettingsTab = 'profile' | 'security';
+
 export function SettingsPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-2xl font-bold mb-4">Settings</h1>
+      <h1 className="text-2xl font-bold">Settings</h1>
+      <p className="mt-1 text-sm text-gray-500 mb-4">Manage your profile and security preferences</p>
 
       <div className="flex gap-2 mb-6">
         <button onClick={() => setActiveTab('profile')} className={`px-4 py-2 text-sm rounded ${activeTab === 'profile' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border'}`}>
@@ -170,3 +173,4 @@ function SecurityTab() {
     </div>
   );
 }
+
