@@ -85,7 +85,16 @@ export function ManifestEditor() {
           const parsed = typeof latest.manifest === 'string' ? JSON.parse(latest.manifest) as CapabilityManifest : latest.manifest;
           setManifest(parsed);
         } else {
-          setError('No manifest found for this agent');
+          // No manifest yet — initialize a default so the user can configure and save
+          const agentData = await api.get<{ agent: { workspaceId: string } }>(`/agents/${agentId}`);
+          setManifest({
+            agentId: agentId!,
+            workspaceId: agentData.agent.workspaceId,
+            version: 0,
+            tools: [],
+            egress: { allowedDomains: [], blockedDomains: [], maxResponseSizeBytes: 10_485_760 },
+            session: { maxDurationMinutes: 60, maxTokensPerSession: 100_000, maxToolCallsPerSession: 1000 },
+          });
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load manifest');

@@ -33,7 +33,10 @@ export function AdminPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
+            <p className="mt-1 text-sm text-gray-500">Create and configure agents, models, and platform settings</p>
+          </div>
           <Link to="/" className="text-sm text-blue-600 hover:text-blue-700">
             Back to Chat
           </Link>
@@ -149,7 +152,7 @@ function AgentList({ workspaceId }: { workspaceId: string | null }) {
                     Edit
                   </button>
                   <button
-                    onClick={() => navigate(`/admin/agents/${agent.id}/manifest`)}
+                    onClick={() => navigate(`/admin/agents/${agent.id}/manifest/visual`)}
                     className="text-gray-600 hover:text-gray-700"
                   >
                     Manifest

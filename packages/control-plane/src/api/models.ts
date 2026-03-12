@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { readFileSync } from 'node:fs';
-import { requireWorkspace } from '../middleware/rbac.js';
+import { requireWorkspace, requireRoles } from '../middleware/rbac.js';
+import type { LLMRouter } from '../llm/router.js';
 import pino from 'pino';
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
@@ -48,8 +49,20 @@ export async function modelRoutes(app: FastifyInstance) {
   // GET /models — list available local + frontier models
   app.get('/', async () => {
     const { installed, available } = await fetchOllamaModels();
-    const frontier = getFrontierModels();
+    const llmRouter = (app as any).llmRouter as LLMRouter | undefined;
+    const registeredProviders = new Set(llmRouter?.getRegisteredProviders() ?? []);
+    const frontier = getFrontierModels(registeredProviders);
     return { local: installed, available, frontier };
+  });
+
+  // POST /models/reload-providers — reload LLM provider keys from secrets DB
+  app.post('/reload-providers', { preHandler: [requireRoles('workspace_admin')] }, async () => {
+    const llmRouter = (app as any).llmRouter as LLMRouter | undefined;
+    if (!llmRouter) {
+      return { status: 'error', message: 'LLM router not available' };
+    }
+    await llmRouter.loadProviders();
+    return { status: 'ok', providers: llmRouter.getRegisteredProviders() };
   });
 
   // POST /models/pull — pull an Ollama model by name
@@ -163,10 +176,10 @@ async function fetchOllamaModels(): Promise<{ installed: ModelInfo[]; available:
   return { installed, available };
 }
 
-function getFrontierModels(): ModelInfo[] {
+function getFrontierModels(registeredProviders?: Set<string>): ModelInfo[] {
   const models: ModelInfo[] = [];
 
-  if (process.env.ANTHROPIC_API_KEY) {
+  if (registeredProviders?.has('anthropic') || process.env.ANTHROPIC_API_KEY) {
     models.push(
       { name: 'claude-sonnet-4-20250514', provider: 'anthropic' },
       { name: 'claude-opus-4-20250514', provider: 'anthropic' },
@@ -176,7 +189,7 @@ function getFrontierModels(): ModelInfo[] {
     );
   }
 
-  if (process.env.OPENAI_API_KEY) {
+  if (registeredProviders?.has('openai') || process.env.OPENAI_API_KEY) {
     models.push(
       { name: 'gpt-4o', provider: 'openai' },
       { name: 'gpt-4o-mini', provider: 'openai' },
@@ -187,7 +200,7 @@ function getFrontierModels(): ModelInfo[] {
     );
   }
 
-  if (process.env.GOOGLE_AI_API_KEY) {
+  if (registeredProviders?.has('gemini') || process.env.GOOGLE_AI_API_KEY) {
     models.push(
       { name: 'gemini-2.0-flash', provider: 'gemini' },
       { name: 'gemini-2.0-pro', provider: 'gemini' },
@@ -198,7 +211,7 @@ function getFrontierModels(): ModelInfo[] {
 
   const bedrockKey = process.env.AWS_ACCESS_KEY_ID;
   const bedrockSecret = process.env.AWS_SECRET_ACCESS_KEY;
-  if (bedrockKey && bedrockSecret) {
+  if (registeredProviders?.has('bedrock') || (bedrockKey && bedrockSecret)) {
     models.push(
       { name: 'anthropic.claude-sonnet-4-20250514-v1:0', provider: 'bedrock' },
       { name: 'anthropic.claude-opus-4-20250514-v1:0', provider: 'bedrock' },
@@ -209,7 +222,7 @@ function getFrontierModels(): ModelInfo[] {
     );
   }
 
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+  if (registeredProviders?.has('vertex') || process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
     models.push(
       { name: 'claude-sonnet-4@20250514', provider: 'vertex' },
       { name: 'claude-opus-4@20250514', provider: 'vertex' },
@@ -219,7 +232,7 @@ function getFrontierModels(): ModelInfo[] {
 
   const azureKey = process.env.AZURE_OPENAI_API_KEY;
   const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
-  if (azureKey && azureEndpoint) {
+  if (registeredProviders?.has('azure') || (azureKey && azureEndpoint)) {
     models.push(
       { name: 'gpt-4o', provider: 'azure' },
       { name: 'gpt-4o-mini', provider: 'azure' },

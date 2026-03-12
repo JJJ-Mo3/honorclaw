@@ -47,7 +47,8 @@ export function ApprovalsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-2xl font-bold mb-4">Pending Approvals</h1>
+      <h1 className="text-2xl font-bold">Pending Approvals</h1>
+      <p className="mt-1 text-sm text-gray-500 mb-4">Review and approve or reject agent tool-call requests that require human authorization</p>
       {approvals.length === 0 ? (
         <p className="text-gray-500">No pending approval requests.</p>
       ) : (

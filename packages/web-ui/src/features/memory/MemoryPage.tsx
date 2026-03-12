@@ -100,7 +100,8 @@ export function MemoryPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-2xl font-bold mb-6">Memory & Documents</h1>
+      <h1 className="text-2xl font-bold">Memory & Documents</h1>
+      <p className="mt-1 text-sm text-gray-500 mb-6">View ingested documents and search agent memory with semantic similarity</p>
 
       {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
 

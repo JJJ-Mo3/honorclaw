@@ -8,8 +8,8 @@ interface Session {
   userId: string;
   channel: string;
   status: string;
-  createdAt: string;
-  updatedAt: string;
+  startedAt: string;
+  endedAt: string | null;
 }
 
 export function SessionsPage() {
@@ -60,7 +60,10 @@ export function SessionsPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Sessions</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Sessions</h1>
+          <p className="mt-1 text-sm text-gray-500">View and manage active and completed agent conversation sessions</p>
+        </div>
         <div className="flex items-center gap-3">
           <label className="text-sm text-gray-600">Filter:</label>
           <select
@@ -89,8 +92,8 @@ export function SessionsPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Agent</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Channel</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Created</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Updated</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Started</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Ended</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
@@ -105,8 +108,8 @@ export function SessionsPage() {
                       {s.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(s.createdAt).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(s.updatedAt).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-gray-500">{new Date(s.startedAt).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-gray-500">{s.endedAt ? new Date(s.endedAt).toLocaleString() : '—'}</td>
                   <td className="px-4 py-3">
                     {s.status === 'active' && (
                       <button

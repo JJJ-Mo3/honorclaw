@@ -67,6 +67,18 @@ export async function userRoutes(app: FastifyInstance) {
       return;
     }
 
+    // Prevent demoting the last workspace_admin — would lock out admin access
+    if (role !== 'workspace_admin') {
+      const adminCount = await db.query(
+        "SELECT COUNT(*) as count FROM user_workspace_roles WHERE workspace_id = $1 AND role = 'workspace_admin' AND user_id != $2",
+        [request.workspaceId, id]
+      );
+      if (parseInt(adminCount.rows[0]?.count ?? '0', 10) === 0) {
+        reply.code(400).send({ error: 'Cannot change role: this is the only admin in the workspace' });
+        return;
+      }
+    }
+
     const result = await db.query(
       'UPDATE user_workspace_roles SET role = $1 WHERE user_id = $2 AND workspace_id = $3 RETURNING *',
       [role, id, request.workspaceId]
@@ -89,6 +101,22 @@ export async function userRoutes(app: FastifyInstance) {
     if (id === request.userId) {
       reply.code(400).send({ error: 'Cannot remove yourself from the workspace' });
       return;
+    }
+
+    // Prevent removing the last workspace_admin
+    const targetRole = await db.query(
+      'SELECT role FROM user_workspace_roles WHERE user_id = $1 AND workspace_id = $2',
+      [id, request.workspaceId]
+    );
+    if (targetRole.rows[0]?.role === 'workspace_admin') {
+      const adminCount = await db.query(
+        "SELECT COUNT(*) as count FROM user_workspace_roles WHERE workspace_id = $1 AND role = 'workspace_admin' AND user_id != $2",
+        [request.workspaceId, id]
+      );
+      if (parseInt(adminCount.rows[0]?.count ?? '0', 10) === 0) {
+        reply.code(400).send({ error: 'Cannot remove the only admin from the workspace' });
+        return;
+      }
     }
 
     const result = await db.query(

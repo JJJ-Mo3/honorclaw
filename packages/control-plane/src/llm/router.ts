@@ -12,6 +12,7 @@ import { BedrockAdapter } from './adapters/bedrock.js';
 import { VertexAdapter } from './adapters/vertex.js';
 import type { LLMAdapter } from './adapters/base.js';
 import { RegexOutputFilterProvider } from '@honorclaw/providers-built-in';
+import { decryptSecret } from '../auth/crypto.js';
 import pino from 'pino';
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
@@ -22,11 +23,13 @@ export class LLMRouter {
   private db: Pool;
   private auditEmitter: AuditEmitter;
   private outputFilter: OutputFilterProvider;
+  private config: LlmConfig;
 
   constructor(config: LlmConfig, redis: Redis, auditEmitter: AuditEmitter, db: Pool) {
     this.redis = redis;
     this.db = db;
     this.auditEmitter = auditEmitter;
+    this.config = config;
     this.outputFilter = new RegexOutputFilterProvider();
 
     // Register adapters based on available configuration / credentials.
@@ -109,6 +112,98 @@ export class LLMRouter {
         config.providers?.gemini?.baseUrl,
       ));
       logger.info('Registered LLM adapter: gemini');
+    }
+  }
+
+  /** Get the set of registered provider names. */
+  getRegisteredProviders(): string[] {
+    return [...this.adapters.keys()];
+  }
+
+  /**
+   * Load LLM provider API keys from the secrets table and register/replace
+   * adapters. Call after construction and again when keys change via the UI.
+   */
+  async loadProviders(): Promise<void> {
+    try {
+      const result = await this.db.query(
+        "SELECT path, encrypted_value FROM secrets WHERE path LIKE 'llm/%' LIMIT 100",
+      );
+
+      const secrets = new Map<string, string>();
+      for (const row of result.rows as { path: string; encrypted_value: Buffer }[]) {
+        try {
+          secrets.set(row.path, decryptSecret(row.encrypted_value.toString('utf-8')));
+        } catch {
+          logger.warn({ path: row.path }, 'Failed to decrypt provider secret');
+        }
+      }
+
+      // Anthropic
+      const anthropicKey = secrets.get('llm/anthropic/api-key');
+      if (anthropicKey) {
+        this.adapters.set('anthropic', new AnthropicAdapter({
+          apiKey: anthropicKey,
+          baseUrl: this.config.providers?.anthropic?.baseUrl,
+        }));
+        logger.info('Loaded LLM adapter from secrets: anthropic');
+      }
+
+      // OpenAI
+      const openaiKey = secrets.get('llm/openai/api-key');
+      if (openaiKey) {
+        this.adapters.set('openai', new OpenAIAdapter({
+          apiKey: openaiKey,
+          baseUrl: this.config.providers?.openai?.baseUrl,
+        }));
+        logger.info('Loaded LLM adapter from secrets: openai');
+      }
+
+      // Gemini
+      const geminiKey = secrets.get('llm/gemini/api-key');
+      if (geminiKey) {
+        this.adapters.set('gemini', new GeminiAdapter(
+          geminiKey,
+          this.config.providers?.gemini?.baseUrl,
+        ));
+        logger.info('Loaded LLM adapter from secrets: gemini');
+      }
+
+      // AWS Bedrock
+      const bedrockAccessKeyId = secrets.get('llm/bedrock/access-key-id');
+      const bedrockSecretKey = secrets.get('llm/bedrock/secret-access-key');
+      if (bedrockAccessKeyId && bedrockSecretKey) {
+        this.adapters.set('bedrock', new BedrockAdapter({
+          accessKeyId: bedrockAccessKeyId,
+          secretAccessKey: bedrockSecretKey,
+          region: this.config.providers?.bedrock?.baseUrl ?? process.env.AWS_REGION ?? 'us-east-1',
+        }));
+        logger.info('Loaded LLM adapter from secrets: bedrock');
+      }
+
+      // Google Vertex AI
+      const vertexJson = secrets.get('llm/vertex/service-account-json');
+      if (vertexJson) {
+        this.adapters.set('vertex', new VertexAdapter({
+          serviceAccountJson: vertexJson,
+          region: this.config.providers?.vertex?.baseUrl ?? process.env.GOOGLE_CLOUD_REGION ?? 'us-central1',
+        }));
+        logger.info('Loaded LLM adapter from secrets: vertex');
+      }
+
+      // Azure OpenAI
+      const azureKey = secrets.get('llm/azure/api-key');
+      const azureEndpoint = secrets.get('llm/azure/endpoint');
+      if (azureKey && azureEndpoint) {
+        this.adapters.set('azure', new OpenAIAdapter({
+          apiKey: azureKey,
+          baseUrl: azureEndpoint,
+          isAzure: true,
+        }));
+        logger.info('Loaded LLM adapter from secrets: azure');
+      }
+    } catch (err) {
+      logger.warn({ err }, 'Failed to load provider secrets from DB (non-fatal)');
     }
   }
 

@@ -49,7 +49,8 @@ export function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <p className="mt-1 text-sm text-gray-500 mb-6">Platform overview with key metrics and quick navigation</p>
 
       {status && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

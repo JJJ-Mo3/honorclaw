@@ -60,7 +60,10 @@ export function UsersPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Users</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Users</h1>
+          <p className="mt-1 text-sm text-gray-500">Manage workspace members, roles, and access permissions</p>
+        </div>
         <button onClick={() => setShowCreate(!showCreate)} className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors">
           {showCreate ? 'Cancel' : 'Create User'}
         </button>

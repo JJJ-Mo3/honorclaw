@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useParams, useNavigate, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useParams, useNavigate, useLocation, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, ProtectedRoute } from './auth/useAuth.js';
 import { LoginPage } from './auth/LoginPage.js';
 import { RegisterPage } from './auth/RegisterPage.js';
@@ -20,19 +20,21 @@ import { WebhooksPage } from './features/webhooks/WebhooksPage.js';
 import { MemoryPage } from './features/memory/MemoryPage.js';
 import { SecretsPage } from './features/secrets/SecretsPage.js';
 import { SettingsPage } from './features/settings/SettingsPage.js';
+import { LLMProvidersPage } from './features/providers/LLMProvidersPage.js';
 import { NavBar } from './components/NavBar.js';
 import { useAuth } from './auth/useAuth.js';
 import { api } from './api/client.js';
 
 function AppLayout() {
   const { user } = useAuth();
-  // Only offset content when sidebar is visible (authenticated user)
-  const mainStyle = user ? { marginLeft: '14rem' } : undefined;
+  const location = useLocation();
+  const isPublicPage = location.pathname === '/login' || location.pathname === '/register';
+  const showSidebar = !!user && !isPublicPage;
 
   return (
     <>
       <NavBar />
-      <main style={mainStyle} className="min-h-screen bg-gray-50">
+      <main className={`min-h-screen bg-gray-50 ${showSidebar ? 'ml-56' : ''}`}>
         <Routes>
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
@@ -191,6 +193,15 @@ function AppLayout() {
               element={
                 <ProtectedRoute allowedRoles={['workspace_admin']}>
                   <SecretsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/providers"
+              element={
+                <ProtectedRoute allowedRoles={['workspace_admin']}>
+                  <LLMProvidersPage />
                 </ProtectedRoute>
               }
             />

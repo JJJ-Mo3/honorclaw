@@ -68,9 +68,7 @@ export function NotificationsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Notifications</h1>
-          {unreadCount > 0 && (
-            <p className="text-sm text-gray-500 mt-1">{unreadCount} unread</p>
-          )}
+          <p className="text-sm text-gray-500 mt-1">Security alerts, system events, and agent activity notifications{unreadCount > 0 ? ` \u2014 ${unreadCount} unread` : ''}</p>
         </div>
         <label className="flex items-center gap-2 text-sm text-gray-600">
           <input

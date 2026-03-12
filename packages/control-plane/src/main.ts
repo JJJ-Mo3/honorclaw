@@ -217,6 +217,7 @@ async function main() {
   const redis = createRedis(config.redis);
   const auditEmitter = new AuditEmitter(db);
   const llmRouter = new LLMRouter(config.llm, redis, auditEmitter, db);
+  await llmRouter.loadProviders(); // Load any API keys stored in the secrets table
   const toolExecutor = new ToolExecutor(redis, db, auditEmitter);
   const sessionManager = new SessionManager(redis, db, llmRouter, toolExecutor, auditEmitter, config);
 
@@ -506,6 +507,14 @@ async function main() {
     prefix: '/',
     wildcard: false,
     decorateReply: true,
+    setHeaders(res, filePath) {
+      // Vite hashed assets can be cached forever; everything else gets revalidated
+      if (filePath.includes('/assets/')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
   });
 
   // SPA fallback: serve index.html for non-API, non-health routes

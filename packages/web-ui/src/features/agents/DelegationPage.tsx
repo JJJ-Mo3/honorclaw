@@ -8,26 +8,26 @@ import { api } from '../../api/client.js';
 interface AuditEvent {
   id: string;
   eventType: string;
-  actorId: string;
-  agentId: string;
-  sessionId: string;
-  payload: Record<string, string>;
+  actorId: string | null;
+  agentId: string | null;
+  sessionId: string | null;
+  payload: Record<string, string> | null;
   createdAt: string;
 }
 
 interface Session {
   id: string;
-  agentId: string;
+  agentId: string | null;
   parentSessionId: string | null;
   status: string;
-  createdAt: string;
-  updatedAt: string;
+  startedAt: string;
+  endedAt: string | null;
 }
 
 interface Agent {
   id: string;
   name: string;
-  tools: string[];
+  tools?: string[];
 }
 
 interface DelegationRow {
@@ -112,17 +112,17 @@ export function DelegationPage() {
       /* Map audit events into delegation rows */
       const rows: DelegationRow[] = eventsRes.events.map((e) => ({
         id: e.id,
-        parentAgent: agentMap.get(e.actorId) ?? e.actorId.slice(0, 12),
-        childAgent: agentMap.get(e.agentId) ?? e.agentId.slice(0, 12),
-        task: e.payload['task'] ?? '-',
-        status: e.payload['status'] ?? 'unknown',
+        parentAgent: (e.actorId && agentMap.get(e.actorId)) ?? e.actorId?.slice(0, 12) ?? '-',
+        childAgent: (e.agentId && agentMap.get(e.agentId)) ?? e.agentId?.slice(0, 12) ?? '-',
+        task: e.payload?.['task'] ?? '-',
+        status: e.payload?.['status'] ?? 'unknown',
         started: e.createdAt,
-        duration: formatDuration(e.createdAt, e.payload['completed_at'] ?? null),
+        duration: formatDuration(e.createdAt, e.payload?.['completed_at'] ?? null),
       }));
 
       setDelegations(rows);
       setChildSessions(sessionsRes.sessions);
-      setCapableAgents(agentsRes.agents.filter((a) => a.tools?.includes('delegate')));
+      setCapableAgents(agentsRes.agents.filter((a) => a.tools && a.tools.includes('delegate')));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load delegation data');
     } finally {
@@ -147,7 +147,10 @@ export function DelegationPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Multi-Agent Delegation</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Multi-Agent Delegation</h1>
+          <p className="mt-1 text-sm text-gray-500">Track agent-to-agent task delegation, active child sessions, and delegation-capable agents</p>
+        </div>
         <button
           onClick={() => { void loadData(); }}
           className="text-sm text-blue-600 hover:text-blue-800"
@@ -235,8 +238,8 @@ export function DelegationPage() {
                 <tbody className="divide-y divide-gray-100">
                   {childSessions.map((s) => (
                     <tr key={s.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono text-xs">{s.id.slice(0, 12)}...</td>
-                      <td className="px-4 py-3 font-mono text-xs">{s.agentId.slice(0, 12)}...</td>
+                      <td className="px-4 py-3 font-mono text-xs">{s.id?.slice(0, 12) ?? '-'}...</td>
+                      <td className="px-4 py-3 font-mono text-xs">{s.agentId?.slice(0, 12) ?? '-'}...</td>
                       <td className="px-4 py-3 font-mono text-xs">
                         {s.parentSessionId ? `${s.parentSessionId.slice(0, 12)}...` : '-'}
                       </td>
@@ -245,7 +248,7 @@ export function DelegationPage() {
                           {s.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-500">{new Date(s.createdAt).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-gray-500">{new Date(s.startedAt).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -276,7 +279,7 @@ export function DelegationPage() {
                       <td className="px-4 py-3 font-medium">{a.name}</td>
                       <td className="px-4 py-3 font-mono text-xs">{a.id.slice(0, 12)}...</td>
                       <td className="px-4 py-3 text-xs">
-                        {a.tools.map((t) => (
+                        {(a.tools ?? []).map((t) => (
                           <span
                             key={t}
                             className={`inline-block mr-1 mb-1 px-2 py-0.5 rounded-full ${

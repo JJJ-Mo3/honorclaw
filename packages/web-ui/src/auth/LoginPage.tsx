@@ -138,7 +138,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <img src="/logo.png" alt="HonorClaw" className="mx-auto mb-4" style={{ width: '128px', height: '128px' }} />
+          <img src="/logo.png" alt="HonorClaw" className="mx-auto mb-4 w-[154px] h-[154px] max-w-none" />
           <h1 className="text-2xl font-bold text-gray-900">HonorClaw</h1>
           {needsBootstrap ? (
             <p className="mt-1 text-sm text-gray-600">Create your admin account to get started</p>
