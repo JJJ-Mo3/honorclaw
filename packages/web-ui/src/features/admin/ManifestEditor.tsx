@@ -224,7 +224,8 @@ export function ManifestEditor() {
 
         {/* ── Tools ──────────────────────────────────────────────────── */}
         <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Tools</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">Tool Policies</h2>
+          <p className="text-sm text-gray-500 mb-3">Security constraints applied to registered tools — rate limits, parameter validation, and approval requirements.</p>
           <div className="space-y-4">
             {manifest.tools.map((tool, i) => (
               <div key={tool.name} className="bg-white rounded-lg border border-gray-200 p-4">
@@ -344,7 +345,7 @@ export function ManifestEditor() {
             ))}
             {manifest.tools.length === 0 && (
               <div className="text-sm text-gray-500 py-4 text-center bg-white rounded-lg border border-gray-200">
-                No tools configured.
+                No tool policies configured. Add policies from the agent edit page after registering tools.
               </div>
             )}
           </div>

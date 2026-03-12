@@ -213,9 +213,20 @@ interface WorkspaceIntegration {
   description?: string;
 }
 
+interface RegisteredTool {
+  id: string;
+  name: string;
+  version: string;
+  trustLevel: string;
+  imageDigest: string;
+  manifest: Record<string, unknown>;
+  deprecatedAt?: string;
+}
+
 interface AgentEditorProps {
   workspaceId: string | null;
   agent?: Agent;
+  registeredTools?: RegisteredTool[];
   appliedSkills?: AgentSkill[];
   installedSkills?: InstalledSkill[];
   integrations?: WorkspaceIntegration[];
@@ -248,7 +259,7 @@ function humanModelName(fullName: string): string {
   return name.replace(/:latest$/, '');
 }
 
-export function AgentEditor({ workspaceId, agent, appliedSkills: initialSkills, installedSkills, integrations, onSave, onCancel }: AgentEditorProps) {
+export function AgentEditor({ workspaceId, agent, registeredTools, appliedSkills: initialSkills, installedSkills, integrations, onSave, onCancel }: AgentEditorProps) {
   const [name, setName] = useState(agent?.name ?? '');
   const [model, setModel] = useState(agent?.model ?? '');
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -450,6 +461,50 @@ export function AgentEditor({ workspaceId, agent, appliedSkills: initialSkills, 
         </button>
       </div>
     </form>
+
+    {/* ── Tools (only when editing) ──────────────────────────── */}
+    {agent && registeredTools && (
+      <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-900">Registered Tools</h3>
+          <Link
+            to={`/admin/agents/${agent.id}/manifest/visual`}
+            className="text-xs text-blue-600 hover:text-blue-700"
+          >
+            Configure tool policies
+          </Link>
+        </div>
+        {registeredTools.length > 0 ? (
+          <ul className="divide-y divide-gray-100">
+            {registeredTools.map((t) => (
+              <li key={t.id} className="flex items-center justify-between py-2">
+                <div>
+                  <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                  <span className="ml-2 text-xs text-gray-400">v{t.version}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    t.trustLevel === 'first_party' ? 'bg-green-100 text-green-800' :
+                    t.trustLevel === 'community' ? 'bg-blue-100 text-blue-800' :
+                    t.trustLevel === 'blocked' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {t.trustLevel}
+                  </span>
+                  {t.deprecatedAt && (
+                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                      Deprecated
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-500">No tools registered. Install tools via the CLI or API.</p>
+        )}
+      </div>
+    )}
 
     {/* ── Skills (only when editing) ─────────────────────────── */}
     {agent && installedSkills && (
