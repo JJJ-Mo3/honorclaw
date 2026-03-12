@@ -18,7 +18,6 @@ export const RateLimitSchema = z.object({
 
 export const ToolCapabilitySchema = z.object({
   name: z.string(),
-  source: z.string().optional(),
   enabled: z.boolean().default(true),
   parameters: z.record(ParameterConstraintSchema).optional(),
   rateLimit: RateLimitSchema.optional(),

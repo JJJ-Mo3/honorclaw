@@ -280,7 +280,6 @@ function NotFoundPage() {
 
 function AgentEditorPageInner({ agentId, onDone }: { agentId: string; onDone: () => void }) {
   const [agent, setAgent] = useState<{ id: string; name: string; model: string; status: 'active' | 'inactive' | 'archived'; workspaceId: string } | null>(null);
-  const [registeredTools, setRegisteredTools] = useState<{ id: string; name: string; version: string; trustLevel: string; imageDigest: string; manifest: Record<string, unknown>; deprecatedAt?: string }[]>([]);
   const [appliedSkills, setAppliedSkills] = useState<{ skillName: string; enabled: boolean; description?: string }[]>([]);
   const [installedSkills, setInstalledSkills] = useState<{ name: string; version: string; description: string }[]>([]);
   const [integrations, setIntegrations] = useState<{ id: string; name: string; status: string; description?: string }[]>([]);
@@ -289,9 +288,8 @@ function AgentEditorPageInner({ agentId, onDone }: { agentId: string; onDone: ()
   useEffect(() => {
     async function load() {
       try {
-        const [agentData, toolsData, skillsData, allSkillsData, integrationsData] = await Promise.all([
+        const [agentData, skillsData, allSkillsData, integrationsData] = await Promise.all([
           api.get<{ agent: { id: string; name: string; model: string; status: string; workspaceId: string } }>(`/agents/${agentId}`),
-          api.get<{ tools: { id: string; name: string; version: string; trustLevel: string; imageDigest: string; manifest: Record<string, unknown>; deprecatedAt?: string }[] }>('/tools').catch(() => ({ tools: [] })),
           api.get<{ skills: { skillName: string; enabled: boolean; description?: string }[] }>(`/skills/agents/${agentId}`).catch(() => ({ skills: [] })),
           api.get<{ skills: { name: string; version: string; description: string }[] }>('/skills').catch(() => ({ skills: [] })),
           api.get<{ integrations: { id: string; name: string; status: string; description?: string }[] }>('/integrations').catch(() => ({ integrations: [] })),
@@ -303,7 +301,6 @@ function AgentEditorPageInner({ agentId, onDone }: { agentId: string; onDone: ()
           status: (agentData.agent.status as 'active' | 'inactive' | 'archived') ?? 'active',
           workspaceId: agentData.agent.workspaceId ?? '',
         });
-        setRegisteredTools(toolsData.tools ?? []);
         setAppliedSkills(skillsData.skills ?? []);
         setInstalledSkills(allSkillsData.skills ?? []);
         setIntegrations(integrationsData.integrations ?? []);
@@ -323,7 +320,6 @@ function AgentEditorPageInner({ agentId, onDone }: { agentId: string; onDone: ()
     <AgentEditor
       workspaceId={null}
       agent={agent}
-      registeredTools={registeredTools}
       appliedSkills={appliedSkills}
       installedSkills={installedSkills}
       integrations={integrations}

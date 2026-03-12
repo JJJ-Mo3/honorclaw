@@ -161,7 +161,6 @@ export function narrowCapabilities(
 function narrowTool(parent: ToolCapability, child: ToolCapability): ToolCapability {
   return {
     name: child.name,
-    source: child.source ?? parent.source,
     enabled: parent.enabled && child.enabled,
     parameters: child.parameters ?? parent.parameters,
     rateLimit: parent.rateLimit && child.rateLimit

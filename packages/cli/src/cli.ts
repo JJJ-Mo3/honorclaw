@@ -4,7 +4,6 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { runDoctor } from './commands/doctor.js';
 import { runInit } from './commands/init.js';
-import { registerToolsCommand } from './commands/tools.js';
 import { registerModelsCommand } from './commands/models.js';
 import { registerEvalCommands } from './commands/eval.js';
 import { registerCertsCommands } from './commands/certs.js';
@@ -428,7 +427,6 @@ agents
 //  Tools & Models (delegated to subcommand modules)
 // ═══════════════════════════════════════════════════════════════════════
 
-registerToolsCommand(program);
 registerModelsCommand(program);
 registerEvalCommands(program);
 registerCertsCommands(program);

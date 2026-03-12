@@ -213,20 +213,9 @@ interface WorkspaceIntegration {
   description?: string;
 }
 
-interface RegisteredTool {
-  id: string;
-  name: string;
-  version: string;
-  trustLevel: string;
-  imageDigest: string;
-  manifest: Record<string, unknown>;
-  deprecatedAt?: string;
-}
-
 interface AgentEditorProps {
   workspaceId: string | null;
   agent?: Agent;
-  registeredTools?: RegisteredTool[];
   appliedSkills?: AgentSkill[];
   installedSkills?: InstalledSkill[];
   integrations?: WorkspaceIntegration[];
@@ -259,7 +248,7 @@ function humanModelName(fullName: string): string {
   return name.replace(/:latest$/, '');
 }
 
-export function AgentEditor({ workspaceId, agent, registeredTools, appliedSkills: initialSkills, installedSkills, integrations, onSave, onCancel }: AgentEditorProps) {
+export function AgentEditor({ workspaceId, agent, appliedSkills: initialSkills, installedSkills, integrations, onSave, onCancel }: AgentEditorProps) {
   const [name, setName] = useState(agent?.name ?? '');
   const [model, setModel] = useState(agent?.model ?? '');
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -269,8 +258,6 @@ export function AgentEditor({ workspaceId, agent, registeredTools, appliedSkills
   const [modelsLoading, setModelsLoading] = useState(true);
   const [skills, setSkills] = useState<AgentSkill[]>(initialSkills ?? []);
   const [addingSkill, setAddingSkill] = useState(false);
-  const [tools, setTools] = useState<RegisteredTool[]>(registeredTools ?? []);
-  const [installingTool, setInstallingTool] = useState(false);
 
   // Load available models and resolve the default model from the backend
   useEffect(() => {
@@ -463,125 +450,6 @@ export function AgentEditor({ workspaceId, agent, registeredTools, appliedSkills
         </button>
       </div>
     </form>
-
-    {/* ── Tools (only when editing) ──────────────────────────── */}
-    {agent && (
-      <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">Registered Tools</h3>
-          <Link
-            to={`/admin/agents/${agent.id}/manifest/visual`}
-            className="text-xs text-blue-600 hover:text-blue-700"
-          >
-            Configure tool policies
-          </Link>
-        </div>
-
-        {/* Tool list */}
-        {tools.length > 0 ? (
-          <ul className="divide-y divide-gray-100 mb-4">
-            {tools.map((t) => (
-              <li key={t.id} className="flex items-center justify-between py-2">
-                <div>
-                  <span className="text-sm font-medium text-gray-800">{t.name}</span>
-                  <span className="ml-2 text-xs text-gray-400">v{t.version}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                    t.trustLevel === 'first_party' ? 'bg-green-100 text-green-800' :
-                    t.trustLevel === 'community' ? 'bg-blue-100 text-blue-800' :
-                    t.trustLevel === 'blocked' ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {t.trustLevel}
-                  </span>
-                  {t.deprecatedAt && (
-                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-                      Deprecated
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await api.post(`/tools/${t.name}/scan`);
-                        // Refresh tool list to get updated scan result
-                        const data = await api.get<{ tools: RegisteredTool[] }>('/tools');
-                        setTools(data.tools ?? []);
-                      } catch { /* handled by global error */ }
-                    }}
-                    className="text-xs text-gray-500 hover:text-gray-700"
-                  >
-                    Scan
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!confirm(`Remove tool "${t.name}"?`)) return;
-                      try {
-                        await api.delete(`/tools/${t.name}`);
-                        setTools((prev) => prev.filter((x) => x.id !== t.id));
-                      } catch { /* handled by global error */ }
-                    }}
-                    className="text-xs text-red-600 hover:text-red-700"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-gray-500 mb-4">No tools registered.</p>
-        )}
-
-        {/* Install tool */}
-        <div className="border-t border-gray-100 pt-3">
-          <h4 className="text-xs font-medium text-gray-500 mb-2">Install Tool</h4>
-          <div className="flex gap-2 items-center">
-            <input
-              type="text"
-              id="install-tool-name"
-              placeholder="Tool name"
-              className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-            />
-            <input
-              type="text"
-              id="install-tool-version"
-              placeholder="Version (optional)"
-              className="rounded-md border border-gray-300 px-2 py-1.5 text-sm w-32"
-            />
-            <button
-              type="button"
-              disabled={installingTool}
-              onClick={async () => {
-                const nameInput = document.getElementById('install-tool-name') as HTMLInputElement;
-                const versionInput = document.getElementById('install-tool-version') as HTMLInputElement;
-                const toolName = nameInput.value.trim();
-                if (!toolName) return;
-                setInstallingTool(true);
-                try {
-                  await api.post('/tools/install', {
-                    name: toolName,
-                    version: versionInput.value.trim() || undefined,
-                  });
-                  // Refresh tool list
-                  const data = await api.get<{ tools: RegisteredTool[] }>('/tools');
-                  setTools(data.tools ?? []);
-                  nameInput.value = '';
-                  versionInput.value = '';
-                } catch { /* handled by global error */ }
-                finally { setInstallingTool(false); }
-              }}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {installingTool ? 'Installing...' : 'Install'}
-            </button>
-          </div>
-        </div>
-
-      </div>
-    )}
 
     {/* ── Skills (only when editing) ─────────────────────────── */}
     {agent && installedSkills && (

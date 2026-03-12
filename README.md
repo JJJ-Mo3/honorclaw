@@ -102,15 +102,13 @@ All tools run in isolated containers. Credentials are injected by the Tool Execu
 honorclaw/
   packages/
     core/               # Shared types, schemas, provider interfaces, telemetry
-    control-plane/      # Fastify server: auth, RBAC, API, policy enforcement, tool execution
+    control-plane/      # Fastify server: auth, RBAC, API, policy enforcement
     agent-runtime/      # LLM interaction, session management (untrusted zone)
     cli/                # CLI tool (honorclaw)
     web-ui/             # React admin UI and chat interface
-    tool-sdk/           # SDK for building custom tools
     rag/                # Document ingestion, chunking, embedding, retrieval
     channels/           # Channel adapters (Slack, Teams, Discord, Email, Web, API, Webhook)
     providers/          # Pluggable backends (built-in, AWS, self-hosted)
-    tools/              # 19 built-in tool packages
 ```
 
 **Tech stack**: TypeScript (strict ESM), Fastify, PostgreSQL (pgvector), Redis, Ollama, React, Turborepo + pnpm workspaces.

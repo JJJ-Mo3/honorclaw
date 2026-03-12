@@ -736,7 +736,7 @@ HonorClaw supports adding new tools through a secure, containerized plugin syste
 A tool is defined by three artifacts:
 
 1. **Tool Manifest** (`honorclaw-tool.yaml`) — Declares the tool's interface, parameters, network requirements, and security metadata
-2. **Container Image** — OCI-compliant image implementing the HonorClaw Tool SDK interface
+2. **Container Image** — OCI-compliant image implementing the HonorClaw tool interface
 3. **Security Review Record** — Signed attestation from the security review gate
 
 ```yaml
@@ -1081,56 +1081,18 @@ tools:
 **Version resolution at runtime:**
 The Tool Execution Layer resolves `honorclaw/salesforce-query:1.3.0` to the exact image digest (`sha256:abc123...`) at manifest save time. This digest is stored in the manifest, ensuring the exact same image runs regardless of registry mutations.
 
-### Developer Experience (Tool SDK)
+### Developer Experience (Custom Tools)
 
 Building a custom HonorClaw tool requires:
 
-1. **Implement the Tool SDK interface** (TypeScript or any language — tools are containers)
+1. **Implement the tool interface** (any language — tools are containers communicating via stdin/stdout JSON protocol)
 2. **Write the tool manifest** (`honorclaw-tool.yaml`)
 3. **Build and push a container image**
 4. **Submit for review**
 
-**TypeScript SDK (recommended):**
-
-```typescript
-import { HonorClawTool, ToolInput, ToolOutput, ToolError } from '@honorclaw/tool-sdk';
-
-// Define your tool
-const salesforceQuery = new HonorClawTool({
-  name: 'salesforce-query',
-  version: '1.3.0',
-
-  // Execute function — receives validated parameters
-  async execute(input: ToolInput): Promise<ToolOutput> {
-    const { query, object_type, limit } = input.parameters;
-
-    // Secrets are available via environment variables (injected by platform)
-    const clientId = process.env.SALESFORCE_CLIENT_ID;
-    const clientSecret = process.env.SALESFORCE_CLIENT_SECRET;
-
-    // Your tool logic
-    const sf = new SalesforceClient({ clientId, clientSecret });
-    const results = await sf.query(query, { type: object_type, limit });
-
-    return {
-      records: results.records,
-      total_count: results.totalSize,
-    };
-  },
-
-  // Optional: health check
-  async healthCheck(): Promise<boolean> {
-    return true;
-  },
-});
-
-// Start the tool (handles stdin/stdout protocol or HTTP, depending on execution mode)
-salesforceQuery.start();
-```
-
 **Any-language protocol:**
 
-Tools that don't use the TypeScript SDK communicate via a simple JSON protocol on stdin/stdout:
+Tools communicate via a simple JSON protocol on stdin/stdout:
 
 ```
 ← STDIN (from Tool Execution Layer):
@@ -1802,7 +1764,7 @@ Enforced at multiple levels regardless of tier:
 - **Streaming support**: LLM streaming (SSE, WebSocket) is first-class in Node.js
 - **Type safety**: Critical for a security product — capability manifest schemas, tool definitions, and API contracts need compile-time verification
 - **Ecosystem**: Anthropic SDK, OpenAI SDK — strongest in TypeScript
-- **Solo developer efficiency**: One language across the entire stack (API, Web UI, CLI, SDK, Tool SDK)
+- **Solo developer efficiency**: One language across the entire stack (API, Web UI, CLI, SDK)
 - **Kubernetes client**: `@kubernetes/client-node` is mature for dynamic Pod management
 
 ### Framework: Fastify (API) + tRPC (internal RPC)
@@ -1831,7 +1793,7 @@ honorclaw/
 │   │   ├── http-request/
 │   │   ├── email-send/
 │   │   └── code-execution/
-│   ├── tool-sdk/                # SDK for building custom tools
+
 │   ├── rag/                     # RAG pipeline (chunker, embeddings, vector-store, ingest)
 │   ├── guardrails/              # Input guardrail layer (injection, tool discovery, PII)
 │   ├── workflows/               # Workflow engine (V2+)
@@ -2358,7 +2320,7 @@ honorclaw audit export | honorclaw audit import-worm  # audit → WORM storage
 
 ### Section 1: Security Core
 
-**Scope:** Capability manifests, tool sandboxing, network isolation, audit logging, input guardrails, tool SDK v1
+**Scope:** Capability manifests, tool sandboxing, network isolation, audit logging, input guardrails
 
 **Key deliverables:**
 - Capability manifest schema + validation (including `input_guardrails`, `budget`, `llm_rate_limits` blocks)
@@ -2371,7 +2333,6 @@ honorclaw audit export | honorclaw audit import-worm  # audit → WORM storage
 - **Output filtering**: PII + credential detection via OutputFilterProvider
 - First-party tools: web_search, file_read, file_write, http_request (all sandboxed, `--read-only` + `--tmpfs /tmp`)
 - Human-in-the-loop approval flow
-- Tool SDK v1 (`@honorclaw/tool-sdk`) with env var / stdin protocol
 - `honorclaw tools init` scaffolding command
 
 **Acceptance criteria:**
@@ -2386,7 +2347,7 @@ honorclaw audit export | honorclaw audit import-worm  # audit → WORM storage
 
 ### Section 2: Interfaces + Multi-Tenant
 
-**Scope:** Slack integration, Web UI, CLI, multi-tenant isolation, SSO, tool registry
+**Scope:** Slack integration, Web UI, CLI, multi-tenant isolation, SSO
 
 **Key deliverables:**
 - Slack Channel Adapter: OAuth install, event handling, signing secret verification
@@ -2463,7 +2424,7 @@ honorclaw audit export | honorclaw audit import-worm  # audit → WORM storage
 - Alerting (PagerDuty/OpsGenie)
 - Load testing
 - Landing page + docs site
-- Tool SDK documentation + example tools
+- Tool documentation + example tools
 
 **Acceptance criteria:**
 - [ ] Production stable under load test

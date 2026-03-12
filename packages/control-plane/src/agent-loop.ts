@@ -45,7 +45,7 @@ interface MessageEntry {
  * Flow: user message → guardrail check → LLM request → (tool call loop) → final reply.
  *
  * When the LLM responds with finishReason: 'tool_calls', the AgentLoop dispatches
- * each tool call to the ToolExecutor via Redis, waits for results, appends them
+ * each tool call via Redis, waits for results, appends them
  * as 'tool' role messages, and re-invokes the LLM — up to MAX_TOOL_ITERATIONS.
  */
 export class AgentLoop {
@@ -422,7 +422,7 @@ export class AgentLoop {
   }
 
   /**
-   * Dispatch a tool call to the ToolExecutor via Redis and wait for the result.
+   * Dispatch a tool call via Redis and wait for the result.
    */
   private async executeToolCall(
     sessionId: string,

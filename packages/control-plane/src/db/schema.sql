@@ -165,22 +165,6 @@ CREATE TABLE IF NOT EXISTS secrets (
   UNIQUE(workspace_id, path)
 );
 
--- Tool registry
-CREATE TABLE IF NOT EXISTS tools (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  version TEXT NOT NULL,
-  image_digest TEXT NOT NULL,
-  manifest JSONB NOT NULL,
-  trust_level TEXT DEFAULT 'custom' CHECK (trust_level IN ('first_party', 'community', 'custom', 'blocked')),
-  scan_result JSONB,
-  sbom JSONB,
-  deprecated_at TIMESTAMPTZ,
-  deprecation_reason TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(name, version)
-);
-
 -- Memories (pgvector)
 CREATE TABLE IF NOT EXISTS memories (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

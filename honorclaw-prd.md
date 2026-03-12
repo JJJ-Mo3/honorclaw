@@ -171,7 +171,7 @@ HonorClaw matches OpenClaw's feature set (agents, memory, tool calling, multi-ag
 
 **Enterprise Integration Tools (built-in, OAuth-authenticated)**
 
-HonorClaw ships two complete integration skill bundles out of the box — Google Workspace and Microsoft 365. Each is a set of tool containers following the standard Tool SDK protocol. Credentials are configured once via SecretsProvider (OAuth tokens or service account); agents request access via capability manifest; the Tool Execution Layer injects credentials at call time. No credentials ever reach the agent runtime.
+HonorClaw ships two complete integration skill bundles out of the box — Google Workspace and Microsoft 365. Each is a set of tool containers following the standard JSON protocol. Credentials are configured once via SecretsProvider (OAuth tokens or service account); agents request access via capability manifest; the Tool Execution Layer injects credentials at call time. No credentials ever reach the agent runtime.
 
 *Google Workspace (`packages/tools/google-workspace/`):*
 - `gsuite_gmail_search` — search emails by query, sender, date range
@@ -231,7 +231,7 @@ HonorClaw ships with a full developer guide for building and publishing custom t
 - `docs/extending/building-tools.md` — scaffold → implement → manifest → test locally → register → publish
 - `docs/extending/building-skills.md` — scaffold → manifest → system prompt → test with eval → share
 - `docs/extending/publishing.md` — OCI registry publishing, Cosign signing, GitHub topic tagging
-- `docs/extending/tool-sdk-reference.md` — complete SDK reference generated from real source
+
 
 The guide includes complete, runnable code examples, common mistakes callout boxes, and cross-links to the eval docs.
 
@@ -305,7 +305,7 @@ HonorClaw has no centrally maintained marketplace. Distribution is decentralized
 
 *Tools* — containerized executables that agents can call:
 - First-party tool library ships with HonorClaw: `web-search`, `database-query`, `file-ops`, `http-request`, `email-send`, `code-execution`, `memory-search`, `calendar-read`, **Claude Code** (agentic coding via Anthropic Claude Code CLI), **Google Workspace** (Gmail, Calendar, Drive, Sheets — 10 tools), **Microsoft 365** (Outlook, Calendar, OneDrive, Excel — 10 tools), **GitHub** (repos, issues, PRs, code search, Actions), **Jira** (issues, projects, sprints, comments), **Notion** (pages, databases, blocks), **Confluence** (pages, spaces, search), **Slack** (post, search, read — as workflow tool), **PagerDuty** (incidents, alerts, schedules), **Salesforce** (contacts, opportunities, cases, SOQL), **Snowflake** (read-only SQL queries), **BigQuery** (read-only SQL queries)
-- Tool SDK (`@honorclaw/tool-sdk`) for building custom tools in TypeScript or any language (stdin/stdout JSON protocol)
+
 - **Distribution via any OCI registry**: `honorclaw tools install ghcr.io/user/my-tool:v1.0.0` — works with GHCR, Docker Hub, private registries, self-hosted registries. No HonorClaw infrastructure required.
 - **Security scan gate runs on everything**: Trivy (CVE), Semgrep (SAST), Syft (SBOM), OPA policy — regardless of source (local build, OCI pull, or any origin). Scan is required before a tool can be added to any agent manifest.
 - **Trust levels**: first-party (ships with platform) / verified (community-reviewed) / custom (deployer-built, automated scan only) — controls what capabilities a tool can be granted in a manifest
@@ -663,7 +663,7 @@ Deliverables:
 
 ### Section 3: Memory + Tools + Integrations
 
-_Section 3 is extended to cover the full first-party tool library and starter skill bundles. Tool packages (3.4–3.6) can be built in parallel once the Tool SDK and security scan pipeline (Prompts 1.3, 3.3) are complete._
+_Section 3 is extended to cover the full first-party tool library and starter skill bundles. Tool packages (3.4–3.6) can be built in parallel once the security scan pipeline (Prompts 1.3, 3.3) is complete._
 
 **Goal:** Agents have long-term memory. Full first-party tool library available. Multi-agent works. Starter skills deployed. Developer guides published.
 
@@ -676,7 +676,7 @@ Deliverables:
 - **Developer & collaboration tools (Prompt 3.5):** GitHub (9 tools), Jira (6 tools), Notion (5 tools), Confluence (4 tools), Slack-as-tool (5 tools)
 - **Ops, data & CRM tools (Prompt 3.6):** PagerDuty (7 tools), Salesforce (6 tools), Snowflake (3 tools — read-only), BigQuery (4 tools — read-only)
 - **Starter skill bundles (Prompt 3.7):** 9 bundled agent configurations — IT Helpdesk, Code Reviewer, Software Engineer, Incident Responder, Data Analyst, Meeting Scheduler, Document Drafter, Customer Support, Sales Assistant
-- **Tool & Skill Developer Guide (Prompt 3.8):** `docs/extending/` — building-tools.md, building-skills.md, publishing.md, tool-sdk-reference.md; generated from real implementation
+- **Tool & Skill Developer Guide (Prompt 3.8):** `docs/extending/` — building-tools.md, building-skills.md, publishing.md; generated from real implementation
 - **Claude Code tool + Software Engineer skill (Prompt 3.9):** 4 tools — `claude_code_run`, `claude_code_review`, `claude_code_test`, `claude_code_refactor`. Runs Claude Code CLI in isolated container, workspace access + api.anthropic.com only, all require approval. Software Engineer starter skill bundles Claude Code + GitHub + file-ops.
 
 **Section 3 acceptance criteria:**
@@ -727,7 +727,7 @@ Deliverables:
 - **Quickstart installer**: `curl -sfL https://get.honorclaw.io | sh` — downloads CLI, verifies Cosign signature, runs `honorclaw init`
 - **`honorclaw doctor`**: Diagnostic CLI command — checks Docker version, available CPU/RAM, port conflicts, DNS resolution, Cosign verification
 - **Example agents**: 2–3 bundled example configs (general-purpose chatbot, code assistant, RAG Q&A) — users have a working agent immediately after `honorclaw init`
-- **Documentation site**: Docusaurus (GitHub Pages) — quickstart guide, configuration reference, security model explainer, tool SDK guide, `docs/extending/` (tool + skill developer guide, SDK reference, publishing guide), compliance guide
+- **Documentation site**: Docusaurus (GitHub Pages) — quickstart guide, configuration reference, security model explainer, `docs/extending/` (tool + skill developer guide, publishing guide), compliance guide
 - **`CONTRIBUTING.md`**: Development setup, contribution workflow, DCO sign-off process
 - **`SECURITY.md`**: Vulnerability disclosure policy (already published in Section 1; reviewed and finalized here)
 - **Load test**: Concurrent agent sessions validated
@@ -785,7 +785,7 @@ Deliverables:
 - [ ] Redis mTLS: Control Plane ↔ Redis with client certificates; verified via `openssl s_client`
 - [ ] HSM: master key operations routed through HSM; no plaintext key in memory after startup
 - [ ] Visual editor: manifest created and saved via browser UI without writing YAML
-- [ ] Tool management: tool installed, scanned, and operational via Web UI and CLI
+- [ ] Built-in capabilities operational via Web UI and CLI
 - [ ] Key rotation: audit record produced with signed hash chain
 
 ---
@@ -869,7 +869,7 @@ HonorClaw supports adding new tools through a secure, containerized plugin syste
 
 A tool consists of three artifacts:
 1. **Tool Manifest (`honorclaw-tool.yaml`)** — declares interface, parameters, container spec, network requirements, secrets, trust level
-2. **Container Image** — OCI-compliant image implementing the HonorClaw Tool SDK (TypeScript SDK provided; any language supported via stdin/stdout JSON protocol)
+2. **Container Image** — OCI-compliant image implementing the HonorClaw tool interface (any language supported via stdin/stdout JSON protocol)
 3. **Security Scan Record** — output from the automated security pipeline (stored alongside the manifest)
 
 ### Trust Levels

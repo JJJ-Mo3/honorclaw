@@ -31,7 +31,6 @@ import { evalRoutes } from './api/eval.js';
 import { metricsRoutes } from './api/metrics.js';
 import { approvalRoutes } from './api/approvals.js';
 import { integrationRoutes } from './api/integrations.js';
-import { toolRoutes } from './api/tools.js';
 import { scheduledRunRoutes } from './api/scheduled-runs.js';
 import { apiKeyRoutes } from './api/api-keys.js';
 import { totpRoutes } from './auth/totp.js';
@@ -42,7 +41,6 @@ import type { EncryptionProvider } from '@honorclaw/core';
 import { initTelemetry, RedisChannels } from '@honorclaw/core';
 import { LLMRouter } from './llm/router.js';
 import { SessionManager } from './sessions/manager.js';
-import { ToolExecutor } from './tools/executor.js';
 import { AuditEmitter } from './audit/emitter.js';
 import { AgentScheduler } from './scheduler/index.js';
 import { AgentLoop } from './agent-loop.js';
@@ -218,12 +216,10 @@ async function main() {
   const auditEmitter = new AuditEmitter(db);
   const llmRouter = new LLMRouter(config.llm, redis, auditEmitter, db);
   await llmRouter.loadProviders(); // Load any API keys stored in the secrets table
-  const toolExecutor = new ToolExecutor(redis, db, auditEmitter);
-  const sessionManager = new SessionManager(redis, db, llmRouter, toolExecutor, auditEmitter, config);
+  const sessionManager = new SessionManager(redis, db, llmRouter, auditEmitter, config);
 
-  // Start LLM and tool execution pipelines (subscribes to Redis pub/sub)
+  // Start LLM pipeline (subscribes to Redis pub/sub)
   await llmRouter.start();
-  await toolExecutor.start();
 
   // Start the AgentLoop — bridges user input to LLM requests and delivers responses
   const agentLoop = new AgentLoop(db, redis, config, auditEmitter);
@@ -257,7 +253,6 @@ async function main() {
   await app.register(skillRoutes, { prefix: '/api/skills' });
   await app.register(secretRoutes, { prefix: '/api/secrets' });
   await app.register(integrationRoutes, { prefix: '/api/integrations' });
-  await app.register(toolRoutes, { prefix: '/api/tools' });
   await app.register(scheduledRunRoutes, { prefix: '/api/scheduled-runs' });
   await app.register(apiKeyRoutes, { prefix: '/api/api-keys' });
   await app.register(statusRoutes, { prefix: '/api' });

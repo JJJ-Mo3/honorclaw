@@ -34,14 +34,12 @@ make dev
 ```
 packages/
   core/              — Shared types, schemas, provider interfaces (zero deps)
-  tool-sdk/          — Tool SDK protocol (depends on core only)
   agent-runtime/     — UNTRUSTED agent loop (core + ioredis + pino)
   control-plane/     — TRUSTED orchestrator (core + providers)
   rag/               — RAG pipeline (chunking, embeddings, vector store)
   web-ui/            — React SPA (Vite)
   cli/               — CLI tool (Commander.js)
   providers/         — Provider implementations
-  tools/             — First-party tool implementations
   channels/          — Channel adapters (Slack, Teams, Discord, etc.)
 infra/
   docker/            — Dockerfiles, s6 configs, compose files
@@ -55,10 +53,8 @@ infra/
 These are strictly enforced:
 
 - `core` has ZERO honorclaw dependencies
-- `tool-sdk` depends on `core` only
 - `agent-runtime` depends on `core` only
 - `providers/*` depend on `core` only
-- `tools/*` depend on `core` + `tool-sdk` only
 - `control-plane` depends on `core` + providers (injected)
 - `channels/*` depend on `core` only
 

@@ -1,7 +1,6 @@
 import type { Redis } from 'ioredis';
 import type { Database } from '../db/index.js';
 import type { LLMRouter } from '../llm/router.js';
-import type { ToolExecutor } from '../tools/executor.js';
 import type { AuditEmitter } from '../audit/emitter.js';
 import type { HonorClawConfig } from '@honorclaw/core';
 import { RedisChannels } from '@honorclaw/core';
@@ -21,16 +20,14 @@ export class SessionManager {
   private redis: Redis;
   private db: Database;
   private llmRouter: LLMRouter;
-  private toolExecutor: ToolExecutor;
   private auditEmitter: AuditEmitter;
   private config: HonorClawConfig;
   private activeSessions = new Set<string>();
 
-  constructor(redis: Redis, db: Database, llmRouter: LLMRouter, toolExecutor: ToolExecutor, auditEmitter: AuditEmitter, config: HonorClawConfig) {
+  constructor(redis: Redis, db: Database, llmRouter: LLMRouter, auditEmitter: AuditEmitter, config: HonorClawConfig) {
     this.redis = redis;
     this.db = db;
     this.llmRouter = llmRouter;
-    this.toolExecutor = toolExecutor;
     this.auditEmitter = auditEmitter;
     this.config = config;
   }
