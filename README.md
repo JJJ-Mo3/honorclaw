@@ -181,7 +181,9 @@ honorclaw audit export -o audit.json  # Export audit log
 
 honorclaw tools list                  # List installed tools
 honorclaw tools install <name>        # Install a tool
-honorclaw tools search <query>        # Search tool marketplace
+honorclaw tools inspect <name>        # Show tool details and scan status
+honorclaw tools scan <name>           # Run security scan on a tool
+honorclaw tools remove <name>         # Remove an installed tool
 
 honorclaw memory stats                # Memory statistics
 honorclaw memory documents            # List memory documents

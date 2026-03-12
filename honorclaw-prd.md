@@ -310,7 +310,7 @@ HonorClaw has no centrally maintained marketplace. Distribution is decentralized
 - **Security scan gate runs on everything**: Trivy (CVE), Semgrep (SAST), Syft (SBOM), OPA policy — regardless of source (local build, OCI pull, or any origin). Scan is required before a tool can be added to any agent manifest.
 - **Trust levels**: first-party (ships with platform) / verified (community-reviewed) / custom (deployer-built, automated scan only) — controls what capabilities a tool can be granted in a manifest
 - **Version pinning**: manifests pin to exact OCI image digest (`sha256:...`) at save time, not mutable tags
-- **Discovery via GitHub**: community convention — tools published to GitHub with topic `honorclaw-tool` are discoverable via `honorclaw tools search <term>`, which queries GitHub topics. No hosted index. Private organizations can point to their own Git host.
+- **No marketplace**: tools are installed directly by name or OCI reference. There is no hosted index or discovery service.
 - **Trusted registries config**: `honorclaw.yaml` defines allowed registries; tools from unlisted registries require explicit deployment-admin approval
 
 *Skills* — agent configuration bundles (system prompt + manifest + tool list + README):
@@ -777,7 +777,7 @@ Deliverables:
 - **Redis mTLS**: mutual TLS between Control Plane and Redis for Tier 2+; certificate rotation; documented for Tier 1 operators who want it
 - **HSM support**: FIPS 140-2 Level 3 — master key in HSM; encryption operations routed through HSM provider; AWS CloudHSM, Azure Dedicated HSM, Thales Luna adapters
 - **Visual manifest editor**: browser-based GUI for creating and editing agent manifests; no YAML required; validates against manifest schema in real time; makes platform accessible to non-engineers
-- **Tool marketplace**: `honorclaw tools search` — discoverable community tools; same security scan gate as first-party; self-hostable private registry option
+- **Tool management UI**: install, scan, and remove tools from the Web UI; same security scan gate as first-party
 - **Master key rotation audit trail**: every key rotation event produces a signed audit record with old-key-hash, new-key-hash, operator, timestamp — for compliance programs requiring cryptographic evidence of key lifecycle events
 - **`honorclaw eval` CI integration**: GitHub Actions step, GitLab CI job, pre-built Docker image for eval runner
 
@@ -785,7 +785,7 @@ Deliverables:
 - [ ] Redis mTLS: Control Plane ↔ Redis with client certificates; verified via `openssl s_client`
 - [ ] HSM: master key operations routed through HSM; no plaintext key in memory after startup
 - [ ] Visual editor: manifest created and saved via browser UI without writing YAML
-- [ ] Tool marketplace: community tool discoverable, scanned, installed, and operational
+- [ ] Tool management: tool installed, scanned, and operational via Web UI and CLI
 - [ ] Key rotation: audit record produced with signed hash chain
 
 ---

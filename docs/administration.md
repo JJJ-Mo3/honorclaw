@@ -464,12 +464,6 @@ honorclaw skills remove <name>
 honorclaw tools list
 ```
 
-### Search for Tools
-
-```bash
-honorclaw tools search <query>
-```
-
 ### Install a Tool
 
 ```bash

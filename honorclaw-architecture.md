@@ -2409,7 +2409,7 @@ honorclaw audit export | honorclaw audit import-worm  # audit → WORM storage
 
 ### Section 3: Memory + Advanced Tools + Multi-Agent
 
-**Scope:** Vector memory (RAG), advanced tools, multi-agent, tool marketplace
+**Scope:** Vector memory (RAG), advanced tools, multi-agent, tool management
 
 **Key deliverables:**
 - OpenSearch vector memory: embedding pipeline, semantic search, memory CRUD
@@ -2417,7 +2417,7 @@ honorclaw audit export | honorclaw audit import-worm  # audit → WORM storage
 - Advanced first-party tools: database_query, code_execution (gVisor), email_send, calendar_read
 - Multi-agent: agent-to-agent communication (via Control Plane mediation)
 - Sub-agent spawning with inherited but narrowed capability manifests
-- Tool marketplace: public registry, search, install, versioning
+- Tool management: install, scan, version, remove via Web UI and CLI
 - Tool deprecation and forced-update pipeline for CVEs
 - GCP and Azure provider implementations (second and third targets)
 
@@ -2426,7 +2426,7 @@ honorclaw audit export | honorclaw audit import-worm  # audit → WORM storage
 - [ ] database_query executes read-only SQL in sandbox
 - [ ] code_execution runs in gVisor sandbox with no network/filesystem
 - [ ] Agent A can delegate to Agent B with narrowed capabilities
-- [ ] Tool marketplace browse + install works
+- [ ] Tool management: install, scan, and remove via Web UI and CLI
 - [ ] GCP deployment target functional
 
 ### Section 4: Compliance + Hardening
@@ -2513,7 +2513,7 @@ honorclaw audit export | honorclaw audit import-worm  # audit → WORM storage
 - HSM support: `HsmProvider` interface (`wrapKey`, `unwrapKey`, `sign`, `status`); implementations for AWS CloudHSM, Azure Dedicated HSM (Key Vault Managed HSM), Thales Luna; DEK never persisted plaintext — unwrapped from PostgreSQL at startup via HSM; zeroed from memory on shutdown; FIPS 140-2 Level 3 support
 - Audit record signing: `HsmProvider.sign()` on all audit records when HSM enabled; `honorclaw audit verify --record-id <id>` for verification
 - Visual manifest editor: React form over Zod schema (6 tabs: Identity, LLM, Tools, Egress, Schedule, Advanced); live validation; YAML preview pane (read-only, Monaco/CodeMirror, copy button); version history + diff view; "Restore this version" (creates new version from old content, never modifies history); canary deployment weight slider; RBAC gating (workspace admin+ to edit, member sees read-only)
-- Tool marketplace: `honorclaw tools search/info/install/uninstall/update` via GitHub topics (`honorclaw-tool`); OCI registry distribution; security scan gate on install (same as first-party); Cosign verification (warn if unsigned, block on failed scan, `--force` logs WARN to audit); `--all` bulk update; `honorclaw doctor` warns on available updates; private registry config option
+- Tool management: `honorclaw tools install/inspect/scan/remove/update`; OCI registry distribution; security scan gate on install (same as first-party); Cosign verification (warn if unsigned, block on failed scan, `--force` logs WARN to audit); `--all` bulk update; `honorclaw doctor` warns on available updates; private registry config option; Web UI install/scan/remove on agent edit page
 - Master key rotation audit trail: `honorclaw keys rotate` (atomic: generate → re-encrypt all secrets → re-encrypt DEK → rename key file → signed audit record); `honorclaw keys rotate --dry-run`; `honorclaw keys history`; `honorclaw keys verify`; Admin UI key management page (fingerprint, last rotated, rotation history table, re-auth gate on rotation)
 - `honorclaw eval` CI integration: `JJJ-Mo3/eval-action@v1` GitHub Action (runs eval, posts PR annotations, action outputs for conditional steps); GitLab CI job snippet; pre-built `ghcr.io/jjj-mo3/eval-runner:latest` Docker image (included in release pipeline)
 

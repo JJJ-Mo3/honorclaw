@@ -529,10 +529,6 @@ List installed tools.
 }
 ```
 
-### GET /tools/search?q=query
-
-Search the GitHub tool marketplace.
-
 ### GET /tools/:name
 
 Get tool details.
