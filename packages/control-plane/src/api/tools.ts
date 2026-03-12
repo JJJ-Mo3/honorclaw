@@ -20,37 +20,6 @@ export async function toolRoutes(app: FastifyInstance) {
     return { tools: mapRows(result.rows) };
   });
 
-  // Search tool registries (GitHub marketplace)
-  app.get('/search', async (request, reply) => {
-    const { q } = request.query as { q?: string };
-    if (!q) {
-      reply.code(400).send({ error: 'Search query (q) is required' });
-      return;
-    }
-
-    try {
-      const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}+topic:honorclaw-tool&sort=stars&per_page=20`;
-      const response = await fetch(url, {
-        headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'honorclaw' },
-      });
-
-      if (!response.ok) {
-        return [];
-      }
-
-      const data = await response.json() as { items?: Array<{ name: string; description: string; stargazers_count: number; html_url: string }> };
-      return (data.items ?? []).map((repo) => ({
-        name: repo.name,
-        description: repo.description ?? '',
-        version: 'latest',
-        source: repo.html_url,
-        downloads: repo.stargazers_count,
-      }));
-    } catch {
-      return [];
-    }
-  });
-
   // Get tool details
   app.get('/:name', async (request, reply) => {
     const { name } = request.params as { name: string };

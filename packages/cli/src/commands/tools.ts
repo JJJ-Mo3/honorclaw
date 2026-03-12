@@ -26,13 +26,6 @@ interface ToolDetail extends ToolInfo {
   };
 }
 
-interface ToolSearchResult {
-  name: string;
-  description: string;
-  version: string;
-  source: string;
-  downloads: number;
-}
 
 interface ScanResult {
   tool: string;
@@ -221,34 +214,6 @@ export function registerToolsCommand(program: Command): void {
         console.log('');
       } catch (err) {
         spinner.fail('Scan failed');
-        handleError(err);
-      }
-    });
-
-  // ── search ──────────────────────────────────────────────────────────
-  tools
-    .command('search <query>')
-    .description('Search tool registries')
-    .action(async (query: string) => {
-      const spinner = ora('Searching...').start();
-      try {
-        const results = await cliApi.get<ToolSearchResult[]>('/tools/search', { q: query });
-        spinner.stop();
-
-        if (results.length === 0) {
-          console.log(chalk.dim('No tools found.'));
-          return;
-        }
-
-        console.log(chalk.bold(`\nSearch Results for "${query}"\n`));
-        for (const tool of results) {
-          console.log(`  ${chalk.bold(tool.name)} ${chalk.dim(`v${tool.version}`)} [${tool.source}]`);
-          console.log(`    ${tool.description}`);
-          console.log(`    ${chalk.dim(`${tool.downloads} downloads`)}`);
-        }
-        console.log('');
-      } catch (err) {
-        spinner.fail('Search failed');
         handleError(err);
       }
     });
