@@ -36,8 +36,8 @@ interface ToolCapability {
 }
 
 interface EgressConfig {
-  allowedDomains: string[];
-  blockedDomains: string[];
+  policy: 'allow_all' | 'block_all';
+  domains: string[];
   maxResponseSizeBytes: number;
 }
 
@@ -161,8 +161,8 @@ function manifestToYaml(manifest: CapabilityManifest): string {
 
   // Egress
   lines.push('egress:');
-  lines.push(`  allowedDomains: [${manifest.egress.allowedDomains.map((d) => `"${d}"`).join(', ')}]`);
-  lines.push(`  blockedDomains: [${manifest.egress.blockedDomains.map((d) => `"${d}"`).join(', ')}]`);
+  lines.push(`  policy: ${manifest.egress.policy}`);
+  lines.push(`  domains: [${manifest.egress.domains.map((d) => `"${d}"`).join(', ')}]`);
   lines.push(`  maxResponseSizeBytes: ${manifest.egress.maxResponseSizeBytes}`);
   lines.push('');
 
@@ -228,7 +228,7 @@ export function VisualManifestEditor() {
             workspaceId: agentData.agent.workspaceId,
             version: 0,
             tools: [],
-            egress: { allowedDomains: [], blockedDomains: [], maxResponseSizeBytes: 10_485_760 },
+            egress: { policy: 'allow_all', domains: [], maxResponseSizeBytes: 10_485_760 },
             session: { maxDurationMinutes: 60, maxTokensPerSession: 100_000, maxToolCallsPerSession: 1000 },
           });
         }
@@ -367,42 +367,23 @@ export function VisualManifestEditor() {
   }
 
   // ── Egress mutations ────────────────────────────────────────────────
-  function addAllowedDomain(domain: string) {
+  function addEgressDomain(domain: string) {
     if (!manifest || !domain.trim()) return;
     const trimmed = domain.trim().toLowerCase();
-    if (manifest.egress.allowedDomains.includes(trimmed)) return;
+    if (manifest.egress.domains.includes(trimmed)) return;
     setManifest({
       ...manifest,
       egress: {
         ...manifest.egress,
-        allowedDomains: [...manifest.egress.allowedDomains, trimmed],
+        domains: [...manifest.egress.domains, trimmed],
       },
     });
   }
 
-  function removeAllowedDomain(index: number) {
+  function removeEgressDomain(index: number) {
     if (!manifest) return;
-    const allowedDomains = manifest.egress.allowedDomains.filter((_, i) => i !== index);
-    setManifest({ ...manifest, egress: { ...manifest.egress, allowedDomains } });
-  }
-
-  function addBlockedDomain(domain: string) {
-    if (!manifest || !domain.trim()) return;
-    const trimmed = domain.trim().toLowerCase();
-    if (manifest.egress.blockedDomains.includes(trimmed)) return;
-    setManifest({
-      ...manifest,
-      egress: {
-        ...manifest.egress,
-        blockedDomains: [...manifest.egress.blockedDomains, trimmed],
-      },
-    });
-  }
-
-  function removeBlockedDomain(index: number) {
-    if (!manifest) return;
-    const blockedDomains = manifest.egress.blockedDomains.filter((_, i) => i !== index);
-    setManifest({ ...manifest, egress: { ...manifest.egress, blockedDomains } });
+    const domains = manifest.egress.domains.filter((_, i) => i !== index);
+    setManifest({ ...manifest, egress: { ...manifest.egress, domains } });
   }
 
   // ── Render ──────────────────────────────────────────────────────────
@@ -627,63 +608,57 @@ export function VisualManifestEditor() {
           {/* ── Egress Tab ───────────────────────────────────────────── */}
           {activeTab === 'egress' && (
             <section>
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">Egress Allowlist</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">Egress Policy</h2>
               <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
-                {/* Allowed domains */}
+                {/* Policy mode */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Allowed Domains</label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {manifest.egress.allowedDomains.map((domain, i) => (
-                      <span key={domain} className="inline-flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded text-xs">
-                        {domain}
-                        <button
-                          type="button"
-                          onClick={() => removeAllowedDomain(i)}
-                          className="text-green-400 hover:text-green-600"
-                        >
-                          x
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="api.example.com"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          addAllowedDomain((e.target as HTMLInputElement).value);
-                          (e.target as HTMLInputElement).value = '';
-                        }
-                      }}
-                      className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
-                        addAllowedDomain(input.value);
-                        input.value = '';
-                      }}
-                      className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
-                    >
-                      Add
-                    </button>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Policy Mode</label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="egressPolicy"
+                        checked={manifest.egress.policy === 'allow_all'}
+                        onChange={() => setManifest({ ...manifest, egress: { ...manifest.egress, policy: 'allow_all' } })}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">Allow all except listed domains</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="egressPolicy"
+                        checked={manifest.egress.policy === 'block_all'}
+                        onChange={() => setManifest({ ...manifest, egress: { ...manifest.egress, policy: 'block_all' } })}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">Block all except listed domains</span>
+                    </label>
                   </div>
                 </div>
 
-                {/* Blocked domains */}
+                {/* Domain list */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Blocked Domains</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {manifest.egress.policy === 'allow_all' ? 'Blocked Domains' : 'Allowed Domains'}
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    {manifest.egress.policy === 'allow_all'
+                      ? 'All domains are permitted except those listed here.'
+                      : 'All domains are blocked except those listed here.'}
+                  </p>
                   <div className="flex flex-wrap gap-2 mb-2">
-                    {manifest.egress.blockedDomains.map((domain, i) => (
-                      <span key={domain} className="inline-flex items-center gap-1 bg-red-50 text-red-700 px-2 py-1 rounded text-xs">
+                    {manifest.egress.domains.map((domain, i) => (
+                      <span key={domain} className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${
+                        manifest.egress.policy === 'allow_all'
+                          ? 'bg-red-50 text-red-700'
+                          : 'bg-green-50 text-green-700'
+                      }`}>
                         {domain}
                         <button
                           type="button"
-                          onClick={() => removeBlockedDomain(i)}
-                          className="text-red-400 hover:text-red-600"
+                          onClick={() => removeEgressDomain(i)}
+                          className={manifest.egress.policy === 'allow_all' ? 'text-red-400 hover:text-red-600' : 'text-green-400 hover:text-green-600'}
                         >
                           x
                         </button>
@@ -693,11 +668,11 @@ export function VisualManifestEditor() {
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="evil.example.com"
+                      placeholder="*.example.com"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          addBlockedDomain((e.target as HTMLInputElement).value);
+                          addEgressDomain((e.target as HTMLInputElement).value);
                           (e.target as HTMLInputElement).value = '';
                         }
                       }}
@@ -707,10 +682,14 @@ export function VisualManifestEditor() {
                       type="button"
                       onClick={(e) => {
                         const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
-                        addBlockedDomain(input.value);
+                        addEgressDomain(input.value);
                         input.value = '';
                       }}
-                      className="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                      className={`rounded px-3 py-1.5 text-xs font-medium text-white ${
+                        manifest.egress.policy === 'allow_all'
+                          ? 'bg-red-600 hover:bg-red-700'
+                          : 'bg-green-600 hover:bg-green-700'
+                      }`}
                     >
                       Add
                     </button>

@@ -57,8 +57,8 @@ const baseManifest: CapabilityManifest = {
     },
   ],
   egress: {
-    allowedDomains: ['api.example.com', '*.trusted.io'],
-    blockedDomains: [],
+    policy: 'block_all',
+    domains: ['api.example.com', '*.trusted.io'],
     maxResponseSizeBytes: 10_485_760,
   },
   inputGuardrails: {
@@ -193,7 +193,7 @@ describe('Network Escape Attempts', () => {
   it('blocks URL to non-allowlisted domain', async () => {
     const result = await sanitizeParameters(
       { url: 'https://evil.com/exfil' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
     expect(result.reason).toContain('not in allowlist');
@@ -202,7 +202,7 @@ describe('Network Escape Attempts', () => {
   it('blocks IP address to bypass DNS allowlist', async () => {
     const result = await sanitizeParameters(
       { url: 'http://169.254.169.254/latest/meta-data/' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
@@ -210,7 +210,7 @@ describe('Network Escape Attempts', () => {
   it('blocks localhost SSRF attempt', async () => {
     const result = await sanitizeParameters(
       { url: 'http://127.0.0.1:8080/admin' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
@@ -218,7 +218,7 @@ describe('Network Escape Attempts', () => {
   it('blocks SSRF via 0.0.0.0', async () => {
     const result = await sanitizeParameters(
       { url: 'http://0.0.0.0:5432/' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
@@ -226,7 +226,7 @@ describe('Network Escape Attempts', () => {
   it('blocks RFC 1918 10.x.x.x address', async () => {
     const result = await sanitizeParameters(
       { url: 'http://10.0.0.1:6379/' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
@@ -234,7 +234,7 @@ describe('Network Escape Attempts', () => {
   it('blocks RFC 1918 172.16.x.x address', async () => {
     const result = await sanitizeParameters(
       { url: 'http://172.16.0.1:5432/' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
@@ -242,7 +242,7 @@ describe('Network Escape Attempts', () => {
   it('blocks RFC 1918 192.168.x.x address', async () => {
     const result = await sanitizeParameters(
       { url: 'http://192.168.1.1:80/' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
@@ -250,7 +250,7 @@ describe('Network Escape Attempts', () => {
   it('blocks Docker bridge network default', async () => {
     const result = await sanitizeParameters(
       { url: 'http://172.17.0.1:2375/' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
@@ -258,7 +258,7 @@ describe('Network Escape Attempts', () => {
   it('blocks IMDS endpoint (AWS metadata)', async () => {
     const result = await sanitizeParameters(
       { url: 'http://169.254.169.254/latest/meta-data/iam/security-credentials/' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
@@ -266,7 +266,7 @@ describe('Network Escape Attempts', () => {
   it('blocks invalid URL format', async () => {
     const result = await sanitizeParameters(
       { url: 'not-a-valid-url' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
     expect(result.reason).toContain('invalid URL');
@@ -282,7 +282,7 @@ describe('Path Traversal Attacks', () => {
   it('blocks basic ../ traversal', async () => {
     const result = await sanitizeParameters(
       { path: '../../../etc/passwd' },
-      [],
+      'allow_all', [],
     );
     expect(result.valid).toBe(false);
     expect(result.reason).toContain('traversal');
@@ -292,7 +292,7 @@ describe('Path Traversal Attacks', () => {
     // The path after decoding still contains ..
     const result = await sanitizeParameters(
       { path: '..%2F..%2Fetc/shadow' },
-      [],
+      'allow_all', [],
     );
     expect(result.valid).toBe(false);
   });
@@ -300,7 +300,7 @@ describe('Path Traversal Attacks', () => {
   it('blocks absolute path outside workspace', async () => {
     const result = await sanitizeParameters(
       { path: '/etc/passwd' },
-      [],
+      'allow_all', [],
     );
     expect(result.valid).toBe(false);
     expect(result.reason).toContain('traversal');
@@ -309,7 +309,7 @@ describe('Path Traversal Attacks', () => {
   it('allows paths within /workspace/', async () => {
     const result = await sanitizeParameters(
       { path: '/workspace/data/file.txt' },
-      [],
+      'allow_all', [],
     );
     expect(result.valid).toBe(true);
   });
@@ -317,7 +317,7 @@ describe('Path Traversal Attacks', () => {
   it('blocks path with null byte', async () => {
     const result = await sanitizeParameters(
       { path: '/workspace/file.txt\x00../../etc/passwd' },
-      [],
+      'allow_all', [],
     );
     // Null bytes are stripped, then the result is checked
     // The cleaned string becomes "/workspace/file.txt../../etc/passwd" which has ..
@@ -327,7 +327,7 @@ describe('Path Traversal Attacks', () => {
   it('blocks backslash traversal (Windows-style)', async () => {
     const result = await sanitizeParameters(
       { path: '..\\..\\etc\\passwd' },
-      [],
+      'allow_all', [],
     );
     expect(result.valid).toBe(false);
   });
@@ -335,7 +335,7 @@ describe('Path Traversal Attacks', () => {
   it('blocks _path suffix parameters with traversal', async () => {
     const result = await sanitizeParameters(
       { output_path: '../../../../tmp/evil' },
-      [],
+      'allow_all', [],
     );
     expect(result.valid).toBe(false);
     expect(result.reason).toContain('traversal');
@@ -420,7 +420,7 @@ describe('Unicode Attacks', () => {
   it('strips null bytes from string parameters', async () => {
     const result = await sanitizeParameters(
       { query: 'hello\x00world' },
-      [],
+      'allow_all', [],
     );
     expect(result.valid).toBe(true);
     expect(result.sanitized.query).toBe('helloworld');
@@ -431,7 +431,7 @@ describe('Unicode Attacks', () => {
     const decomposed = 'caf\u0065\u0301';
     const result = await sanitizeParameters(
       { query: decomposed },
-      [],
+      'allow_all', [],
     );
     expect(result.valid).toBe(true);
     expect(result.sanitized.query).toBe('caf\u00e9');
@@ -440,7 +440,7 @@ describe('Unicode Attacks', () => {
   it('strips null bytes from path parameters', async () => {
     const result = await sanitizeParameters(
       { path: '/workspace/fi\x00le.txt' },
-      [],
+      'allow_all', [],
     );
     expect(result.valid).toBe(true);
     expect(result.sanitized.path).toBe('/workspace/file.txt');
@@ -474,7 +474,7 @@ describe('Unicode Attacks', () => {
     const longStr = '\u00e9'.repeat(500);
     const result = await sanitizeParameters(
       { query: longStr },
-      [],
+      'allow_all', [],
     );
     expect(result.valid).toBe(true);
   });

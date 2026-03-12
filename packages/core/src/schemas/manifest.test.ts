@@ -20,7 +20,7 @@ describe('CapabilityManifestSchema', () => {
       { name: 'web_search', enabled: true },
       { name: 'file_ops', enabled: false, requiresApproval: true },
     ],
-    egress: { allowedDomains: ['*.google.com'], blockedDomains: [] },
+    egress: { policy: 'block_all', domains: ['*.google.com'] },
     inputGuardrails: { injectionDetection: true, maxMessageLength: 2000 },
     outputFilters: { piiDetection: true },
     session: { maxDurationMinutes: 60 },
@@ -54,7 +54,7 @@ describe('CapabilityManifestSchema', () => {
     const minimal = { agentId: 'a', workspaceId: 'w', version: 1 };
     const result = CapabilityManifestSchema.parse(minimal);
     expect(result.tools).toEqual([]);
-    expect(result.egress.allowedDomains).toEqual([]);
+    expect(result.egress.domains).toEqual([]);
     expect(result.inputGuardrails.injectionDetection).toBe(true);
     expect(result.inputGuardrails.maxMessageLength).toBe(4000);
     expect(result.outputFilters.piiDetection).toBe(true);
@@ -170,19 +170,29 @@ describe('ParameterConstraintSchema', () => {
 describe('EgressConfigSchema', () => {
   it('applies defaults', () => {
     const result = EgressConfigSchema.parse({});
-    expect(result.allowedDomains).toEqual([]);
-    expect(result.blockedDomains).toEqual([]);
+    expect(result.policy).toBe('allow_all');
+    expect(result.domains).toEqual([]);
     expect(result.maxResponseSizeBytes).toBe(10_485_760);
   });
 
-  it('validates custom config', () => {
+  it('validates custom config with block_all policy', () => {
     const result = EgressConfigSchema.parse({
-      allowedDomains: ['api.example.com'],
-      blockedDomains: ['*.internal.corp'],
+      policy: 'block_all',
+      domains: ['api.example.com'],
       maxResponseSizeBytes: 5_242_880,
     });
-    expect(result.allowedDomains).toEqual(['api.example.com']);
+    expect(result.policy).toBe('block_all');
+    expect(result.domains).toEqual(['api.example.com']);
     expect(result.maxResponseSizeBytes).toBe(5_242_880);
+  });
+
+  it('validates allow_all policy with blocked domains', () => {
+    const result = EgressConfigSchema.parse({
+      policy: 'allow_all',
+      domains: ['*.internal.corp'],
+    });
+    expect(result.policy).toBe('allow_all');
+    expect(result.domains).toEqual(['*.internal.corp']);
   });
 });
 

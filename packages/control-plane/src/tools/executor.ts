@@ -70,8 +70,9 @@ export class ToolExecutor {
 
       // 3. Sanitize parameters (SSRF protection, path traversal, null bytes, etc.)
       const toolDef = manifest.tools.find(t => t.name === toolName);
-      const allowedDomains = manifest.egress.allowedDomains;
-      const sanitizeResult = await sanitizeParameters(parameters, allowedDomains);
+      const egressPolicy = manifest.egress.policy ?? 'allow_all';
+      const egressDomains = manifest.egress.domains ?? [];
+      const sanitizeResult = await sanitizeParameters(parameters, egressPolicy, egressDomains);
       if (!sanitizeResult.valid) {
         logger.warn({ toolName, callId, reason: sanitizeResult.reason }, 'Parameter sanitization failed');
         await this.pushResult(sessionId, callId, {

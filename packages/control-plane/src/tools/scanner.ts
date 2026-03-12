@@ -18,7 +18,7 @@ export interface ToolManifestForScan {
   readOnlyRootFilesystem?: boolean;
   /** Egress rules */
   egress?: {
-    allowedDomains?: string[];
+    domains?: string[];
   };
   /** Resource limits */
   resources?: {
@@ -145,7 +145,7 @@ export async function scan(
   }
 
   // Rule: no wildcard egress
-  if (manifest.egress?.allowedDomains?.includes('*')) {
+  if (manifest.egress?.domains?.includes('*')) {
     policyViolations.push({
       rule: 'no-wildcard-egress',
       message: 'Wildcard (*) egress is not permitted. Specify explicit domains.',

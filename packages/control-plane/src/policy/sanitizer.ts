@@ -44,9 +44,19 @@ export interface SanitizeResult {
   reason?: string;
 }
 
+function matchesDomainList(hostname: string, domains: string[]): boolean {
+  return domains.some(domain => {
+    if (domain.startsWith('*.')) {
+      return hostname.endsWith(domain.slice(1)) || hostname === domain.slice(2);
+    }
+    return hostname === domain;
+  });
+}
+
 export async function sanitizeParameters(
   params: Record<string, unknown>,
-  allowedDomains: string[],
+  egressPolicy: 'allow_all' | 'block_all',
+  egressDomains: string[],
 ): Promise<SanitizeResult> {
   const sanitized: Record<string, unknown> = {};
 
@@ -92,17 +102,22 @@ export async function sanitizeParameters(
             return { valid: false, sanitized: {}, reason: 'URL parameter blocked: DNS resolution failed' };
           }
 
-          // Domain allowlist check
-          if (allowedDomains.length > 0) {
-            const domainAllowed = allowedDomains.some(domain => {
-              if (domain.startsWith('*.')) {
-                return hostname.endsWith(domain.slice(1)) || hostname === domain.slice(2);
+          // Domain policy check
+          if (egressDomains.length > 0) {
+            if (egressPolicy === 'block_all') {
+              // Block everything except listed domains
+              if (!matchesDomainList(hostname, egressDomains)) {
+                return { valid: false, sanitized: {}, reason: `URL parameter blocked: domain "${hostname}" not in allowlist` };
               }
-              return hostname === domain;
-            });
-            if (!domainAllowed) {
-              return { valid: false, sanitized: {}, reason: `URL parameter blocked: domain "${hostname}" not in allowlist` };
+            } else {
+              // Allow everything except listed domains
+              if (matchesDomainList(hostname, egressDomains)) {
+                return { valid: false, sanitized: {}, reason: `URL parameter blocked: domain "${hostname}" is blocked` };
+              }
             }
+          } else if (egressPolicy === 'block_all') {
+            // block_all with no exceptions = block everything
+            return { valid: false, sanitized: {}, reason: `URL parameter blocked: all egress is blocked` };
           }
         } catch {
           return { valid: false, sanitized: {}, reason: 'URL parameter blocked: invalid URL' };

@@ -26,16 +26,41 @@ export function narrowCapabilities(
       return narrowTool(parentTool, childTool);
     });
 
-  // Egress: intersection of allowed domains
-  const parentAllowed = new Set(parentManifest.egress.allowedDomains);
-  const narrowedAllowedDomains = parentAllowed.size > 0
-    ? childManifest.egress.allowedDomains.filter(d => parentAllowed.has(d))
-    : childManifest.egress.allowedDomains;
+  // Egress policy narrowing:
+  // If either parent or child uses block_all, the result is block_all (stricter).
+  // For block_all: domains = intersection (only domains both allow).
+  // For allow_all: domains = union (both parent and child blocks apply).
+  const parentPolicy = parentManifest.egress.policy ?? 'allow_all';
+  const childPolicy = childManifest.egress.policy ?? 'allow_all';
+  let narrowedPolicy: 'allow_all' | 'block_all';
+  let narrowedDomains: string[];
 
-  // Blocked domains: union (both parent and child blocks apply)
-  const narrowedBlockedDomains = [
-    ...new Set([...parentManifest.egress.blockedDomains, ...childManifest.egress.blockedDomains]),
-  ];
+  if (parentPolicy === 'block_all' || childPolicy === 'block_all') {
+    narrowedPolicy = 'block_all';
+    if (parentPolicy === 'block_all' && childPolicy === 'block_all') {
+      // Both are allowlists — intersection (only domains both permit)
+      const parentSet = new Set(parentManifest.egress.domains);
+      narrowedDomains = parentSet.size > 0
+        ? childManifest.egress.domains.filter(d => parentSet.has(d))
+        : [];
+    } else if (parentPolicy === 'block_all') {
+      // Parent is allowlist, child is blocklist — use parent's allowlist minus child's blocks
+      narrowedDomains = parentManifest.egress.domains.filter(
+        d => !childManifest.egress.domains.some(cd => cd === d),
+      );
+    } else {
+      // Child is allowlist, parent is blocklist — use child's allowlist minus parent's blocks
+      narrowedDomains = childManifest.egress.domains.filter(
+        d => !parentManifest.egress.domains.some(pd => pd === d),
+      );
+    }
+  } else {
+    // Both allow_all — union of blocked domains (most restrictive)
+    narrowedPolicy = 'allow_all';
+    narrowedDomains = [
+      ...new Set([...parentManifest.egress.domains, ...childManifest.egress.domains]),
+    ];
+  }
 
   // Session: use the stricter (smaller) limits
   const narrowedSession = {
@@ -104,8 +129,8 @@ export function narrowCapabilities(
     version: childManifest.version,
     tools: narrowedTools,
     egress: {
-      allowedDomains: narrowedAllowedDomains,
-      blockedDomains: narrowedBlockedDomains,
+      policy: narrowedPolicy,
+      domains: narrowedDomains,
       maxResponseSizeBytes: Math.min(
         parentManifest.egress.maxResponseSizeBytes,
         childManifest.egress.maxResponseSizeBytes,

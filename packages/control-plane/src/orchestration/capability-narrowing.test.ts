@@ -10,8 +10,8 @@ function makeManifest(overrides: Partial<CapabilityManifest> = {}): CapabilityMa
     version: 1,
     tools: [],
     egress: {
-      allowedDomains: [],
-      blockedDomains: [],
+      policy: 'allow_all',
+      domains: [],
       maxResponseSizeBytes: 10_485_760,
     },
     dataAccess: undefined,
@@ -150,73 +150,91 @@ describe('narrowCapabilities', () => {
 
   // ── Egress ─────────────────────────────────────────────────────────────
 
-  describe('egress allowed domains', () => {
-    it('computes intersection of parent and child allowed domains', () => {
+  describe('egress policy narrowing', () => {
+    it('intersects allowed domains when both use block_all', () => {
       const parent = makeManifest({
         egress: {
-          allowedDomains: ['api.example.com', 'cdn.example.com', 'data.example.com'],
-          blockedDomains: [],
+          policy: 'block_all',
+          domains: ['api.example.com', 'cdn.example.com', 'data.example.com'],
           maxResponseSizeBytes: 10_000_000,
         },
       });
       const child = makeManifest({
         agentId: 'child',
         egress: {
-          allowedDomains: ['api.example.com', 'logs.example.com', 'data.example.com'],
-          blockedDomains: [],
+          policy: 'block_all',
+          domains: ['api.example.com', 'logs.example.com', 'data.example.com'],
           maxResponseSizeBytes: 5_000_000,
         },
       });
 
       const result = narrowCapabilities(parent, child);
-      expect(result.egress.allowedDomains).toEqual(
+      expect(result.egress.policy).toBe('block_all');
+      expect(result.egress.domains).toEqual(
         expect.arrayContaining(['api.example.com', 'data.example.com']),
       );
-      expect(result.egress.allowedDomains).toHaveLength(2);
+      expect(result.egress.domains).toHaveLength(2);
     });
 
-    it('uses child domains when parent has no allowed domains', () => {
-      const parent = makeManifest({
-        egress: { allowedDomains: [], blockedDomains: [], maxResponseSizeBytes: 10_000_000 },
-      });
-      const child = makeManifest({
-        agentId: 'child',
-        egress: {
-          allowedDomains: ['api.example.com'],
-          blockedDomains: [],
-          maxResponseSizeBytes: 5_000_000,
-        },
-      });
-
-      const result = narrowCapabilities(parent, child);
-      expect(result.egress.allowedDomains).toEqual(['api.example.com']);
-    });
-  });
-
-  describe('egress blocked domains', () => {
-    it('computes union of parent and child blocked domains', () => {
+    it('unions blocked domains when both use allow_all', () => {
       const parent = makeManifest({
         egress: {
-          allowedDomains: [],
-          blockedDomains: ['evil.com', 'malware.org'],
+          policy: 'allow_all',
+          domains: ['evil.com', 'malware.org'],
           maxResponseSizeBytes: 10_000_000,
         },
       });
       const child = makeManifest({
         agentId: 'child',
         egress: {
-          allowedDomains: [],
-          blockedDomains: ['malware.org', 'phishing.net'],
+          policy: 'allow_all',
+          domains: ['malware.org', 'phishing.net'],
           maxResponseSizeBytes: 5_000_000,
         },
       });
 
       const result = narrowCapabilities(parent, child);
-      expect(result.egress.blockedDomains).toEqual(
+      expect(result.egress.policy).toBe('allow_all');
+      expect(result.egress.domains).toEqual(
         expect.arrayContaining(['evil.com', 'malware.org', 'phishing.net']),
       );
-      // No duplicates
-      expect(result.egress.blockedDomains).toHaveLength(3);
+      expect(result.egress.domains).toHaveLength(3);
+    });
+
+    it('escalates to block_all when parent is block_all and child is allow_all', () => {
+      const parent = makeManifest({
+        egress: {
+          policy: 'block_all',
+          domains: ['api.example.com', 'cdn.example.com'],
+          maxResponseSizeBytes: 10_000_000,
+        },
+      });
+      const child = makeManifest({
+        agentId: 'child',
+        egress: {
+          policy: 'allow_all',
+          domains: ['cdn.example.com'],
+          maxResponseSizeBytes: 5_000_000,
+        },
+      });
+
+      const result = narrowCapabilities(parent, child);
+      expect(result.egress.policy).toBe('block_all');
+      // Parent allows api.example.com and cdn.example.com; child blocks cdn.example.com
+      expect(result.egress.domains).toEqual(['api.example.com']);
+    });
+
+    it('takes minimum maxResponseSizeBytes', () => {
+      const parent = makeManifest({
+        egress: { policy: 'allow_all', domains: [], maxResponseSizeBytes: 10_000_000 },
+      });
+      const child = makeManifest({
+        agentId: 'child',
+        egress: { policy: 'allow_all', domains: [], maxResponseSizeBytes: 5_000_000 },
+      });
+
+      const result = narrowCapabilities(parent, child);
+      expect(result.egress.maxResponseSizeBytes).toBe(5_000_000);
     });
   });
 

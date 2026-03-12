@@ -30,8 +30,8 @@ interface ToolCapability {
 }
 
 interface EgressConfig {
-  allowedDomains: string[];
-  blockedDomains: string[];
+  policy: 'allow_all' | 'block_all';
+  domains: string[];
   maxResponseSizeBytes: number;
 }
 
@@ -92,7 +92,7 @@ export function ManifestEditor() {
             workspaceId: agentData.agent.workspaceId,
             version: 0,
             tools: [],
-            egress: { allowedDomains: [], blockedDomains: [], maxResponseSizeBytes: 10_485_760 },
+            egress: { policy: 'allow_all', domains: [], maxResponseSizeBytes: 10_485_760 },
             session: { maxDurationMinutes: 60, maxTokensPerSession: 100_000, maxToolCallsPerSession: 1000 },
           });
         }
@@ -535,38 +535,64 @@ export function ManifestEditor() {
           <h2 className="text-lg font-semibold text-gray-900 mb-3">Egress</h2>
           <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
             <div>
-              <label className="block text-sm text-gray-700">Allowed Domains (comma-separated)</label>
-              <input
-                type="text"
-                value={manifest.egress.allowedDomains.join(', ')}
-                onChange={(e) =>
-                  setManifest({
-                    ...manifest,
-                    egress: {
-                      ...manifest.egress,
-                      allowedDomains: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
-                    },
-                  })
-                }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-2">Policy</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="egressPolicy"
+                    checked={manifest.egress.policy === 'allow_all'}
+                    onChange={() =>
+                      setManifest({
+                        ...manifest,
+                        egress: { ...manifest.egress, policy: 'allow_all' },
+                      })
+                    }
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Allow all except listed domains</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="egressPolicy"
+                    checked={manifest.egress.policy === 'block_all'}
+                    onChange={() =>
+                      setManifest({
+                        ...manifest,
+                        egress: { ...manifest.egress, policy: 'block_all' },
+                      })
+                    }
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Block all except listed domains</span>
+                </label>
+              </div>
             </div>
             <div>
-              <label className="block text-sm text-gray-700">Blocked Domains (comma-separated)</label>
+              <label className="block text-sm text-gray-700">
+                {manifest.egress.policy === 'allow_all' ? 'Blocked Domains' : 'Allowed Domains'} (comma-separated)
+              </label>
               <input
                 type="text"
-                value={manifest.egress.blockedDomains.join(', ')}
+                value={manifest.egress.domains.join(', ')}
                 onChange={(e) =>
                   setManifest({
                     ...manifest,
                     egress: {
                       ...manifest.egress,
-                      blockedDomains: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+                      domains: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
                     },
                   })
                 }
+                placeholder={manifest.egress.policy === 'allow_all' ? 'e.g. evil.com, *.malware.org' : 'e.g. api.example.com, *.trusted.io'}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                {manifest.egress.policy === 'allow_all'
+                  ? 'All egress is allowed except to these domains. Supports wildcards (e.g. *.example.com).'
+                  : 'All egress is blocked except to these domains. Supports wildcards (e.g. *.example.com).'}
+              </p>
             </div>
             <div>
               <label className="block text-sm text-gray-700">Max Response Size (bytes)</label>

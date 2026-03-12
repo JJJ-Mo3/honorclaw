@@ -8,7 +8,7 @@ function makeManifest(overrides: Partial<CapabilityManifest['inputGuardrails']> 
     workspaceId: 'test-ws',
     version: 1,
     tools: [],
-    egress: { allowedDomains: [], blockedDomains: [], maxResponseSizeBytes: 10_485_760 },
+    egress: { policy: 'allow_all', domains: [], maxResponseSizeBytes: 10_485_760 },
     inputGuardrails: {
       injectionDetection: true,
       blockToolDiscovery: true,

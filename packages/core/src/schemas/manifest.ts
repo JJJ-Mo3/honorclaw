@@ -26,8 +26,10 @@ export const ToolCapabilitySchema = z.object({
 });
 
 export const EgressConfigSchema = z.object({
-  allowedDomains: z.array(z.string()).default([]),
-  blockedDomains: z.array(z.string()).default([]),
+  /** 'allow_all' permits all domains except those in `domains`; 'block_all' blocks everything except `domains`. */
+  policy: z.enum(['allow_all', 'block_all']).default('allow_all'),
+  /** Domains to block (when policy=allow_all) or allow (when policy=block_all). Supports wildcard prefix e.g. *.example.com */
+  domains: z.array(z.string()).default([]),
   maxResponseSizeBytes: z.number().default(10_485_760),
 });
 

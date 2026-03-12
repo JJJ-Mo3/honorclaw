@@ -32,8 +32,8 @@ const manifest: CapabilityManifest = {
     { name: 'file_read', enabled: true },
   ],
   egress: {
-    allowedDomains: ['api.example.com'],
-    blockedDomains: [],
+    policy: 'block_all',
+    domains: ['api.example.com'],
     maxResponseSizeBytes: 10_485_760,
   },
   inputGuardrails: {
@@ -222,7 +222,7 @@ describe('SSRF via Parameter Sanitization', () => {
   it('blocks request to AWS IMDS endpoint', async () => {
     const result = await sanitizeParameters(
       { url: 'http://169.254.169.254/latest/meta-data/' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
@@ -230,7 +230,7 @@ describe('SSRF via Parameter Sanitization', () => {
   it('blocks request to localhost with port scan', async () => {
     const result = await sanitizeParameters(
       { url: 'http://127.0.0.1:22/' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
@@ -238,7 +238,7 @@ describe('SSRF via Parameter Sanitization', () => {
   it('blocks request to internal Kubernetes service', async () => {
     const result = await sanitizeParameters(
       { url: 'http://10.96.0.1:443/api/v1/namespaces' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
@@ -246,7 +246,7 @@ describe('SSRF via Parameter Sanitization', () => {
   it('blocks IPv6 loopback (::1)', async () => {
     const result = await sanitizeParameters(
       { endpoint: 'http://[::1]:8080/admin' },
-      ['api.example.com'],
+      'block_all', ['api.example.com'],
     );
     expect(result.valid).toBe(false);
   });
