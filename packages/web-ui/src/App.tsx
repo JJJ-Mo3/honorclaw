@@ -280,19 +280,30 @@ function NotFoundPage() {
 
 function AgentEditorPageInner({ agentId, onDone }: { agentId: string; onDone: () => void }) {
   const [agent, setAgent] = useState<{ id: string; name: string; model: string; status: 'active' | 'inactive' | 'archived'; workspaceId: string } | null>(null);
+  const [appliedSkills, setAppliedSkills] = useState<{ skillName: string; enabled: boolean; description?: string }[]>([]);
+  const [installedSkills, setInstalledSkills] = useState<{ name: string; version: string; description: string }[]>([]);
+  const [integrations, setIntegrations] = useState<{ id: string; name: string; status: string; description?: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await api.get<{ agent: { id: string; name: string; model: string; status: string; workspaceId: string } }>(`/agents/${agentId}`);
+        const [agentData, skillsData, allSkillsData, integrationsData] = await Promise.all([
+          api.get<{ agent: { id: string; name: string; model: string; status: string; workspaceId: string } }>(`/agents/${agentId}`),
+          api.get<{ skills: { skillName: string; enabled: boolean; description?: string }[] }>(`/skills/agents/${agentId}`).catch(() => ({ skills: [] })),
+          api.get<{ skills: { name: string; version: string; description: string }[] }>('/skills').catch(() => ({ skills: [] })),
+          api.get<{ integrations: { id: string; name: string; status: string; description?: string }[] }>('/integrations').catch(() => ({ integrations: [] })),
+        ]);
         setAgent({
-          id: data.agent.id,
-          name: data.agent.name,
-          model: data.agent.model,
-          status: (data.agent.status as 'active' | 'inactive' | 'archived') ?? 'active',
-          workspaceId: data.agent.workspaceId ?? '',
+          id: agentData.agent.id,
+          name: agentData.agent.name,
+          model: agentData.agent.model,
+          status: (agentData.agent.status as 'active' | 'inactive' | 'archived') ?? 'active',
+          workspaceId: agentData.agent.workspaceId ?? '',
         });
+        setAppliedSkills(skillsData.skills ?? []);
+        setInstalledSkills(allSkillsData.skills ?? []);
+        setIntegrations(integrationsData.integrations ?? []);
       } catch {
         // Agent not found
       } finally {
@@ -309,6 +320,9 @@ function AgentEditorPageInner({ agentId, onDone }: { agentId: string; onDone: ()
     <AgentEditor
       workspaceId={null}
       agent={agent}
+      appliedSkills={appliedSkills}
+      installedSkills={installedSkills}
+      integrations={integrations}
       onSave={onDone}
       onCancel={onDone}
     />

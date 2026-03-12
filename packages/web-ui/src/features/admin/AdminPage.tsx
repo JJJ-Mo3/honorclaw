@@ -194,9 +194,31 @@ function AgentList({ workspaceId }: { workspaceId: string | null }) {
 
 // ── Agent Editor (inline for create / standalone for edit) ──────────────
 
+interface AgentSkill {
+  skillName: string;
+  enabled: boolean;
+  description?: string;
+}
+
+interface InstalledSkill {
+  name: string;
+  version: string;
+  description: string;
+}
+
+interface WorkspaceIntegration {
+  id: string;
+  name: string;
+  status: string;
+  description?: string;
+}
+
 interface AgentEditorProps {
   workspaceId: string | null;
   agent?: Agent;
+  appliedSkills?: AgentSkill[];
+  installedSkills?: InstalledSkill[];
+  integrations?: WorkspaceIntegration[];
   onSave: (agent: Agent) => void;
   onCancel: () => void;
 }
@@ -226,7 +248,7 @@ function humanModelName(fullName: string): string {
   return name.replace(/:latest$/, '');
 }
 
-export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEditorProps) {
+export function AgentEditor({ workspaceId, agent, appliedSkills: initialSkills, installedSkills, integrations, onSave, onCancel }: AgentEditorProps) {
   const [name, setName] = useState(agent?.name ?? '');
   const [model, setModel] = useState(agent?.model ?? '');
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -234,6 +256,8 @@ export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEdito
   const [error, setError] = useState<string | null>(null);
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
+  const [skills, setSkills] = useState<AgentSkill[]>(initialSkills ?? []);
+  const [addingSkill, setAddingSkill] = useState(false);
 
   // Load available models and resolve the default model from the backend
   useEffect(() => {
@@ -331,6 +355,7 @@ export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEdito
   }
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-4 mb-4 space-y-4">
       {error && (
         <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
@@ -425,6 +450,121 @@ export function AgentEditor({ workspaceId, agent, onSave, onCancel }: AgentEdito
         </button>
       </div>
     </form>
+
+    {/* ── Skills (only when editing) ─────────────────────────── */}
+    {agent && installedSkills && (
+      <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Skills</h3>
+        {skills.length > 0 ? (
+          <ul className="divide-y divide-gray-100 mb-3">
+            {skills.map((s) => (
+              <li key={s.skillName} className="flex items-center justify-between py-2">
+                <div>
+                  <span className="text-sm font-medium text-gray-800">{s.skillName}</span>
+                  {s.description && (
+                    <span className="ml-2 text-xs text-gray-500">{s.description}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await api.delete(`/skills/agents/${agent.id}/${s.skillName}`);
+                      setSkills((prev) => prev.filter((sk) => sk.skillName !== s.skillName));
+                    } catch {
+                      // handled by global error
+                    }
+                  }}
+                  className="text-xs text-red-600 hover:text-red-700"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-500 mb-3">No skills applied to this agent.</p>
+        )}
+
+        {(() => {
+          const appliedNames = new Set(skills.map((s) => s.skillName));
+          const available = installedSkills.filter((s) => !appliedNames.has(s.name));
+          if (available.length === 0) return null;
+          return (
+            <div className="flex gap-2 items-center">
+              <select
+                id="add-skill-select"
+                defaultValue=""
+                className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              >
+                <option value="" disabled>Add a skill...</option>
+                {available.map((s) => (
+                  <option key={s.name} value={s.name}>{s.name}{s.description ? ` — ${s.description}` : ''}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={addingSkill}
+                onClick={async () => {
+                  const select = document.getElementById('add-skill-select') as HTMLSelectElement;
+                  const skillName = select.value;
+                  if (!skillName) return;
+                  setAddingSkill(true);
+                  try {
+                    await api.post(`/skills/agents/${agent.id}`, { skillName });
+                    const matched = installedSkills.find((s) => s.name === skillName);
+                    setSkills((prev) => [...prev, { skillName, enabled: true, description: matched?.description }]);
+                    select.value = '';
+                  } catch {
+                    // handled by global error
+                  } finally {
+                    setAddingSkill(false);
+                  }
+                }}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {addingSkill ? 'Adding...' : 'Add'}
+              </button>
+            </div>
+          );
+        })()}
+      </div>
+    )}
+
+    {/* ── Integrations (only when editing) ────────────────────── */}
+    {agent && integrations && (
+      <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Workspace Integrations</h3>
+        {(() => {
+          const connected = integrations.filter((i) => i.status === 'connected');
+          if (connected.length === 0) {
+            return <p className="text-sm text-gray-500">No integrations configured in this workspace.</p>;
+          }
+          return (
+            <ul className="divide-y divide-gray-100">
+              {connected.map((i) => (
+                <li key={i.id} className="flex items-center justify-between py-2">
+                  <div>
+                    <span className="text-sm font-medium text-gray-800">{i.name}</span>
+                    {i.description && (
+                      <span className="ml-2 text-xs text-gray-500">{i.description}</span>
+                    )}
+                  </div>
+                  <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                    Connected
+                  </span>
+                </li>
+              ))}
+            </ul>
+          );
+        })()}
+        <p className="mt-3 text-xs text-gray-500">
+          Integrations are shared across all agents in the workspace.{' '}
+          <a href="/integrations" className="text-blue-600 hover:text-blue-700">Manage integrations</a>
+        </p>
+      </div>
+    )}
+    </>
   );
 }
 
